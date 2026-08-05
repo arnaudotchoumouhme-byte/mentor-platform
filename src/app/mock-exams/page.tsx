@@ -1,0 +1,3 @@
+"use client";
+import { QuizRunner } from "@/components/quiz-runner";import { Loading,Notice,PageHeader } from "@/components/ui";import { useAppState } from "@/hooks/use-state";
+export default function MockExams(){const {data,act}=useAppState();if(!data)return <Loading/>;return <div className="mx-auto max-w-4xl"><PageHeader eyebrow="FEAT-023 · Conditions d’examen" title="Examen blanc" description="Une session chronométrée dont les réponses sont conservées et intégrées à votre progression."/><div className="mb-5"><Notice>Le jeu local contient actuellement {data.questions.length} questions. L’examen s’adapte à ce volume et signale cette limite.</Notice></div><QuizRunner data={data} act={act} exam/></div>}

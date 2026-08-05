@@ -1,0 +1,16 @@
+"use client";
+
+import { useMemo, useState } from "react";
+import { CheckCircle2, Clock3, RotateCcw } from "lucide-react";
+import type { AppState } from "@/hooks/use-state";
+
+export function QuizRunner({ data, act, exam = false }: { data: AppState; act: (payload: object)=>Promise<void>; exam?: boolean }) {
+  const questions = useMemo(()=>data.questions.slice(0, exam ? Math.min(10,data.questions.length) : 5),[data.questions,exam]);
+  const [index,setIndex]=useState(0);const [answers,setAnswers]=useState<Record<number,number>>({});const [finished,setFinished]=useState(false);const current=questions[index];
+  const score=questions.length?Math.round(questions.filter(q=>answers[q.id]===q.answer).length/questions.length*100):0;
+  async function finish(){setFinished(true);await act({action:"saveAttempt",module:exam?"Examen blanc":"QCM",subject:"Mixte",score,minutes:exam?45:12})}
+  if(finished)return <div className="card p-8 text-center"><CheckCircle2 size={46} className="mx-auto text-[var(--primary)]"/><div className="mt-4 text-5xl font-black text-[var(--primary)]">{score}%</div><h2>{exam?"Examen terminé":"Session terminée"}</h2><p className="text-[var(--muted-foreground)]">{questions.filter(q=>answers[q.id]===q.answer).length} bonne(s) réponse(s) sur {questions.length}. Les résultats alimentent votre progression et vos lacunes.</p><button className="btn btn-primary" onClick={()=>{setAnswers({});setIndex(0);setFinished(false)}}><RotateCcw size={16}/>Recommencer</button></div>;
+  if(!current)return <div className="card p-8">Aucune question disponible.</div>;
+  const options=JSON.parse(current.options) as string[];const answered=answers[current.id]!==undefined;
+  return <div className="card p-6 md:p-8"><div className="mb-6 flex items-center justify-between"><span className="badge">Question {index+1}/{questions.length}</span>{exam&&<span className="flex items-center gap-2 text-sm font-bold text-[var(--muted-foreground)]"><Clock3 size={16}/>45:00</span>}<span className="badge">{current.difficulty}</span></div><div className="progress mb-7"><span style={{width:`${((index+1)/questions.length)*100}%`}}/></div><h2 className="text-xl leading-8">{current.prompt}</h2><div className="my-6 grid gap-3">{options.map((option,i)=>{const selected=answers[current.id]===i;const correct=answered&&i===current.answer;return <button key={option} disabled={answered&&exam} onClick={()=>setAnswers(prev=>({...prev,[current.id]:i}))} className={`rounded-xl border p-4 text-left font-bold ${correct&&!exam?"border-emerald-500 bg-emerald-50":selected?"border-[var(--primary)] bg-[var(--accent)]":"border-[var(--border)] bg-white hover:bg-[var(--muted)]"}`}><span className="mr-3 text-[var(--primary)]">{String.fromCharCode(65+i)}.</span>{option}</button>})}</div>{answered&&!exam&&<div className="mb-5 rounded-xl bg-[var(--accent)] p-4"><strong>Correction</strong><p className="mb-1 text-sm leading-6">{current.explanation}</p><span className="text-xs text-[var(--muted-foreground)]">Source : {current.source}</span></div>}<div className="flex justify-end">{index<questions.length-1?<button disabled={!answered} className="btn btn-primary" onClick={()=>setIndex(index+1)}>Question suivante</button>:<button disabled={!answered} className="btn btn-primary" onClick={finish}>Terminer et enregistrer</button>}</div></div>;
+}

@@ -1,0 +1,12 @@
+node_modules/
+.next/
+data/
+storage/
+.env.local
+coverage/
+.prd_extract/
+.dashboard-*.png
+.dev-server*.log
+
+.idea/
+.pnpm-store/

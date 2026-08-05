@@ -1,0 +1,11 @@
+"use client";
+
+import { useState } from "react";
+import { FileText, Search } from "lucide-react";
+import { useAppState } from "@/hooks/use-state";
+import { EmptyState, Loading, PageHeader } from "@/components/ui";
+
+type Result = { id:number; name:string; subject:string; content:string; status:string };
+export default function SearchPage(){const {data}=useAppState();const [query,setQuery]=useState("");const [subject,setSubject]=useState("Toutes");const [results,setResults]=useState<Result[]>([]);const [searched,setSearched]=useState(false);
+if(!data)return <Loading/>;async function search(e:React.FormEvent){e.preventDefault();const response=await fetch("/api/search",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({query,subject})});const body=await response.json();setResults(body.results??[]);setSearched(true)}
+return <div className="mx-auto max-w-5xl"><PageHeader eyebrow="FEAT-003 · Recherche textuelle" title="Recherche documentaire" description="Retrouvez un passage dans l’ensemble de votre bibliothèque active."/><form onSubmit={search} className="card mb-7 grid gap-3 p-5 md:grid-cols-[1fr_220px_auto]"><input className="field" value={query} onChange={e=>setQuery(e.target.value)} placeholder="Ex. biodisponibilité, bêtabloquants..." minLength={2} required/><select className="field" value={subject} onChange={e=>setSubject(e.target.value)}><option>Toutes</option>{data.subjects.map(s=><option key={s.id}>{s.name}</option>)}</select><button className="btn btn-primary"><Search size={17}/>Rechercher</button></form>{searched&&!results.length?<EmptyState title="Aucun passage trouvé" detail="Essayez un autre terme ou élargissez la matière sélectionnée."/>:<div className="space-y-4">{results.map(result=><article className="card p-5" key={result.id}><div className="mb-3 flex items-center justify-between gap-3"><div className="flex items-center gap-2 font-black"><FileText size={17} className="text-[var(--primary)]"/>{result.name}</div><span className="badge">{result.subject}</span></div><p className="mb-0 text-sm leading-6 text-[var(--muted-foreground)]">{result.content?result.content.slice(0,420):"Le contenu de ce format n’est pas encore indexé. Lancez l’indexation depuis la bibliothèque."}</p></article>)}</div>}</div>}
