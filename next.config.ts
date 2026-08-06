@@ -1,8 +1,5 @@
 import type { NextConfig } from "next";
 
-const nextConfig: NextConfig = {
-  output: "standalone",
-  serverExternalPackages: [],
-};
+const nextConfig: NextConfig = {};
 
 export default nextConfig;
