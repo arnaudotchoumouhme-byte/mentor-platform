@@ -2,7 +2,7 @@
 
 ## Décision
 
-Monolithe modulaire Next.js App Router, TypeScript strict et SQLite via `node:sqlite`. Cette structure minimise l’exploitation locale, garde les secrets et l’accès fichier côté serveur, et sépare l’interface (`src/app`, `src/components`), le domaine (`src/lib/domain.ts`) et l’infrastructure (`src/lib/db.ts`, routes API).
+Monolithe modulaire Next.js App Router, TypeScript strict et SQLite via `node:sqlite`. Cette structure minimise l’exploitation locale, garde les secrets et l’accès fichier côté serveur, et sépare la présentation (`src/app`, `src/components`, `src/presentation`), l’application (`src/application`), le domaine (`src/domain`), l’infrastructure (`src/infrastructure`, `src/lib/db.ts`) et les contrats partagés (`src/shared`). Les routes API composent les cas d’utilisation avec leurs adaptateurs SQLite sans contenir de SQL.
 
 ## Flux documentaire
 

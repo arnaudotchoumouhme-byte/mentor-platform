@@ -1,16 +1,15 @@
+import "server-only";
+
 import { DatabaseSync, type SQLInputValue } from "node:sqlite";
 import { mkdirSync } from "node:fs";
 import path from "node:path";
+import { config } from "@/infrastructure/config/server-config";
 
-const isVercel = process.env.VERCEL === "1";
-
-const dataDir = isVercel
-  ? "/tmp/mentor-platform"
-  : path.join(process.cwd(), "data");
+const dataDir = config.database.dataDirectory;
 
 mkdirSync(dataDir, { recursive: true });
 
-const dbPath = path.join(dataDir, "mentor.db");
+const dbPath = path.join(dataDir, config.database.filename);
 const db = new DatabaseSync(dbPath);
 db.exec("PRAGMA journal_mode = WAL; PRAGMA foreign_keys = ON;");
 

@@ -5,9 +5,13 @@
   "private": true,
   "packageManager": "pnpm@11.9.0",
   "engines": {
-    "node": "24.x"
+    "node": ">=24.0.0"
   },
   "scripts": {
+    "check:node": "node scripts/check-node-version.mjs",
+    "predev": "pnpm run check:node",
+    "prebuild": "pnpm run check:node",
+    "prestart": "pnpm run check:node",
     "dev": "next dev",
     "build": "next build",
     "start": "next start",

@@ -4,7 +4,7 @@ Application locale d’apprentissage par documents, construite à partir du PRD 
 
 ## Démarrage sous Windows
 
-Prérequis obligatoire : Node.js 24 ou une version plus récente. Vérifiez d’abord :
+Prérequis obligatoire : Node.js 24.0.0 ou une version plus récente. Cette version est requise par l’utilisation de `node:sqlite` et par les dépendances de développement. Vérifiez d’abord :
 
 ```powershell
 node --version
@@ -27,6 +27,7 @@ Depuis le dossier du projet :
 
 ```powershell
 pnpm install
+pnpm run check:node
 pnpm dev
 ```
 

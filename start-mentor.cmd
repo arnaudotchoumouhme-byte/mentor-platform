@@ -11,10 +11,8 @@ if errorlevel 1 (
   exit /b 1
 )
 
-for /f "tokens=1 delims=." %%V in ('node -p "process.versions.node"') do set NODE_MAJOR=%%V
-if %NODE_MAJOR% LSS 24 (
-  echo ERREUR : Node.js 24 ou plus recent est requis.
-  node --version
+node scripts\check-node-version.mjs
+if errorlevel 1 (
   pause
   exit /b 1
 )
