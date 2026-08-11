@@ -12,5 +12,10 @@ export default defineConfig([
     "coverage/**",
     "next-env.d.ts",
     ".prd_extract/**",
+    "mentor-platform-restaure/**",
+    "DOCS1/**",
+    "dossier evolution/**",
+    "data/**",
+    "storage/**",
   ]),
 ]);

@@ -17,7 +17,7 @@ if errorlevel 1 (
   exit /b 1
 )
 
-where pnpm >nul 2>&1
+where pnpm.cmd >nul 2>&1
 if errorlevel 1 (
   where corepack >nul 2>&1
   if errorlevel 1 (
@@ -31,7 +31,7 @@ if errorlevel 1 (
 
 if not exist "node_modules" (
   echo Installation des dependances...
-  call pnpm install --frozen-lockfile
+  call pnpm.cmd install --frozen-lockfile
   if errorlevel 1 (
     pause
     exit /b 1
@@ -40,4 +40,4 @@ if not exist "node_modules" (
 
 echo Demarrage de Mentor PEBC sur http://localhost:3000
 echo Gardez cette fenetre ouverte. Ctrl+C arrete l'application.
-call pnpm dev
+call pnpm.cmd dev

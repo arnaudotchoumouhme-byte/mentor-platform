@@ -1,4 +1,5 @@
 import type { NextConfig } from "next";
+import path from "node:path";
 
 const isDevelopment = process.env.NODE_ENV === "development";
 
@@ -43,6 +44,15 @@ const securityHeaders = [
 ];
 
 const nextConfig: NextConfig = {
+  poweredByHeader: false,
+  experimental: {
+    // SQLite et le bootstrap de migrations sont mono-writer. Un worker de build
+    // évite que plusieurs évaluations de routes initialisent la même base en parallèle.
+    cpus: 1,
+  },
+  turbopack: {
+    root: path.resolve(process.cwd()),
+  },
   async headers() {
     return [
       {
