@@ -25,4 +25,19 @@ describe("AppError", () => {
     expect(error.cause).toBe(cause);
     expect(error.userMessage).not.toContain("SQLITE_BUSY");
   });
+
+  it("porte une classification et un contexte non sensible", () => {
+    const error = new AppError({
+      code: "CFG_INVALID",
+      category: "configuration",
+      severity: "critical",
+      userMessage: "Configuration invalide.",
+      internalMessage: "Variable attendue absente.",
+      context: { variable: "EXAMPLE_REQUIRED_VALUE" },
+    });
+
+    expect(error.category).toBe("configuration");
+    expect(error.severity).toBe("critical");
+    expect(error.context).toEqual({ variable: "EXAMPLE_REQUIRED_VALUE" });
+  });
 });
