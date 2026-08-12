@@ -6,6 +6,7 @@ import {
 import { assertImportJournalSchema } from "./definitions/mig-0002-document-import-journal";
 import { assertSourceModelSchema } from "./definitions/mig-0003-source-model";
 import { assertRagIndexSchema } from "./definitions/mig-0004-rag-index";
+import { assertClinicalCoachSchema } from "./definitions/mig-0005-clinical-coach";
 import { detectDatabaseFreshness } from "./fresh-database-detector";
 import { MigrationError } from "./migration-errors";
 import { validateMigrationHistory } from "./migration-history-validation";
@@ -59,7 +60,9 @@ export class FreshDatabaseBootstrap {
     );
     if (result.currentVersion === 1) assertCoreBaselineSchema(this.database);
     if (result.currentVersion >= 2) {
-      assertCoreBaselineSchema(this.database, result.currentVersion >= 4
+      assertCoreBaselineSchema(this.database, result.currentVersion >= 5
+        ? ["coach_learner_signals", "coaching_sessions", "document_chunks", "document_chunks_fts", "document_chunks_fts_config", "document_chunks_fts_content", "document_chunks_fts_data", "document_chunks_fts_docsize", "document_chunks_fts_idx", "document_import_journal", "source_versions", "sources"]
+        : result.currentVersion >= 4
         ? ["document_chunks", "document_chunks_fts", "document_chunks_fts_config", "document_chunks_fts_content", "document_chunks_fts_data", "document_chunks_fts_docsize", "document_chunks_fts_idx", "document_import_journal", "source_versions", "sources"]
         : result.currentVersion >= 3
           ? ["document_import_journal", "source_versions", "sources"]
@@ -68,6 +71,7 @@ export class FreshDatabaseBootstrap {
     }
     if (result.currentVersion >= 3) assertSourceModelSchema(this.database);
     if (result.currentVersion >= 4) assertRagIndexSchema(this.database);
+    if (result.currentVersion >= 5) assertClinicalCoachSchema(this.database);
     validateMigrationHistory(this.history.list(), this.registry);
 
     if (result.currentVersion !== this.registry.currentVersion) {

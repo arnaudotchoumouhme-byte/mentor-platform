@@ -75,7 +75,7 @@ describe("DatabaseMigrationPreflight", () => {
     expect(preflight()).toMatchObject({
       status: "REQUIRES_EXPLICIT_AUTHORIZATION",
       schemaState: "FRESH",
-      pendingMigrations: ["MIG-0001", "MIG-0002", "MIG-0003", "MIG-0004"],
+      pendingMigrations: ["MIG-0001", "MIG-0002", "MIG-0003", "MIG-0004", "MIG-0005"],
       backupRequirement: "BACKUP_NOT_REQUIRED",
       migrationAllowed: false,
     });
@@ -136,7 +136,7 @@ describe("DatabaseMigrationPreflight", () => {
   it("blocks a database ahead and an incompatible current schema", () => {
     new FreshDatabaseBootstrap(database).run();
     sqlite.prepare("INSERT INTO schema_migrations VALUES(?,?,?,?,?,?,?,?,?)").run(
-      "MIG-0005", 4, 5, "Future", "0".repeat(64), "2026-01-01T00:00:00.000Z", 0, "executed", null,
+      "MIG-0006", 5, 6, "Future", "0".repeat(64), "2026-01-01T00:00:00.000Z", 0, "executed", null,
     );
     expect(preflight()).toMatchObject({ status: "BLOCKED", schemaState: "VERSIONED_AHEAD" });
   });
