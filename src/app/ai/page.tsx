@@ -2,22 +2,34 @@
 
 import Link from "next/link";
 import { useState } from "react";
-import { BookOpen, Send, Sparkles } from "lucide-react";
+import { BookOpen, Send, ShieldCheck, Sparkles } from "lucide-react";
 import { useAppState } from "@/hooks/use-state";
 import { Loading, Notice, PageHeader } from "@/components/ui";
 
-type Citation = Readonly<{
-  documentId: number; document: string; excerpt: string; pageStart: number | null;
-  pageEnd: number | null; sectionTitle: string | null; retrievalScore: number;
-}>;
+type Citation = Readonly<{ documentId: number; document: string; excerpt: string; pageStart: number | null; pageEnd: number | null; sectionTitle: string | null; retrievalScore: number }>;
+type CoachResult = Readonly<{ session: { sessionId: string; currentStep: string; hintLevel: number; status: string }; step: { message: string; question: string | null; expectedLearnerAction: string }; evidenceStatus?: string; conflicts?: readonly unknown[] }>;
 
 export default function AiPage() {
   const { data, refresh } = useAppState();
+  const [experience, setExperience] = useState<"coach" | "library">("coach");
   const [question, setQuestion] = useState("");
   const [mode, setMode] = useState("Explication");
+  const [coachMode, setCoachMode] = useState("CLINICAL_PHARMACIST");
+  const [coach, setCoach] = useState<CoachResult | null>(null);
+  const [answer, setAnswer] = useState("");
   const [busy, setBusy] = useState(false);
   const [result, setResult] = useState<{ answer: string; citations: Citation[]; support: string } | null>(null);
   if (!data) return <Loading />;
+
+  async function requestCoach(body: object) {
+    setBusy(true);
+    try {
+      const response = await fetch("/api/coach", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+      const payload = await response.json();
+      if (!response.ok) throw new Error(payload.message ?? "Session Coach indisponible.");
+      setCoach(payload); setAnswer("");
+    } finally { setBusy(false); }
+  }
 
   async function ask(event: React.FormEvent) {
     event.preventDefault(); setBusy(true);
@@ -27,5 +39,16 @@ export default function AiPage() {
     } finally { setBusy(false); }
   }
 
-  return <div className="mx-auto max-w-6xl"><PageHeader eyebrow="FEAT-016 · Citations obligatoires" title="Professeur IA" description="Posez une question à votre bibliothèque. Les passages documentaires sont distingués des explications générées."/><div className="grid gap-6 xl:grid-cols-[1fr_310px]"><section><div className="card mb-5 p-5"><form onSubmit={ask}><div className="mb-3 flex flex-wrap gap-2">{["Explication", "Simplification", "Comparaison", "Analogie", "Mode socratique", "Résumé"].map((item) => <button type="button" key={item} onClick={() => setMode(item)} className={`btn py-2 text-xs ${mode === item ? "btn-primary" : "btn-secondary"}`}>{item}</button>)}</div><textarea className="field min-h-28 resize-y" value={question} onChange={(event) => setQuestion(event.target.value)} placeholder="Que souhaitez-vous comprendre?" minLength={3} required/><div className="mt-3 flex items-center justify-between"><span className="text-xs text-[var(--muted-foreground)]">Mode local · aucun appel payant</span><button disabled={busy} className="btn btn-primary"><Send size={16}/>{busy ? "Recherche..." : "Envoyer"}</button></div></form></div>{result && <article className="card p-6"><div className="mb-4 flex items-center gap-2"><Sparkles className="text-[var(--primary)]"/><h2 className="m-0">Réponse</h2><span className="badge ml-auto">Appui {result.support.toLowerCase()}</span></div><p className="whitespace-pre-line leading-7">{result.answer}</p>{result.citations.length > 0 && <div className="mt-6 border-t border-[var(--border)] pt-5"><h3 className="flex items-center gap-2"><BookOpen size={18}/>Sources utilisées</h3>{result.citations.map((citation, index) => <div key={citation.documentId + citation.excerpt} className="mb-3 rounded-xl bg-[var(--accent)] p-4"><div className="mb-1 flex flex-wrap items-center gap-2 text-sm font-black"><span>[{index + 1}]</span><Link className="underline" href={`/library/${citation.documentId}`}>{citation.document}</Link>{citation.sectionTitle && <span>· {citation.sectionTitle}</span>}{citation.pageStart && <span>· p. {citation.pageStart}{citation.pageEnd && citation.pageEnd !== citation.pageStart ? `–${citation.pageEnd}` : ""}</span>}</div><div className="text-sm text-[var(--muted-foreground)]">{citation.excerpt}</div><div className="mt-2 text-xs text-[var(--muted-foreground)]">Pertinence {(citation.retrievalScore * 100).toFixed(0)} %</div></div>)}</div>}</article>}</section><aside className="space-y-4"><Notice>Le contenu des documents est traité comme une donnée non fiable, jamais comme une instruction. Vérifiez toute décision clinique importante.</Notice><div className="card p-5"><h3 className="mt-0">Conversations récentes</h3>{data.messages.slice(-6).map((message) => <div key={message.id} className="border-t border-[var(--border)] py-3 text-sm"><strong>{message.role === "user" ? "Vous" : "Mentor"}</strong><p className="mb-0 mt-1 line-clamp-3 text-[var(--muted-foreground)]">{message.content}</p></div>)}</div></aside></div></div>;
+  return <div className="mx-auto max-w-6xl">
+    <PageHeader eyebrow="LOT 4 · Raisonnement clinique guidé" title="Pharmacien Coach clinique" description="Entraînez-vous sur des cas entièrement synthétiques, avec sécurité médicamenteuse, preuves documentaires et teach-back." />
+    <div className="mb-5 flex gap-2"><button className={`btn ${experience === "coach" ? "btn-primary" : "btn-secondary"}`} onClick={() => setExperience("coach")}>Coach clinique</button><button className={`btn ${experience === "library" ? "btn-primary" : "btn-secondary"}`} onClick={() => setExperience("library")}>Question à la bibliothèque</button></div>
+    {experience === "coach" ? <div className="grid gap-6 xl:grid-cols-[1fr_310px]">
+      <section className="space-y-5">
+        <div className="card p-5"><div className="mb-3 flex flex-wrap gap-2">{[["CLINICAL_PHARMACIST","Pharmacien clinique"],["SOCRATIC","Socratique"],["PROFESSOR","Professeur"],["TEACH_BACK","Teach-back"],["RAPID_REVIEW","Révision rapide"]].map(([value,label]) => <button type="button" key={value} onClick={() => setCoachMode(value)} className={`btn py-2 text-xs ${coachMode === value ? "btn-primary" : "btn-secondary"}`}>{label}</button>)}</div><button disabled={busy} className="btn btn-primary" onClick={() => requestCoach({ action: "start", mode: coachMode, learningObjective: "Identifier et prioriser les risques médicamenteux du cas synthétique", language: "fr", learnerLevel: "INTERMEDIATE" })}><ShieldCheck size={16}/>{busy ? "Préparation..." : "Commencer un cas synthétique"}</button></div>
+        {coach && <article className="card p-6"><div className="mb-3 flex flex-wrap gap-2"><span className="badge">Étape {coach.session.currentStep}</span><span className="badge">Preuves {coach.evidenceStatus?.toLowerCase() ?? "chargées"}</span><span className="badge">Indice {coach.session.hintLevel}/4</span></div><p className="text-sm text-[var(--muted-foreground)]">{coach.step.message}</p><h2>{coach.step.question}</h2><p>{coach.step.expectedLearnerAction}</p>{coach.session.status === "ACTIVE" && <form onSubmit={(event) => { event.preventDefault(); void requestCoach({ action: "answer", sessionId: coach.session.sessionId, answer, durationMs: 0 }); }}><textarea className="field min-h-28" value={answer} onChange={(event) => setAnswer(event.target.value)} minLength={1} maxLength={4000} required placeholder="Structurez votre analyse clinique..."/><button disabled={busy} className="btn btn-primary mt-3"><Send size={16}/>Soumettre mon raisonnement</button></form>}</article>}
+      </section><aside className="space-y-4"><Notice>Exercice éducatif uniquement. Aucun patient réel ni conseil thérapeutique individualisé. En l’absence de preuve suffisante, le Coach le signale explicitement.</Notice><div className="card p-5"><h3 className="mt-0">Boucle pédagogique</h3><p className="text-sm text-[var(--muted-foreground)]">Cas → analyse → sécurité → justification → teach-back → transfert.</p></div></aside>
+    </div> : <div className="grid gap-6 xl:grid-cols-[1fr_310px]">
+      <section><div className="card mb-5 p-5"><form onSubmit={ask}><div className="mb-3 flex flex-wrap gap-2">{["Explication","Simplification","Comparaison","Analogie","Mode socratique","Résumé"].map((item) => <button type="button" key={item} onClick={() => setMode(item)} className={`btn py-2 text-xs ${mode === item ? "btn-primary" : "btn-secondary"}`}>{item}</button>)}</div><textarea className="field min-h-28" value={question} onChange={(event) => setQuestion(event.target.value)} placeholder="Que souhaitez-vous comprendre?" minLength={3} required/><button disabled={busy} className="btn btn-primary mt-3"><Send size={16}/>{busy ? "Recherche..." : "Envoyer"}</button></form></div>{result && <article className="card p-6"><h2 className="flex items-center gap-2"><Sparkles/>Réponse</h2><p className="whitespace-pre-line">{result.answer}</p>{result.citations.map((citation, index) => <div key={`${citation.documentId}-${index}`} className="mt-3 rounded-xl bg-[var(--accent)] p-4"><strong>[{index + 1}] <Link className="underline" href={`/library/${citation.documentId}`}>{citation.document}</Link></strong><p className="text-sm">{citation.excerpt}</p></div>)}</article>}</section><aside><Notice><BookOpen className="mb-2"/>Les réponses documentaires restent limitées aux sources de la bibliothèque.</Notice></aside>
+    </div>}
+  </div>;
 }
