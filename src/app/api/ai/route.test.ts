@@ -27,8 +27,10 @@ describe("POST /api/ai", () => {
     const output: AskAiTeacherOutput = {
       answer: "Réponse",
       citations: [],
+      claims: [],
       support: "Insuffisant",
       provider: "Moteur local",
+      evidenceStatus: "NONE",
     };
     const execute = vi.fn(async () => output);
     const response = await createAiPost({ execute })(
@@ -39,6 +41,7 @@ describe("POST /api/ai", () => {
     expect(execute).toHaveBeenCalledWith({
       question: "Une question ?",
       mode: "Explication",
+      traceId: expect.any(String),
     });
   });
 
