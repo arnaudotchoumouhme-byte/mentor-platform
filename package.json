@@ -5,22 +5,30 @@
   "private": true,
   "packageManager": "pnpm@11.9.0",
   "engines": {
-    "node": "24.x"
+    "node": ">=24.0.0"
   },
   "scripts": {
+    "check:node": "node scripts/check-node-version.mjs",
+    "predev": "pnpm run check:node",
+    "prebuild": "pnpm run check:node",
+    "prestart": "pnpm run check:node",
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
     "lint": "eslint .",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
-    "test:coverage": "vitest run --coverage"
+    "test:coverage": "vitest run --coverage",
+    "check": "pnpm run typecheck && pnpm run lint && pnpm run test",
+    "verify": "pnpm run check && pnpm run build"
   },
   "dependencies": {
     "@tailwindcss/postcss": "4.3.3",
     "clsx": "2.1.1",
     "lucide-react": "1.28.0",
+    "mammoth": "^1.12.1",
     "next": "16.3.0",
+    "pdfjs-dist": "^6.2.108",
     "react": "19.2.8",
     "react-dom": "19.2.8",
     "tailwind-merge": "3.6.0",

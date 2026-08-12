@@ -4,6 +4,7 @@ data/
 storage/
 .env.local
 coverage/
+*.tsbuildinfo
 .prd_extract/
 .dashboard-*.png
 .dev-server*.log

@@ -1,31 +1,114 @@
 import { NextResponse } from "next/server";
-import { mkdir, writeFile } from "node:fs/promises";
-import path from "node:path";
-import { run } from "@/lib/db";
+import { z } from "zod";
+import type {
+  DocumentUploadInput,
+  ImportDocumentsInput,
+  ImportDocumentsOutput,
+} from "@/application/documents/import-documents";
+import type { UseCase } from "@/application/contracts";
+import { MAX_DOCUMENT_SIZE_BYTES } from "@/domain/documents/document-upload-policy";
+import { importDocuments } from "@/infrastructure/documents/server-document-import";
+import { mapErrorToHttp } from "@/presentation/api/http-error-mapper";
+import { AppError } from "@/shared/errors/app-error";
+import { resolveTraceId } from "@/shared/observability/trace-id";
 
-const allowed = new Set(["pdf", "docx", "txt", "md", "png", "jpg", "jpeg"]);
-const maxSize = 50 * 1024 * 1024;
+const subjectSchema = z.string().trim().min(1).max(120).default("Non classé");
+export const MAX_MULTIPART_REQUEST_BYTES = MAX_DOCUMENT_SIZE_BYTES + 2 * 1024 * 1024;
+export const MAX_FILES_PER_UPLOAD = 10;
 
-export async function POST(request: Request) {
-  const form = await request.formData();
-  const files = form.getAll("files").filter((entry): entry is File => entry instanceof File);
-  const subject = String(form.get("subject") || "Non classé");
-  if (!files.length) return NextResponse.json({ error: "Aucun fichier sélectionné." }, { status: 400 });
-  const storage = path.join(process.cwd(), "storage", "documents");
-  await mkdir(storage, { recursive: true });
-  const imported: string[] = [];
-  const rejected: string[] = [];
-  for (const file of files) {
-    const extension = file.name.split(".").pop()?.toLowerCase() ?? "";
-    if (!allowed.has(extension) || file.size > maxSize) { rejected.push(file.name); continue; }
-    const bytes = Buffer.from(await file.arrayBuffer());
-    const safeName = `${Date.now()}-${file.name.replace(/[^a-zA-Z0-9._-]/g, "_")}`;
-    await writeFile(path.join(storage, safeName), bytes);
-    const textType = extension === "txt" || extension === "md";
-    const content = textType ? bytes.toString("utf8").slice(0, 500_000) : "";
-    const status = textType ? "Prêt" : extension === "pdf" || extension === "docx" ? "À indexer" : "OCR requis";
-    run("INSERT INTO documents (name,type,size,subject,status,content) VALUES (?,?,?,?,?,?)", file.name, extension.toUpperCase(), file.size, subject, status, content);
-    imported.push(file.name);
-  }
-  return NextResponse.json({ imported, rejected });
+function validationFailure(message: string) {
+  const response = mapErrorToHttp(
+    new AppError({ code: "VALIDATION_ERROR", userMessage: message }),
+  );
+  return NextResponse.json(response.body, { status: response.status });
 }
+
+function requestFailure(status: 400 | 413 | 415, code: string, message: string) {
+  return NextResponse.json(
+    { success: false, error: { code, message } },
+    { status },
+  );
+}
+
+export function createDocumentsPost(
+  useCase: UseCase<ImportDocumentsInput, ImportDocumentsOutput>,
+) {
+  return async function POST(request: Request) {
+    const traceId = resolveTraceId(request.headers.get("x-trace-id"));
+    const contentType = request.headers.get("content-type")?.toLowerCase() ?? "";
+    if (!contentType.startsWith("multipart/form-data;") || !contentType.includes("boundary=")) {
+      return requestFailure(415, "UNSUPPORTED_MEDIA_TYPE", "Un formulaire multipart valide est requis.");
+    }
+
+    const contentLength = request.headers.get("content-length");
+    if (contentLength !== null) {
+      if (!/^\d+$/.test(contentLength)) {
+        return requestFailure(400, "INVALID_CONTENT_LENGTH", "En-tête Content-Length invalide.");
+      }
+      if (Number(contentLength) > MAX_MULTIPART_REQUEST_BYTES) {
+        return requestFailure(413, "PAYLOAD_TOO_LARGE", "La requête d’import est trop volumineuse.");
+      }
+    }
+
+    let form: FormData;
+    try {
+      form = await request.formData();
+    } catch {
+      return validationFailure("Formulaire d’import invalide.");
+    }
+
+    const unexpectedFields = [...form.keys()].filter(
+      (key) => key !== "files" && key !== "subject",
+    );
+    if (unexpectedFields.length || form.getAll("subject").length > 1) {
+      return validationFailure("Le formulaire contient des champs inattendus.");
+    }
+
+    const files = form
+      .getAll("files")
+      .filter((entry): entry is File => entry instanceof File);
+    if (!files.length) return validationFailure("Aucun fichier sélectionné.");
+    if (files.length > MAX_FILES_PER_UPLOAD) {
+      return requestFailure(413, "TOO_MANY_FILES", "Le nombre maximal de fichiers est dépassé.");
+    }
+
+    const materializedSize = files.reduce((total, file) => total + file.size, 0);
+    if (materializedSize > MAX_MULTIPART_REQUEST_BYTES) {
+      return requestFailure(413, "PAYLOAD_TOO_LARGE", "La requête d’import est trop volumineuse.");
+    }
+
+    const subject = subjectSchema.safeParse(form.get("subject") ?? undefined);
+    if (!subject.success) return validationFailure("Matière invalide.");
+
+    const uploads: DocumentUploadInput[] = [];
+    for (const file of files) {
+      if (file.size > MAX_DOCUMENT_SIZE_BYTES) {
+        uploads.push({
+          name: file.name,
+          browserMediaType: file.type,
+          size: file.size,
+          bytes: new Uint8Array(),
+        });
+        continue;
+      }
+      uploads.push({
+        name: file.name,
+        browserMediaType: file.type,
+        size: file.size,
+        bytes: new Uint8Array(await file.arrayBuffer()),
+      });
+    }
+
+    try {
+      return NextResponse.json(
+        await useCase.execute({ subject: subject.data, files: uploads, traceId }),
+        { headers: { "x-trace-id": traceId } },
+      );
+    } catch (error) {
+      const response = mapErrorToHttp(error);
+      return NextResponse.json(response.body, { status: response.status });
+    }
+  };
+}
+
+export const POST = createDocumentsPost(importDocuments);

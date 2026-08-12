@@ -1,7 +1,12 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { nextInterval } from "@/lib/domain";
-import { run } from "@/lib/db";
+import { MentorActionsService } from "@/application/actions/mentor-actions";
+import type { UseCase } from "@/application/contracts";
+import { SqliteMentorActions } from "@/infrastructure/database/sqlite/sqlite-mentor-actions";
+import { sqliteExecutor } from "@/infrastructure/database/sqlite/server-sqlite-executor";
+import { mapErrorToHttp } from "@/presentation/api/http-error-mapper";
+import { AppError } from "@/shared/errors/app-error";
+import { LocalDocumentStorage } from "@/infrastructure/documents/local-document-storage";
 
 const actionSchema = z.discriminatedUnion("action", [
   z.object({ action: z.literal("archiveDocument"), id: z.number(), archived: z.boolean() }),
@@ -15,24 +20,43 @@ const actionSchema = z.discriminatedUnion("action", [
   z.object({ action: z.literal("saveSettings"), settings: z.record(z.string(), z.string()) }),
 ]);
 
-export async function POST(request: Request) {
-  const parsed = actionSchema.safeParse(await request.json());
-  if (!parsed.success) return NextResponse.json({ error: "Données invalides", details: parsed.error.flatten() }, { status: 400 });
-  const value = parsed.data;
-  switch (value.action) {
-    case "archiveDocument": run("UPDATE documents SET archived = ? WHERE id = ?", value.archived ? 1 : 0, value.id); break;
-    case "deleteDocument": run("DELETE FROM documents WHERE id = ?", value.id); break;
-    case "reviewCard": {
-      const days = nextInterval(value.rating, value.interval);
-      run("UPDATE flashcards SET interval_days = ?, due_at = date('now', ?), status = 'active' WHERE id = ?", days, `+${days} day`, value.id);
-      break;
-    }
-    case "completeTask": run("UPDATE study_tasks SET status = ? WHERE id = ?", value.completed ? "done" : "todo", value.id); break;
-    case "resolveWeakness": run("UPDATE weaknesses SET status = 'résolue', updated_at = CURRENT_TIMESTAMP WHERE id = ?", value.id); break;
-    case "saveAttempt": run("INSERT INTO attempts (module, subject, score, duration_minutes) VALUES (?, ?, ?, ?)", value.module, value.subject, value.score, value.minutes); break;
-    case "addFlashcard": run("INSERT INTO flashcards (front, back, subject) VALUES (?, ?, ?)", value.front, value.back, value.subject); break;
-    case "addTask": run("INSERT INTO study_tasks (title, subject, task_date, minutes) VALUES (?, ?, ?, ?)", value.title, value.subject, value.date, value.minutes); break;
-    case "saveSettings": for (const [key, setting] of Object.entries(value.settings)) run("INSERT INTO settings(key,value) VALUES (?,?) ON CONFLICT(key) DO UPDATE SET value=excluded.value", key, setting); break;
-  }
-  return NextResponse.json({ success: true });
+const actions = new MentorActionsService(new SqliteMentorActions(sqliteExecutor, new LocalDocumentStorage()));
+
+function validationFailure() {
+  return mapErrorToHttp(
+    new AppError({
+      code: "VALIDATION_ERROR",
+      userMessage: "Données invalides",
+    }),
+  );
 }
+
+export function createActionsPost(
+  useCase: UseCase<z.infer<typeof actionSchema>, void>,
+) {
+  return async function POST(request: Request) {
+    let body: unknown;
+    try {
+      body = await request.json();
+    } catch {
+      const response = validationFailure();
+      return NextResponse.json(response.body, { status: response.status });
+    }
+
+    const parsed = actionSchema.safeParse(body);
+    if (!parsed.success) {
+      const response = validationFailure();
+      return NextResponse.json(response.body, { status: response.status });
+    }
+
+    try {
+      await useCase.execute(parsed.data);
+      return NextResponse.json({ success: true });
+    } catch (error) {
+      const response = mapErrorToHttp(error);
+      return NextResponse.json(response.body, { status: response.status });
+    }
+  };
+}
+
+export const POST = createActionsPost(actions);

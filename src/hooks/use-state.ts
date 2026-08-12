@@ -4,7 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 
 export type AppState = {
   subjects: Array<{ id: number; name: string; mastery: number; color: string }>;
-  documents: Array<{ id: number; name: string; type: string; size: number; subject: string; status: string; content: string; archived: number; created_at: string }>;
+  documents: Array<{ id: number; name: string; type: string; size: number; subject: string; status: string; content: string; archived: number; created_at: string; source_id: string | null; source_version_id: string | null; provenance_type: string; extraction_status: string; media_type: string | null; language: string | null; page_count: number | null }>;
   flashcards: Array<{ id: number; front: string; back: string; subject: string; difficulty: string; due_at: string; interval_days: number; status: string }>;
   questions: Array<{ id: number; prompt: string; options: string; answer: number; explanation: string; subject: string; difficulty: string; source: string }>;
   attempts: Array<{ id: number; module: string; subject: string; score: number; duration_minutes: number; created_at: string }>;
