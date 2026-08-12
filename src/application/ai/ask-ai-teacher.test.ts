@@ -1,62 +1,30 @@
 import { describe, expect, it, vi } from "vitest";
-import type { Document } from "@/domain/documents/document";
 import { AskAiTeacher } from "./ask-ai-teacher";
-import type {
-  ConversationMessage,
-  DocumentKnowledgePort,
-} from "./document-knowledge-port";
+import type { DocumentKnowledgePort } from "./document-knowledge-port";
 
-function createPort(documents: readonly Document[]): DocumentKnowledgePort {
-  return {
-    listSearchableDocuments: vi.fn().mockResolvedValue(documents),
-    saveConversationMessage: vi.fn().mockResolvedValue(undefined),
-  };
-}
+const conversations = (): DocumentKnowledgePort => ({ listSearchableDocuments: vi.fn(async () => []), saveConversationMessage: vi.fn(async () => undefined) });
+const candidate = {
+  chunk: { chunkId: "c1", sourceId: "s1", sourceVersionId: "v1", sequence: 0, text: "La pharmacocinétique étudie ce que l’organisme fait au médicament.", charStart: 0, charEnd: 67, pageStart: 1, pageEnd: 1, sectionTitle: null, headingPath: [], approximateTokenCount: 17, contentHash: "hash", indexStatus: "INDEXED" as const, language: "fr", provenance: "USER_UPLOAD" },
+  displayName: "Guide.pdf", lexicalScore: 1, semanticScore: 0.9, score: 0.94, rank: 1,
+};
 
-describe("AskAiTeacher", () => {
-  it("returns the same local documentary response and persists both messages", async () => {
-    const port = createPort([
-      {
-        id: 1,
-        name: "Guide.pdf",
-        content: "La biodisponibilité mesure la fraction absorbée.",
-        archived: false,
-      },
-    ]);
-    const useCase = new AskAiTeacher(port);
-
-    const result = await useCase.execute({
-      question: "Explique la biodisponibilité",
-      mode: "Explication",
-    });
-
-    expect(result.support).toBe("Documentaire");
-    expect(result.provider).toBe("Moteur local");
-    expect(result.citations).toEqual([
-      {
-        document: "Guide.pdf",
-        excerpt: "La biodisponibilité mesure la fraction absorbée.",
-      },
-    ]);
+describe("AskAiTeacher evidence-first", () => {
+  it("returns only validated evidence and persists both messages", async () => {
+    const port = conversations();
+    const citation = { citationId: "citation-c1", sourceId: "s1", documentId: 1, sourceVersionId: "v1", chunkId: "c1", displayName: "Guide.pdf", pageStart: 1, pageEnd: 1, sectionTitle: null, excerpt: candidate.chunk.text, retrievalScore: 0.94, rank: 1, provenance: "USER_UPLOAD" };
+    const useCase = new AskAiTeacher(port, { execute: () => 1 }, { retrieve: () => [candidate] }, { evaluate: () => ({ status: "SUFFICIENT", reason: "EVIDENCE_FOUND", evidence: [candidate] }) }, { build: () => [citation] }, () => 1);
+    const result = await useCase.execute({ question: "Explique la pharmacocinétique", mode: "Explication" });
+    expect(result).toMatchObject({ support: "Documentaire", evidenceStatus: "SUFFICIENT" });
+    expect(result.answer).toContain(candidate.chunk.text);
+    expect(result.citations[0]).toMatchObject({ chunkId: "c1", pageStart: 1, document: "Guide.pdf" });
     expect(port.saveConversationMessage).toHaveBeenCalledTimes(2);
   });
 
-  it("returns the existing insufficient-support response without documents", async () => {
-    const saved: ConversationMessage[] = [];
-    const port: DocumentKnowledgePort = {
-      listSearchableDocuments: async () => [],
-      saveConversationMessage: async (message) => {
-        saved.push(message);
-      },
-    };
-
-    const result = await new AskAiTeacher(port).execute({
-      question: "Question inconnue",
-      mode: "Explication",
-    });
-
-    expect(result.support).toBe("Insuffisant");
-    expect(result.citations).toEqual([]);
-    expect(saved).toHaveLength(2);
+  it("refuses without evidence and emits no citation or claim", async () => {
+    const port = conversations();
+    const useCase = new AskAiTeacher(port, { execute: () => 0 }, { retrieve: () => [] }, { evaluate: () => ({ status: "NONE", reason: "NO_INDEXED_DOCUMENTS", evidence: [] }) }, { build: () => [] }, () => 0);
+    const result = await useCase.execute({ question: "Question inconnue", mode: "Explication" });
+    expect(result).toMatchObject({ support: "Insuffisant", citations: [], claims: [] });
+    expect(result.answer).toContain("Appui documentaire insuffisant");
   });
 });
