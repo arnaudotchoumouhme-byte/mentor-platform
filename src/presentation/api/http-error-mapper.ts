@@ -7,6 +7,11 @@ const httpStatusByErrorCode: Readonly<Record<string, number>> = {
   FORBIDDEN: 403,
   NOT_FOUND: 404,
   CONFLICT: 409,
+  FILE_DUPLICATE: 409,
+  INGEST_NO_TEXT_FOUND: 422,
+  INGEST_REQUIRES_OCR: 422,
+  INGEST_PDF_EXTRACTION_FAILED: 422,
+  INGEST_DOCX_EXTRACTION_FAILED: 422,
 };
 
 export type HttpErrorResponse = Readonly<{

@@ -1,12 +1,15 @@
 import { NextResponse } from "next/server";
 import { all } from "@/lib/db";
+import { SqliteLibrarySources } from "@/infrastructure/database/sqlite/sqlite-library-sources";
+import { sqliteExecutor } from "@/infrastructure/database/sqlite/server-sqlite-executor";
 
 export const dynamic = "force-dynamic";
 
 export async function GET() {
+  const library = new SqliteLibrarySources(sqliteExecutor);
   const [subjects, documents, flashcards, questions, attempts, weaknesses, tasks, messages, settings] = [
     all("SELECT * FROM subjects ORDER BY name"),
-    all("SELECT * FROM documents ORDER BY archived, created_at DESC"),
+    library.list(),
     all("SELECT * FROM flashcards ORDER BY due_at"),
     all("SELECT * FROM questions ORDER BY id"),
     all("SELECT * FROM attempts ORDER BY created_at DESC"),

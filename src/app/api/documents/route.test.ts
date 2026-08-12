@@ -17,7 +17,7 @@ function request(form: FormData) {
 
 describe("POST /api/documents", () => {
   it("passes an HTTP upload to the application use case", async () => {
-    const execute = vi.fn(async () => ({ imported: ["cours.txt"], rejected: [] }));
+    const execute = vi.fn(async () => ({ imported: ["cours.txt"], rejected: [], documents: [] }));
     const useCase: UseCase<ImportDocumentsInput, ImportDocumentsOutput> = { execute };
     const form = new FormData();
     form.set("subject", "Pharmacologie");
@@ -26,7 +26,7 @@ describe("POST /api/documents", () => {
     const response = await createDocumentsPost(useCase)(request(form));
 
     expect(response.status).toBe(200);
-    await expect(response.json()).resolves.toEqual({ imported: ["cours.txt"], rejected: [] });
+    await expect(response.json()).resolves.toEqual({ imported: ["cours.txt"], rejected: [], documents: [] });
     expect(execute).toHaveBeenCalledWith({
       subject: "Pharmacologie",
       files: [
@@ -36,6 +36,7 @@ describe("POST /api/documents", () => {
           size: 5,
         }),
       ],
+      traceId: expect.any(String),
     });
   });
 

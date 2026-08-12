@@ -53,6 +53,11 @@ L’extraction complète PDF/DOCX, l’OCR, le chunking, les embeddings et le RA
 - [Contribution](CONTRIBUTING.md)
 - [Démarrage](docs/runbooks/RUN-APP-START.md)
 - [Build](docs/runbooks/RUN-BUILD.md)
+- [Import documentaire](docs/runbooks/RUN-IMPORT.md)
+- [Module Library](docs/modules/library.md)
+- [Pipeline d’ingestion](docs/modules/ingestion.md)
 - Documents normatifs : `dossier evolution/`
+
+Le LOT 2 extrait localement PDF textuels, DOCX, TXT et Markdown. Les fichiers utilisent un UUID interne sous `MENTOR_DATA_DIRECTORY`; le nom utilisateur reste une métadonnée. Un PDF sans couche texte est classé `REQUIRES_OCR`. Aucun embedding, RAG ou appel LLM n’est effectué.
 
 Ne modifiez jamais directement les fichiers de données utilisateur pour diagnostiquer un problème.

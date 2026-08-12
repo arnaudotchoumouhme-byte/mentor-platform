@@ -6,6 +6,7 @@ import { SqliteMentorActions } from "@/infrastructure/database/sqlite/sqlite-men
 import { sqliteExecutor } from "@/infrastructure/database/sqlite/server-sqlite-executor";
 import { mapErrorToHttp } from "@/presentation/api/http-error-mapper";
 import { AppError } from "@/shared/errors/app-error";
+import { LocalDocumentStorage } from "@/infrastructure/documents/local-document-storage";
 
 const actionSchema = z.discriminatedUnion("action", [
   z.object({ action: z.literal("archiveDocument"), id: z.number(), archived: z.boolean() }),
@@ -19,7 +20,7 @@ const actionSchema = z.discriminatedUnion("action", [
   z.object({ action: z.literal("saveSettings"), settings: z.record(z.string(), z.string()) }),
 ]);
 
-const actions = new MentorActionsService(new SqliteMentorActions(sqliteExecutor));
+const actions = new MentorActionsService(new SqliteMentorActions(sqliteExecutor, new LocalDocumentStorage()));
 
 function validationFailure() {
   return mapErrorToHttp(

@@ -68,4 +68,17 @@ describe("SqliteMentorActions", () => {
     const adapter = new SqliteMentorActions(database);
     await expect(adapter.deleteDocument(404)).resolves.toBe(false);
   });
+
+  it("deletes an imported file and all derived source metadata in one controlled operation", async () => {
+    const database = createDatabase();
+    database.all.mockReturnValue([{ source_id: "source-id", storage_id: "123e4567-e89b-42d3-a456-426614174000", extension: "pdf" }] as never[]);
+    const storage = {
+      writeTemporary: vi.fn(), promote: vi.fn(), remove: vi.fn(), exists: vi.fn(), list: vi.fn(),
+    };
+    await expect(new SqliteMentorActions(database, storage).deleteDocument(7)).resolves.toBe(true);
+    expect(storage.remove).toHaveBeenCalledWith("final", { id: "123e4567-e89b-42d3-a456-426614174000", extension: "pdf" });
+    expect(database.run).toHaveBeenCalledWith("DELETE FROM source_versions WHERE source_id=?", "source-id");
+    expect(database.run).toHaveBeenCalledWith("DELETE FROM documents WHERE id=?", 7);
+    expect(database.run).toHaveBeenLastCalledWith("COMMIT");
+  });
 });

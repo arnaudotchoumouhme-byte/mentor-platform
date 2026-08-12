@@ -1,5 +1,7 @@
+import "server-only";
 import { access, link, mkdir, open, readdir, rm, stat } from "node:fs/promises";
 import path from "node:path";
+import { config } from "@/infrastructure/config/server-config";
 
 const internalIdPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const extensionPattern = /^(pdf|docx|txt|md|png|jpg)$/;
@@ -19,10 +21,12 @@ export interface DocumentImportStorage {
 }
 
 export class LocalDocumentStorage implements DocumentImportStorage {
+  constructor(private readonly dataDirectory = config.database.dataDirectory) {}
+
   private directory(kind: "pending" | "final"): string {
     return kind === "pending"
-      ? path.join(process.cwd(), "storage", "documents", ".pending")
-      : path.join(process.cwd(), "storage", "documents");
+      ? path.join(this.dataDirectory, "documents", ".pending")
+      : path.join(this.dataDirectory, "documents");
   }
 
   private resolve(kind: "pending" | "final", id: string, extension: string): string {

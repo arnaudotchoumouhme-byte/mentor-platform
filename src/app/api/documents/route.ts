@@ -10,6 +10,7 @@ import { MAX_DOCUMENT_SIZE_BYTES } from "@/domain/documents/document-upload-poli
 import { importDocuments } from "@/infrastructure/documents/server-document-import";
 import { mapErrorToHttp } from "@/presentation/api/http-error-mapper";
 import { AppError } from "@/shared/errors/app-error";
+import { resolveTraceId } from "@/shared/observability/trace-id";
 
 const subjectSchema = z.string().trim().min(1).max(120).default("Non classé");
 export const MAX_MULTIPART_REQUEST_BYTES = MAX_DOCUMENT_SIZE_BYTES + 2 * 1024 * 1024;
@@ -33,6 +34,7 @@ export function createDocumentsPost(
   useCase: UseCase<ImportDocumentsInput, ImportDocumentsOutput>,
 ) {
   return async function POST(request: Request) {
+    const traceId = resolveTraceId(request.headers.get("x-trace-id"));
     const contentType = request.headers.get("content-type")?.toLowerCase() ?? "";
     if (!contentType.startsWith("multipart/form-data;") || !contentType.includes("boundary=")) {
       return requestFailure(415, "UNSUPPORTED_MEDIA_TYPE", "Un formulaire multipart valide est requis.");
@@ -98,7 +100,10 @@ export function createDocumentsPost(
     }
 
     try {
-      return NextResponse.json(await useCase.execute({ subject: subject.data, files: uploads }));
+      return NextResponse.json(
+        await useCase.execute({ subject: subject.data, files: uploads, traceId }),
+        { headers: { "x-trace-id": traceId } },
+      );
     } catch (error) {
       const response = mapErrorToHttp(error);
       return NextResponse.json(response.body, { status: response.status });
