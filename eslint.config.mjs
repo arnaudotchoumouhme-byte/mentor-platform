@@ -12,6 +12,7 @@ export default defineConfig([
     "coverage/**",
     "next-env.d.ts",
     ".prd_extract/**",
+    ".tmp-migration-runner/**",
     "mentor-platform-restaure/**",
     "DOCS1/**",
     "dossier evolution/**",

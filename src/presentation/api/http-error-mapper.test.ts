@@ -26,4 +26,8 @@ describe("mapErrorToHttp", () => {
     expect(result.status).toBe(500);
     expect(JSON.stringify(result.body)).not.toContain("secret internal path");
   });
+
+  it.each([["MCQ_SESSION_NOT_FOUND", 404], ["MCQ_ANSWER_DUPLICATE", 409], ["MCQ_SELECTION_IMPOSSIBLE", 422]] as const)("maps %s to %i", (code, status) => {
+    expect(mapErrorToHttp(new AppError({ code, userMessage: "MCQ" })).status).toBe(status);
+  });
 });

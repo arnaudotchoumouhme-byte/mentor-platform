@@ -7,6 +7,7 @@ import { importJournalMigration } from "./mig-0002-document-import-journal";
 import { sourceModelMigration } from "./mig-0003-source-model";
 import { ragIndexMigration } from "./mig-0004-rag-index";
 import { clinicalCoachMigration } from "./mig-0005-clinical-coach";
+import { mcqCoreMigration } from "./mig-0006-mcq-core";
 
 export const CORE_BASELINE_TABLE_NAMES = [
   "attempts",
@@ -240,4 +241,5 @@ export const coreMigrationRegistry = new MigrationRegistry([
   sourceModelMigration,
   ragIndexMigration,
   clinicalCoachMigration,
+  mcqCoreMigration,
 ]);

@@ -8,6 +8,7 @@
 | FEAT-009 / TEST-013-016 | Classement local, contexte, citations, absence de résultat | API `/api/ai` |
 | FEAT-016 / TEST-017-020 | Six modes pédagogiques, historique, transparence | `/ai` |
 | FEAT-017 / TEST-021-024 | QCM, correction, source, enregistrement du résultat | `/quizzes` |
+| L5 / MCQ Core | Items/version, mapping opaque, sélection, sessions, réponses, score, historique | `src/domain/mcq`, `src/application/mcq`, `/api/mcq/sessions` |
 | FEAT-018 / TEST-025-028 | Cas clinique, réponse, raisonnement et source | `/clinical-cases` |
 | FEAT-019 / TEST-029-032 | Flashcards et répétition espacée configurable | `/flashcards`, tests unitaires |
 | FEAT-020 / TEST-033-036 | Progression globale/par matière et historique | `/progress` |

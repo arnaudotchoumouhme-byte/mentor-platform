@@ -39,6 +39,10 @@ describe("architecture boundaries", () => {
     const routes = [
       path.join(sourceRoot, "app", "api", "actions", "route.ts"),
       path.join(sourceRoot, "app", "api", "ai", "route.ts"),
+      path.join(sourceRoot, "app", "api", "mcq", "sessions", "route.ts"),
+      path.join(sourceRoot, "app", "api", "mcq", "sessions", "[sessionId]", "route.ts"),
+      path.join(sourceRoot, "app", "api", "mcq", "sessions", "[sessionId]", "answers", "route.ts"),
+      path.join(sourceRoot, "app", "api", "mcq", "sessions", "[sessionId]", "complete", "route.ts"),
     ];
     const forbidden = /\b(?:SELECT|INSERT|UPDATE|DELETE)\s+(?:FROM|INTO|\w+\s+SET)|function\s+(?:nextInterval|masteryLabel)/i;
     expect(

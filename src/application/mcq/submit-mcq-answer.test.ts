@@ -1,0 +1,9 @@
+import { describe, expect, it } from "vitest";
+import { CreateMcqSession } from "./create-mcq-session";
+import { SubmitMcqAnswer } from "./submit-mcq-answer";
+import { harness } from "./mcq-use-case-test-harness";
+
+describe("SubmitMcqAnswer", () => {
+  it("corrects, persists duration and emits safe structured events", async () => { const h = harness(); const session = await new CreateMcqSession(h.repository, h.ids, h.clock, h.logger).execute({ mode: "STUDY", count: 1, seed: "seed", blueprintVersionId: "bp-v1", traceId: "trace_12345678" }); const snapshot = session.items[0]!; const result = await new SubmitMcqAnswer(h.repository, h.clock, h.logger).execute({ sessionId: session.sessionId, itemId: snapshot.itemId, itemVersion: snapshot.itemVersion, choiceId: "a", durationMs: 900, traceId: "trace_12345678" }); expect(result.answers[0]).toMatchObject({ correct: true, durationMs: 900 }); expect(h.events.at(-1)).toMatchObject({ name: "mcq.answer.corrected", context: { correct: true } }); expect(JSON.stringify(h.events)).not.toContain("Option A"); });
+  it("rejects duplicate and outside-session answers", async () => { const h = harness(); const session = await new CreateMcqSession(h.repository, h.ids, h.clock, h.logger).execute({ mode: "QUIZ", count: 1, seed: "seed", blueprintVersionId: "bp-v1", traceId: "trace_12345678" }); const snapshot = session.items[0]!; const useCase = new SubmitMcqAnswer(h.repository, h.clock, h.logger); const input = { sessionId: session.sessionId, itemId: snapshot.itemId, itemVersion: snapshot.itemVersion, choiceId: "b", traceId: "trace_12345678" }; await useCase.execute(input); await expect(useCase.execute(input)).rejects.toMatchObject({ code: "MCQ_ANSWER_DUPLICATE" }); await expect(useCase.execute({ ...input, itemId: "missing" })).rejects.toMatchObject({ code: "MCQ_ITEM_VERSION_MISSING" }); });
+});

@@ -17,6 +17,7 @@ import {
 import { sourceModelMigration } from "../migrations/definitions/mig-0003-source-model";
 import { ragIndexMigration } from "../migrations/definitions/mig-0004-rag-index";
 import { clinicalCoachMigration } from "../migrations/definitions/mig-0005-clinical-coach";
+import { mcqCoreMigration } from "../migrations/definitions/mig-0006-mcq-core";
 import { FreshDatabaseBootstrap } from "../migrations/fresh-database-bootstrap";
 import { MigrationRegistry } from "../migrations/migration-registry";
 import {
@@ -102,16 +103,16 @@ describe("ControlledMigrationActivation", () => {
     expect(request).toMatchObject({
       databaseState: "FRESH",
       currentVersion: 0,
-      targetVersion: 5,
+      targetVersion: 6,
       backupId: null,
       requiresExplicitAuthorization: true,
     });
     expect(request.actions.map(({ kind, migrationId }) => [kind, migrationId])).toEqual([
-      ["EXECUTE", "MIG-0001"], ["EXECUTE", "MIG-0002"], ["EXECUTE", "MIG-0003"], ["EXECUTE", "MIG-0004"], ["EXECUTE", "MIG-0005"],
+      ["EXECUTE", "MIG-0001"], ["EXECUTE", "MIG-0002"], ["EXECUTE", "MIG-0003"], ["EXECUTE", "MIG-0004"], ["EXECUTE", "MIG-0005"], ["EXECUTE", "MIG-0006"],
     ]);
     expect(await service.execute(databasePath, request, null)).toMatchObject({ status: "BLOCKED", reason: "AUTHORIZATION_MISSING" });
     expect(await service.execute(databasePath, request, authorization(request))).toMatchObject({
-      status: "MIGRATION_ACTIVATED", fromVersion: 0, toVersion: 5, verificationStatus: "VERIFIED",
+      status: "MIGRATION_ACTIVATED", fromVersion: 0, toVersion: 6, verificationStatus: "VERIFIED",
     });
   });
 
@@ -142,6 +143,7 @@ describe("ControlledMigrationActivation", () => {
       { kind: "EXECUTE", migrationId: "MIG-0003" },
       { kind: "EXECUTE", migrationId: "MIG-0004" },
       { kind: "EXECUTE", migrationId: "MIG-0005" },
+      { kind: "EXECUTE", migrationId: "MIG-0006" },
     ]);
     expect(await service.execute(databasePath, outdated, authorization(outdated))).toMatchObject({ status: "MIGRATION_ACTIVATED" });
     const current = await prepare(service);
@@ -169,7 +171,7 @@ describe("ControlledMigrationActivation", () => {
       databasePath = candidate;
       createVersion(4);
       const sqlite = new DatabaseSync(candidate);
-      if (mode === "ahead") sqlite.prepare("INSERT INTO schema_migrations VALUES(?,?,?,?,?,?,?,?,?)").run("MIG-0006",5,6,"Future","0".repeat(64),"2026-01-01",0,"executed",null);
+      if (mode === "ahead") sqlite.prepare("INSERT INTO schema_migrations VALUES(?,?,?,?,?,?,?,?,?)").run("MIG-0007",6,7,"Future","0".repeat(64),"2026-01-01",0,"executed",null);
       if (mode === "checksum") sqlite.prepare("UPDATE schema_migrations SET checksum=? WHERE migration_id='MIG-0001'").run("f".repeat(64));
       if (mode === "schema") sqlite.exec("DROP TABLE document_import_journal; CREATE TABLE document_import_journal(storage_id TEXT PRIMARY KEY)");
       sqlite.close();
@@ -237,8 +239,8 @@ describe("ControlledMigrationActivation", () => {
     createLegacy();
     const original = new ControlledMigrationActivation();
     const request = await prepare(original);
-    const extra = { id: "MIG-0006", fromVersion: 5, toVersion: 6, description: "Synthetic", checksumMaterial: ["v1"], up: () => undefined };
-    const changed = new ControlledMigrationActivation(new MigrationRegistry([coreBaselineMigration, importJournalMigration, sourceModelMigration, ragIndexMigration, clinicalCoachMigration, extra]));
+    const extra = { id: "MIG-0007", fromVersion: 6, toVersion: 7, description: "Synthetic", checksumMaterial: ["v1"], up: () => undefined };
+    const changed = new ControlledMigrationActivation(new MigrationRegistry([coreBaselineMigration, importJournalMigration, sourceModelMigration, ragIndexMigration, clinicalCoachMigration, mcqCoreMigration, extra]));
     expect(await changed.execute(databasePath, request, authorization(request))).toMatchObject({ status: "BLOCKED", reason: "MIGRATION_PLAN_CHANGED" });
   });
 

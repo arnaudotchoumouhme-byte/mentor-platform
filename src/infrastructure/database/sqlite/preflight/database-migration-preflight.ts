@@ -5,6 +5,7 @@ import { assertImportJournalSchema } from "../migrations/definitions/mig-0002-do
 import { assertSourceModelSchema } from "../migrations/definitions/mig-0003-source-model";
 import { assertRagIndexSchema } from "../migrations/definitions/mig-0004-rag-index";
 import { assertClinicalCoachSchema } from "../migrations/definitions/mig-0005-clinical-coach";
+import { assertMcqCoreSchema, MCQ_CORE_TABLE_NAMES } from "../migrations/definitions/mig-0006-mcq-core";
 import { detectDatabaseFreshness } from "../migrations/fresh-database-detector";
 import { LegacySchemaRecognizer } from "../migrations/legacy-schema-recognizer";
 import { MigrationError } from "../migrations/migration-errors";
@@ -87,11 +88,12 @@ export class DatabaseMigrationPreflight {
         validateMigrationHistory(history, this.registry);
         const version = history.at(-1)?.toVersion ?? 0;
         if (version === this.registry.currentVersion) {
-          assertCoreBaselineSchema(this.database, ["coach_learner_signals", "coaching_sessions", "document_chunks", "document_chunks_fts", "document_chunks_fts_config", "document_chunks_fts_content", "document_chunks_fts_data", "document_chunks_fts_docsize", "document_chunks_fts_idx", "document_import_journal", "source_versions", "sources"]);
+          assertCoreBaselineSchema(this.database, ["coach_learner_signals", "coaching_sessions", "document_chunks", "document_chunks_fts", "document_chunks_fts_config", "document_chunks_fts_content", "document_chunks_fts_data", "document_chunks_fts_docsize", "document_chunks_fts_idx", "document_import_journal", ...MCQ_CORE_TABLE_NAMES, "source_versions", "sources"].sort());
           assertImportJournalSchema(this.database);
           assertSourceModelSchema(this.database);
           assertRagIndexSchema(this.database);
           assertClinicalCoachSchema(this.database);
+          assertMcqCoreSchema(this.database);
           return Object.freeze({
             status: "NO_MIGRATION",
             schemaState: "VERSIONED_CURRENT",

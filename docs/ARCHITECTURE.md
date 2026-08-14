@@ -35,3 +35,7 @@ Import → validation extension/taille → stockage dans `storage/documents` →
 ## Évolution
 
 Les routes API forment une frontière remplaçable. SQLite peut évoluer vers PostgreSQL, le stockage local vers un service objet et le profil implicite vers une authentification, sans réécrire les composants métier.
+
+## MCQ Core — LOT 5
+
+Le module `src/domain/mcq` porte les invariants, la sélection déterministe et le scoring. `src/application/mcq` orchestre sessions, réponses, clôture et événements via des ports. `src/infrastructure/mcq` implémente la persistance SQLite et la composition serveur. Les routes `src/app/api/mcq` valident et délèguent. Le module ne dépend ni du RAG, ni du Coach, ni du Learner Model et ne possède pas le catalogue Blueprint.
