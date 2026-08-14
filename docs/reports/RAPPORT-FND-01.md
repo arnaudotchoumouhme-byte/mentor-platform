@@ -505,3 +505,75 @@ Le commit attendu est `feat(foundation): implement fnd-01f api validation`; son 
 FND-01A, B, C, D et E sont validés et commités. FND-01F est **VALIDABLE** sous réserve du contrôle final du périmètre et de son commit dédié.
 
 **VERDICT GLOBAL FND-01 : VALIDABLE** — tous les sous-lots sont validés localement, les quality gates et le build sont verts, l'architecture est respectée, aucune migration utilisateur n'a eu lieu et aucun fichier protégé n'entre dans le périmètre.
+
+## Revue finale avant merge
+
+Date de revue : 2026-08-14
+
+### Références Git et périmètre
+
+- Branche : `feat/fnd-01-foundation-core`.
+- HEAD revu : `82ef9c1bd3f4f39c8835c850b23b2de2d81b55f0` (`feat(foundation): implement fnd-01f api validation`).
+- Base de comparaison locale : `main` à `6bd3a224ca09ccd634225cbe381b134e648f42de`.
+- Référence distante constatée : `origin/main` à `275be74b9da25206caef817d39efbf767402edc7`.
+- La branche Foundation est fondée sur le commit documentaire `6bd3a22`; le diff `main...HEAD` contient donc les six commits d'implémentation FND-01A à FND-01F.
+- Séquence complète vérifiée, sans commit étranger : `6bd3a22`, `dcaf563`, `21494d9`, `195cc9c`, `4aba3ce`, `fec7872`, `82ef9c1`.
+- Diff global contre `main` : 40 fichiers, 3 141 insertions et 32 suppressions; `git diff --check main...HEAD` réussi.
+- Aucun changement de `package.json` ou `pnpm-lock.yaml`, aucune dépendance npm ajoutée.
+- Aucun fichier utilisateur, artefact temporaire ou élément protégé n'est suivi ou inclus dans FND-01.
+
+### Revue technique
+
+- Architecture : conforme. Le domaine Foundation ne dépend ni de SQLite, Next.js, React, OpenAI, infrastructure, UI, ni d'une implémentation MCQ/Coach/RAG. Le code applicatif de production dépend du domaine et des ports; les imports SQLite présents sous `src/application/foundation/` sont limités aux tests d'intégration. L'infrastructure implémente les ports et la route API délègue aux cas d'usage.
+- Modèle : les onze contrats attendus sont présents avec UUID stables, versions explicites, niveaux N0 à N4, preuves, erreurs critiques et historiques append-only lorsque prévu. Curriculum, Blueprint et Learner Model restent séparés.
+- MIG-0007 : conforme, additive de v6 vers v7, onze tables Foundation, contraintes et index cohérents, sans suppression ni renommage historique. MIG-0007 n'a pas été exécutée pendant cette revue.
+- MIG-0001 à MIG-0006 : aucune modification fonctionnelle ni changement de checksum historique. Le fichier MIG-0001 contient seulement l'import et l'enregistrement minimal de MIG-0007 dans le registre global existant. Aucune MIG-0008 réelle n'existe; ses mentions sont uniquement des scénarios de test de base en avance.
+- Seed : version technique 1, `DRAFT`, `publishedAt` nul, six blocs `BIO`, `PHA`, `CALC`, `THER`, `CAN`, `COMM`, une unité et un objectif techniques par bloc, idempotent, non clinique, non publié et séparé de MIG-0007.
+- Diagnostic et progression : les cinq cas d'usage diagnostic et les six cas d'usage progression/Exit Assessment sont présents; policies et `ruleVersion` sont injectées, les huit étapes sont ordonnées, les re-tests sont append-only et les résolutions critiques restent dérivées et traçables. Aucun seuil PEBC ni Remediation Engine complet n'est introduit.
+- API : `/api/foundation` expose GET/POST avec validation Zod, trace ID, erreurs HTTP déterministes et détails internes masqués. La logique métier reste dans l'application; le runtime ne lance ni seed ni migration automatique. Aucune UI Foundation n'est introduite.
+
+### Matrice d'acceptation revue
+
+| Critère | Statut final | Preuve / nuance |
+| ------- | ------------ | --------------- |
+| AC-FND-001 | COUVERT | démarrage versionné, repository, migration/bootstrap et API |
+| AC-FND-002 | PARTIELLEMENT COUVERT | seed exact à six blocs et primitive de publication testée; aucune publication clinique ni service publiant l'agrégat complet |
+| AC-FND-003 | COUVERT | hiérarchie, transaction, FK/index et API d'observation |
+| AC-FND-004 | COUVERT | N0–N4, confiance, preuves, `ruleVersion` et persistance append-only |
+| AC-FND-005 | COUVERT | trois décisions, justification, preuves et supersession |
+| AC-FND-006 | COUVERT | huit transitions, persistance et reprise idempotente |
+| AC-FND-007 | COUVERT | preuve critique conservée, re-test distinct et résolution dérivée |
+| AC-FND-008 | PARTIELLEMENT COUVERT | IDs de version, FK restrictives et lecture versionnée; absence de scénario produit multi-version complet |
+| AC-FND-009 | COUVERT | migration synthétique v6 → v7 avec préservation legacy et MCQ |
+| AC-FND-010 | COUVERT | MIG-0007 passe par la chaîne contrôlée existante et reste non activée |
+| AC-FND-011 | COUVERT | policies et messages publics explicitement pédagogiques internes, non PEBC |
+| AC-FND-012 | COUVERT | UUID validés et PK/FK Foundation |
+| AC-FND-013 | COUVERT | typecheck et lint déjà verts; campagne finale 390/390 et build 21/21 verts après confirmation du caractère transitoire du timeout DOCX |
+
+### Investigation DOCX et campagne finale
+
+Le module et le test `local-document-extractor` ne figurent pas dans le diff `main...HEAD`; FND-01 ne les modifie donc pas directement. Le test isolé a été exécuté deux fois sans modification de code :
+
+- exécution isolée 1 : 1 fichier et 4/4 tests réussis; 1,13 s de tests, 1,65 s au total; `MENTOR_DATA_DIRECTORY=C:\Users\otcho\AppData\Local\Temp\mentor-fnd01-docx-repeat-1-cea417b35ab74598b63f78925692fc0e`;
+- exécution isolée 2 : 1 fichier et 4/4 tests réussis; 911 ms de tests, 1,43 s au total; `MENTOR_DATA_DIRECTORY=C:\Users\otcho\AppData\Local\Temp\mentor-fnd01-docx-repeat-2-d68fa8fb09e74458bd8ca88bb60171c4`.
+
+Les deux exécutions utilisaient `MENTOR_ENABLE_DEMO_DATA=0` et la commande `.\node_modules\.bin\vitest.cmd run src/infrastructure/documents/local-document-extractor.test.ts`. L'expiration unique observée durant la première revue est classée comme probablement transitoire ou environnementale; aucune régression FND-01 ni nécessité de correctif du code DOCX n'est démontrée.
+
+Campagne finale exécutée avec `MENTOR_DATA_DIRECTORY=C:\Users\otcho\AppData\Local\Temp\mentor-fnd01-docx-repeat-final-3c40808925354612aa46852e96daafc4` et `MENTOR_ENABLE_DEMO_DATA=0` :
+
+- `.\node_modules\.bin\vitest.cmd run` : réussi, code 0; 78/78 fichiers et 390/390 tests, durée totale 34,51 s.
+- `.\node_modules\.bin\next.cmd build` : réussi, code 0; Next.js 16.3.0, compilation en 2,8 s, TypeScript du build en 5,5 s et 21/21 pages générées. `/api/foundation` est dynamique.
+- Typecheck et ESLint autonomes non relancés, conformément à la mission : ils étaient déjà verts et aucun fichier fonctionnel n'a été modifié.
+
+### Base, exclusions et dettes
+
+- `data/mentor.db` n'a été ni ouverte, ni interrogée, ni modifiée, ni migrée. Le seed et MIG-0007 n'y ont pas été exécutés.
+- Restent hors Git et hors périmètre : `.tmp-migration-runner/`, `DOCS1/`, `backups/`, `dossier evolution/`, `mentor-platform-restaure/`, `docs/reports/RAPPORT-ETAT-DEVELOPPEMENT.md` et `data/`.
+- Dettes non bloquantes : `TECH-DEBT-MIG-REGISTRY`, policies pédagogiques provisoires, seed clinique non validé, absence d'UI, de Blueprint Graph, de Learner Model global, de Remediation Engine complet et de FND-02/FND-03; couverture seulement structurelle de AC-FND-002 et AC-FND-008.
+- Anomalie bloquante : aucune après reproduction ciblée et campagne finale verte. Aucun correctif automatique hors périmètre n'a été appliqué.
+
+### Verdict merge
+
+**REVUE FINALE VALIDÉE — MERGE AUTORISABLE.**
+
+Le code Foundation et MIG-0007 sont statiquement conformes. Le timeout DOCX n'est pas reproductible en isolation, la suite globale est verte à 390/390 et le build final réussit avec 21/21 pages. Aucun fichier fonctionnel, aucune donnée utilisateur et aucune migration réelle n'ont été modifiés pendant cette investigation.
