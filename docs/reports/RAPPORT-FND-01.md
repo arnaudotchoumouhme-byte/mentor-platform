@@ -6,7 +6,7 @@ Contrat directeur : `docs/specs/V6-FND-01-FOUNDATION-CONTRACTS.md`
 
 ## Périmètre général
 
-Ce rapport est complété cumulativement pour FND-01A à FND-01F. À ce stade, FND-01A et FND-01B sont implémentés. Aucun élément de FND-01C ou ultérieur n'a commencé.
+Ce rapport est complété cumulativement pour FND-01A à FND-01F. À ce stade, FND-01A, FND-01B et FND-01C sont implémentés. Aucun élément de FND-01D ou ultérieur n'a commencé.
 
 ## FND-01A — Domain contracts
 
@@ -190,8 +190,69 @@ Tous les tests SQLite ont utilisé des bases en mémoire ou des répertoires tem
 
 Restent explicitement hors périmètre et hors commit : `.tmp-migration-runner/`, `DOCS1/`, `backups/`, `dossier evolution/`, `mentor-platform-restaure/`, `docs/reports/RAPPORT-ETAT-DEVELOPPEMENT.md` et `data/`.
 
-Aucun travail FND-01C, push, merge ou rebase n'a été effectué. Le commit FND-01B attendu est `feat(foundation): implement fnd-01b persistence`; son hash sera renseigné par le contrôle Git après création.
+Aucun push, merge ou rebase n'a été effectué. Commit FND-01B : `21494d9 feat(foundation): implement fnd-01b persistence`.
 
 ### Verdict FND-01B
 
-**VALIDABLE** sous réserve du contrôle final du périmètre et de la création du commit FND-01B dédié.
+**VALIDÉ** — commit FND-01B créé et contrôlé sur la branche dédiée.
+
+## FND-01C — Curriculum seed / configuration minimale
+
+### Objectif et décision humaine
+
+Implémenter uniquement une configuration initiale Foundation reproductible. La décision humaine **Option A** est appliquée : seed technique minimal non publié, sans prétention de contenu clinique validé ni de règle PEBC officielle.
+
+### Fichiers
+
+Créés :
+
+- `src/application/foundation/foundation-curriculum-seed.ts`
+- `src/infrastructure/foundation/foundation-curriculum-seed.integration.test.ts`
+
+Modifié :
+
+- `docs/reports/RAPPORT-FND-01.md`
+
+Aucun fichier n'a été supprimé et aucune migration n'a été modifiée.
+
+### Structure du seed
+
+- Une `CurriculumVersion` technique stable : version 1, statut `DRAFT`, `publishedAt` nul.
+- Identifiants UUID stables pour le programme, la version, les blocs, unités et objectifs.
+- Date d'effet `2027-01-01T00:00:00.000Z`, explicitement technique et sans signification réglementaire PEBC.
+- Exactement six blocs requis, dans l'ordre stable : `BIO`, `PHA`, `CALC`, `THER`, `CAN`, `COMM`.
+- Une unité `DRAFT` de démonstration technique par bloc et un objectif `TECHNICAL_SEED` par unité.
+- Descriptions explicitement non cliniques et non publiées; aucun prérequis, contenu thérapeutique détaillé ou seuil N0–N4.
+
+Le seed utilise exclusivement `FoundationCurriculumRepository`. Il recherche d'abord l'identifiant stable : si la version existe, il la retourne sans écriture; si elle est absente, il persiste le snapshot complet. Il ne réécrit donc ni un brouillon existant ni une version publiée.
+
+### Tests et contrôles
+
+- Test ciblé du seed : 1 fichier, 3/3 tests réussis.
+- Scénarios couverts : brouillon non publié avec six blocs, ordre/codes/IDs stables, seconde exécution sans doublon, lecture complète par repository et préservation d'une version publiée synthétique.
+- `.\node_modules\.bin\tsc.cmd --noEmit` : réussi, code 0, aucune sortie.
+- `.\node_modules\.bin\eslint.cmd src/domain/foundation src/application/foundation src/infrastructure/foundation` : réussi, code 0, aucune sortie.
+- Suite globale exécutée une fois : 75 fichiers, 371/371 tests réussis.
+- Build non exécuté : aucun changement Next.js ou de configuration de build.
+- `git diff --check` : contrôle final exécuté avant indexation.
+
+Tous les tests SQLite utilisent une base en mémoire. Le seed n'a été exécuté que dans ces scénarios synthétiques.
+
+### Migrations, base utilisateur et exclusions
+
+MIG-0001 à MIG-0007 sont inchangées. Le seed est entièrement séparé de MIG-0007; MIG-0007 n'a pas été activée sur la base utilisateur.
+
+`data/mentor.db` n'a été ni ouverte, ni interrogée, ni modifiée, ni migrée. Restent hors périmètre et hors commit : `.tmp-migration-runner/`, `DOCS1/`, `backups/`, `dossier evolution/`, `mentor-platform-restaure/`, `docs/reports/RAPPORT-ETAT-DEVELOPPEMENT.md` et `data/`.
+
+### Dette et risques
+
+- Le seed ne constitue pas un curriculum clinique publiable; une validation pédagogique humaine reste obligatoire avant toute publication.
+- Les unités/objectifs sont uniquement des démonstrateurs techniques et devront être remplacés par un contenu validé dans un lot contrôlé futur.
+- `TECH-DEBT-MIG-REGISTRY` reste inchangée et hors périmètre.
+- Aucun travail FND-01D, API, UI, moteur de diagnostic ou recommandation calculée n'a commencé.
+
+### État Git et verdict FND-01C
+
+Le commit attendu est `feat(foundation): implement fnd-01c curriculum seed`; son hash sera renseigné après création. Aucun push, merge ou rebase n'est effectué.
+
+**VALIDABLE** sous réserve du contrôle final du périmètre et de la création du commit FND-01C dédié.
