@@ -6,7 +6,7 @@ Contrat directeur : `docs/specs/V6-FND-01-FOUNDATION-CONTRACTS.md`
 
 ## Périmètre général
 
-Ce rapport est complété cumulativement pour FND-01A à FND-01F. À ce stade, FND-01A, FND-01B et FND-01C sont implémentés. Aucun élément de FND-01D ou ultérieur n'a commencé.
+Ce rapport est complété cumulativement pour FND-01A à FND-01F. À ce stade, FND-01A à FND-01D sont implémentés. Aucun élément de FND-01E ou ultérieur n'a commencé.
 
 ## FND-01A — Domain contracts
 
@@ -253,6 +253,80 @@ MIG-0001 à MIG-0007 sont inchangées. Le seed est entièrement séparé de MIG-
 
 ### État Git et verdict FND-01C
 
-Le commit attendu est `feat(foundation): implement fnd-01c curriculum seed`; son hash sera renseigné après création. Aucun push, merge ou rebase n'est effectué.
+Commit FND-01C : `195cc9c feat(foundation): implement fnd-01c curriculum seed`. Aucun push, merge ou rebase n'est effectué.
 
-**VALIDABLE** sous réserve du contrôle final du périmètre et de la création du commit FND-01C dédié.
+**VALIDÉ** — commit FND-01C créé et contrôlé sur la branche dédiée.
+
+## FND-01D — Diagnostic
+
+### Objectif
+
+Implémenter les cinq cas d'usage applicatifs Foundation : démarrer et compléter un diagnostic, enregistrer des observations, estimer la maîtrise et produire une recommandation traçable. Aucun travail de progression d'unité, Exit Assessment, API ou UI n'est inclus.
+
+### Fichiers
+
+Créés :
+
+- `src/application/foundation/foundation-diagnostic-use-cases.ts`
+- `src/application/foundation/foundation-diagnostic-use-cases.integration.test.ts`
+
+Modifiés :
+
+- `src/application/foundation/foundation-ports.ts`
+- `docs/reports/RAPPORT-FND-01.md`
+
+Aucun fichier n'a été supprimé. MIG-0001 à MIG-0007, le seed FND-01C et les modules MCQ, Coach et RAG sont inchangés.
+
+### Cas d'usage et ports
+
+- `StartDiagnostic` vérifie l'existence et l'état de la CurriculumVersion, la portée non vide et l'appartenance des blocs, puis persiste un diagnostic `IN_PROGRESS`.
+- `RecordObservation` charge le diagnostic et le curriculum, valide la hiérarchie bloc/unité/objectif, construit l'observation et persiste atomiquement le diagnostic et ses nouvelles preuves via le repository SQLite existant.
+- `CompleteDiagnostic` clôt une campagne observée, persiste son état et traite une seconde clôture comme une opération idempotente.
+- `EstimateMastery` sélectionne les observations de la portée, délègue N0–N4 et la confiance à une policy injectée, conserve les IDs de preuve et ajoute l'estimation à l'historique.
+- `RecommendFoundationPath` délègue la proposition à la policy, conserve justification, preuve, `ruleVersion`, timestamp et `supersedesId`, puis ajoute la recommandation à l'historique.
+- Ports ajoutés et consommés : `FoundationClock`, `FoundationIdGenerator` et `FoundationDiagnosticPolicy` avec `ruleVersion` explicite.
+
+### Policy, maîtrise et recommandations
+
+La décision humaine est respectée par une policy synthétique configurable dans les tests. Aucun seuil numérique produit ou PEBC n'est codé dans les agrégats ou les cas d'usage.
+
+- N0 est accepté sans preuve; N1 à N4 exigent et conservent leurs preuves.
+- Les estimations sont insert-only et plusieurs niveaux successifs restent dans l'historique.
+- `REQUIRED`, `RECOMMENDED` et `EXEMPTED` sont testés avec justification et preuve.
+- Toute recommandation sans observation est refusée explicitement.
+- Une erreur critique présente dans la portée est considérée non résolue dans FND-01D et force `REQUIRED` si la policy propose une progression positive; aucun workflow de résolution n'est inventé.
+- Les décisions sont des recommandations pédagogiques internes et ne constituent ni certification, ni admissibilité, ni prédiction PEBC.
+
+### Tests et contrôles
+
+- Première passe ciblée : 6 tests, 5 réussis et 1 échec révélant un contrôle hiérarchique unité/bloc incomplet; contrôle corrigé.
+- Deuxième passe ciblée : 6/6 réussis.
+- Test supplémentaire « aucune dispense sans preuve » : échec initial sur le code d'erreur générique, puis garde applicative explicite ajoutée.
+- Passe ciblée finale : 1 fichier, 7/7 tests réussis.
+- Scénarios : démarrage valide et portées invalides, observations et progression monotone, hiérarchie/confiance/clôture, double clôture, N0–N4, append-only, trois recommandations, supersession, preuve obligatoire et erreur critique.
+- Intégration SQLite : tous les cas d'usage ciblés utilisent le repository réel sur une base `:memory:` synthétique.
+- `.\node_modules\.bin\tsc.cmd --noEmit` : réussi, code 0, aucune sortie.
+- `.\node_modules\.bin\eslint.cmd src/domain/foundation src/application/foundation src/infrastructure/foundation` : réussi, code 0, aucun avertissement final.
+- Suite globale avant la garde finale : 76 fichiers, 377/377 tests réussis.
+- Suite globale finale après la garde : 76 fichiers, 378/378 tests réussis.
+- Build non exécuté : aucun changement Next.js ou de configuration de build.
+- `git diff --check` : contrôle final exécuté avant indexation.
+
+### Migrations, base utilisateur et exclusions
+
+MIG-0001 à MIG-0007 sont inchangées et aucune MIG-0008 n'est créée. MIG-0007 n'est pas activée sur la base utilisateur.
+
+`data/mentor.db` n'a été ni ouverte, ni interrogée, ni modifiée, ni migrée. Tous les tests SQLite utilisent exclusivement une base en mémoire. Restent hors périmètre et hors commit : `.tmp-migration-runner/`, `DOCS1/`, `backups/`, `dossier evolution/`, `mentor-platform-restaure/`, `docs/reports/RAPPORT-ETAT-DEVELOPPEMENT.md` et `data/`.
+
+### Dette, risques et état Git
+
+- La résolution explicite d'une erreur critique reste hors périmètre; jusqu'à un futur workflow contrôlé, toute preuve critique de la portée bloque une progression positive.
+- Les policies produit, seuils pédagogiques et règles validées restent à définir humainement et à versionner ultérieurement.
+- `TECH-DEBT-MIG-REGISTRY` reste inchangée.
+- Aucun travail FND-01E, push, merge ou rebase n'a été effectué.
+
+Le commit attendu est `feat(foundation): implement fnd-01d diagnostic`; son hash sera renseigné après création.
+
+### Verdict FND-01D
+
+**VALIDABLE** sous réserve du contrôle final du périmètre et de la création du commit FND-01D dédié.

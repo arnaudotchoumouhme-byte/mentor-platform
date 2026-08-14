@@ -8,8 +8,10 @@ import type {
   FoundationRecommendation,
   FoundationUnitProgress,
   LearningObjective,
+  MasteryLevel,
   MasteryEstimate,
   PrerequisiteRule,
+  RecommendationDecision,
 } from "@/domain/foundation";
 
 export type FoundationCurriculumSnapshot = Readonly<{
@@ -42,3 +44,23 @@ export type FoundationEvidenceReference = Pick<
   DiagnosticObservation,
   "evidenceType" | "evidenceRefId" | "evidenceRefVersion"
 >;
+
+export interface FoundationIdGenerator { next(): string; }
+export interface FoundationClock { now(): string; }
+
+export type FoundationPolicyScope = Readonly<{
+  learnerId: string;
+  curriculumVersionId: string;
+  blockId: string;
+  unitId: string | null;
+  objectiveId: string | null;
+  observations: readonly DiagnosticObservation[];
+}>;
+
+export interface FoundationDiagnosticPolicy {
+  readonly ruleVersion: string;
+  estimate(scope: FoundationPolicyScope): Readonly<{ level: MasteryLevel; confidence: number }>;
+  recommend(
+    scope: FoundationPolicyScope & Readonly<{ mastery: MasteryEstimate }>,
+  ): Readonly<{ decision: RecommendationDecision; justification: string }>;
+}
