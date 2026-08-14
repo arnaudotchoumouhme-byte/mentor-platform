@@ -6,7 +6,7 @@ Contrat directeur : `docs/specs/V6-FND-01-FOUNDATION-CONTRACTS.md`
 
 ## Périmètre général
 
-Ce rapport est complété cumulativement pour FND-01A à FND-01F. À ce stade, FND-01A à FND-01E sont implémentés. Aucun élément de FND-01F n'a commencé.
+Ce rapport couvre cumulativement FND-01A à FND-01F. Les six sous-lots sont implémentés et validés localement; aucun travail FND-02 n'a commencé.
 
 ## FND-01A — Domain contracts
 
@@ -400,8 +400,108 @@ MIG-0001 à MIG-0007 sont inchangées et aucune MIG-0008 n'est créée. MIG-0007
 - `TECH-DEBT-MIG-REGISTRY` reste inchangée.
 - Aucun travail FND-01F, push, merge ou rebase n'a été effectué.
 
-Le commit attendu est `feat(foundation): implement fnd-01e unit progression`; son hash sera renseigné après création.
+Commit FND-01E : `fec7872 feat(foundation): implement fnd-01e unit progression`.
 
 ### Verdict FND-01E
 
-**VALIDABLE** sous réserve du contrôle final du périmètre et de la création du commit FND-01E dédié.
+**VALIDÉ** — commit FND-01E créé et contrôlé sur la branche dédiée.
+
+## FND-01F — API/UI minimale + validation finale
+
+### Objectif et décision UI
+
+Exposer une API Foundation minimale permettant de représenter l'ensemble du parcours déjà implémenté et réaliser la validation transversale finale de FND-01. Aucune UI n'est créée : les contrats HTTP testables apportent la validation requise sans écran démonstratif artificiel, duplication de logique ou nouveau parcours utilisateur incomplet.
+
+### Fichiers
+
+Créés :
+
+- `src/app/api/foundation/route.ts`
+- `src/app/api/foundation/route.test.ts`
+- `src/infrastructure/foundation/server-foundation.ts`
+
+Modifiés :
+
+- `src/presentation/api/http-error-mapper.ts`
+- `docs/reports/RAPPORT-FND-01.md`
+
+Aucun fichier n'est supprimé. Aucune migration, dépendance npm, page UI, configuration Next.js ou donnée utilisateur n'est modifiée.
+
+### API Foundation et runtime
+
+Une route dynamique Node.js `/api/foundation` fournit :
+
+- `GET` pour curriculum, diagnostic, estimations de maîtrise, recommandations, progression et Exit Assessment;
+- `POST` discriminé pour démarrer/enregistrer/compléter un diagnostic, estimer la maîtrise, recommander, démarrer/reprendre/avancer une progression, compléter l'Exit Assessment, enregistrer un re-test et résoudre une erreur critique.
+
+Les entrées sont validées avec Zod. Les réponses utilisent le contrat JSON partagé `success/data` ou `success/error`, un `x-trace-id` stable, `cache-control: no-store` et le mapper HTTP existant. Les erreurs internes ne sont pas exposées. Le discriminant HTTP `action` est retiré avant dispatch et ne traverse jamais vers les objets domaine.
+
+Le runtime `server-foundation.ts` assemble le repository et les cas d'usage existants sans container DI. Il ne seed aucune base automatiquement. Les policies internes provisoires sont explicites et versionnées `foundation-internal-provisional-v1`; elles ne contiennent aucune prétention, admissibilité ou prédiction PEBC. Les recommandations publiques sont libellées comme pédagogiques internes et non officielles.
+
+### UI et E2E
+
+- UI minimale : non créée, car l'API seule couvre le parcours et les critères du contrat.
+- E2E navigateur : non exécuté, conformément au contrat qui ne le rend obligatoire que si une UI est introduite.
+- Accessibilité/i18n UI : sans objet pour FND-01F; les messages HTTP restent explicites et compatibles avec une future couche FR/EN.
+
+### Tests API et quality gates
+
+- Tests API ciblés initiaux : 1 fichier, 6/6 réussis.
+- Couverture HTTP : curriculum lisible, ressource absente, validation avant infrastructure, diagnostic/observation/clôture, maîtrise/recommandation non-PEBC, progression/Exit/re-test/résolution, trace ID et erreur interne masquée.
+- Après revue de frontière `action` et statut 404 : tests API 6/6, TypeScript et ESLint complets réussis.
+- `.\node_modules\.bin\tsc.cmd --noEmit` : réussi, code 0.
+- `.\node_modules\.bin\eslint.cmd .` : réussi, code 0, aucun avertissement.
+- Suite globale initiale : 78 fichiers, 390/390 tests réussis.
+- Suite globale finale après revue HTTP : 78 fichiers, 390/390 tests réussis.
+- Build initial : Next.js 16.3.0, compilation et TypeScript réussis, 21/21 pages générées, `/api/foundation` dynamique. Répertoire synthétique : `C:\Users\otcho\AppData\Local\Temp\mentor-fnd01f-build-ce980696f94f44f2992c1b8948c7abf2`; `MENTOR_ENABLE_DEMO_DATA=0`.
+- Build final : réussi, 21/21 pages, `/api/foundation` dynamique. Répertoire synthétique : `C:\Users\otcho\AppData\Local\Temp\mentor-fnd01f-final-build-ede0baecb90a4a9faa4a04153dfa1107`; `MENTOR_ENABLE_DEMO_DATA=0`.
+- `pnpm.cmd run verify` : non exécuté afin de ne pas dupliquer typecheck, lint, tests et build déjà exécutés avec succès via les binaires verrouillés locaux.
+- `git diff --check` : réussi avant mise à jour finale du rapport; relancé avant indexation.
+
+### Architecture
+
+- Le domaine Foundation n'importe ni Next.js, React, SQLite ni infrastructure.
+- Le code applicatif de production Foundation n'importe ni UI ni infrastructure; seuls les tests d'intégration applicatifs utilisent les adapters SQLite réels.
+- La route dépend des contrats/cas d'usage via un runtime d'infrastructure injecté et testable.
+- Aucun couplage fonctionnel Foundation vers MCQ, Coach ou RAG et aucune dépendance circulaire nouvelle.
+- Les règles Next.js 16 locales ont été vérifiées dans `node_modules/next/dist/docs/` avant l'implémentation.
+
+### Matrice AC-FND-001 à AC-FND-013
+
+| Critère | Couvert par | Statut |
+| ------- | ----------- | ------ |
+| AC-FND-001 | `StartDiagnostic`, repository et API | COUVERT |
+| AC-FND-002 | seed technique à six blocs, version DRAFT et publication humaine future | COUVERT STRUCTURELLEMENT — aucune publication automatique |
+| AC-FND-003 | `RecordObservation`, validation hiérarchique et transaction SQLite | COUVERT |
+| AC-FND-004 | `EstimateMastery`, policy versionnée et historique append-only | COUVERT |
+| AC-FND-005 | `RecommendFoundationPath`, preuves, justification et supersession | COUVERT |
+| AC-FND-006 | `StartUnitProgress`, `AdvanceUnit`, `ResumeUnitProgress`, huit étapes | COUVERT |
+| AC-FND-007 | `RecordRetest`, `ResolveCriticalError`, preuve append-only | COUVERT |
+| AC-FND-008 | IDs de version sur diagnostics/preuves et repositories multi-version | COUVERT STRUCTURELLEMENT |
+| AC-FND-009 | test synthétique MIG-0007 préservant legacy et MCQ | COUVERT |
+| AC-FND-010 | preflight/activation contrôlée existants et MIG-0007 non activée | COUVERT |
+| AC-FND-011 | policy/recommandation HTTP explicitement pédagogique interne et non-PEBC | COUVERT |
+| AC-FND-012 | validation UUID et PK/FK Foundation | COUVERT |
+| AC-FND-013 | typecheck, lint, 390/390 tests et build 21/21 | COUVERT |
+
+### Migrations, base utilisateur et exclusions
+
+MIG-0001 à MIG-0007 sont inchangées et aucune MIG-0008 n'est créée. MIG-0007 reste présente dans le code mais non activée sur la base utilisateur.
+
+`data/mentor.db` n'a été ni ouverte, ni interrogée, ni modifiée, ni migrée. Les tests utilisent `:memory:` et les builds deux répertoires temporaires absolus avec démo désactivée. Restent hors périmètre et hors commit : `.tmp-migration-runner/`, `DOCS1/`, `backups/`, `dossier evolution/`, `mentor-platform-restaure/`, `docs/reports/RAPPORT-ETAT-DEVELOPPEMENT.md` et `data/`.
+
+### Dette et risques restants
+
+- AC-FND-002 est couvert par la structure DRAFT exacte à six blocs; toute publication demeure une action humaine future nécessitant contenu pédagogique validé.
+- AC-FND-008 repose sur l'immuabilité/versionnement structurels; des scénarios multi-version produit plus riches pourront renforcer cette garantie.
+- Les policies de runtime restent provisoires, internes et prudentes; leurs futures règles pédagogiques devront être validées et versionnées.
+- Aucune UI Foundation n'existe; elle ne devra être ajoutée que sur besoin utilisateur validé.
+- `TECH-DEBT-MIG-REGISTRY` reste ouverte.
+
+### État Git et verdict global
+
+Le commit attendu est `feat(foundation): implement fnd-01f api validation`; son hash sera renseigné après création. Aucun push, merge ou rebase n'est effectué.
+
+FND-01A, B, C, D et E sont validés et commités. FND-01F est **VALIDABLE** sous réserve du contrôle final du périmètre et de son commit dédié.
+
+**VERDICT GLOBAL FND-01 : VALIDABLE** — tous les sous-lots sont validés localement, les quality gates et le build sont verts, l'architecture est respectée, aucune migration utilisateur n'a eu lieu et aucun fichier protégé n'entre dans le périmètre.
