@@ -8,6 +8,7 @@ import { sourceModelMigration } from "./mig-0003-source-model";
 import { ragIndexMigration } from "./mig-0004-rag-index";
 import { clinicalCoachMigration } from "./mig-0005-clinical-coach";
 import { mcqCoreMigration } from "./mig-0006-mcq-core";
+import { foundationAcademyCoreMigration } from "./mig-0007-foundation-academy-core";
 
 export const CORE_BASELINE_TABLE_NAMES = [
   "attempts",
@@ -242,4 +243,5 @@ export const coreMigrationRegistry = new MigrationRegistry([
   ragIndexMigration,
   clinicalCoachMigration,
   mcqCoreMigration,
+  foundationAcademyCoreMigration,
 ]);

@@ -48,10 +48,10 @@ describe("DatabaseReadinessOrchestrator", () => {
     expect(result).toMatchObject({
       status: "READY",
       initialState: "FRESH",
-      finalVersion: 6,
-      appliedMigrationIds: ["MIG-0001", "MIG-0002", "MIG-0003", "MIG-0004", "MIG-0005", "MIG-0006"],
+      finalVersion: 7,
+      appliedMigrationIds: ["MIG-0001", "MIG-0002", "MIG-0003", "MIG-0004", "MIG-0005", "MIG-0006", "MIG-0007"],
     });
-    expect(history()).toHaveLength(6);
+    expect(history()).toHaveLength(7);
   });
 
   it("adopts a recognized legacy core and preserves business data", () => {
@@ -68,6 +68,7 @@ describe("DatabaseReadinessOrchestrator", () => {
       { migration_id: "MIG-0004", application_kind: "executed" },
       { migration_id: "MIG-0005", application_kind: "executed" },
       { migration_id: "MIG-0006", application_kind: "executed" },
+      { migration_id: "MIG-0007", application_kind: "executed" },
     ]);
   });
 
@@ -93,9 +94,9 @@ describe("DatabaseReadinessOrchestrator", () => {
     expect(result).toMatchObject({
       status: "READY",
       initialState: "VERSIONED_OUTDATED",
-      appliedMigrationIds: ["MIG-0002", "MIG-0003", "MIG-0004", "MIG-0005", "MIG-0006"],
+      appliedMigrationIds: ["MIG-0002", "MIG-0003", "MIG-0004", "MIG-0005", "MIG-0006", "MIG-0007"],
     });
-    expect(history()).toHaveLength(6);
+    expect(history()).toHaveLength(7);
   });
 
   it("is a mutation-free no-op for a current database and remains idempotent", () => {
@@ -115,7 +116,7 @@ describe("DatabaseReadinessOrchestrator", () => {
   it("fails closed when migration history is ahead", () => {
     readiness();
     sqlite.prepare(`INSERT INTO schema_migrations VALUES(?,?,?,?,?,?,?,?,?)`).run(
-      "MIG-0007", 6, 7, "Future", "0".repeat(64), new Date(0).toISOString(), 0, "executed", null,
+      "MIG-0008", 7, 8, "Future", "0".repeat(64), new Date(0).toISOString(), 0, "executed", null,
     );
     const before = history();
     expect(readiness()).toMatchObject({ status: "BLOCKED", initialState: "VERSIONED_AHEAD", reason: "MIGRATION_HISTORY_AHEAD" });
