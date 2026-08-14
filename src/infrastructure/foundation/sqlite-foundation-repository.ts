@@ -160,4 +160,9 @@ export class SqliteFoundationRepository implements FoundationCurriculumRepositor
     const row = this.database.all<ProgressRow>("SELECT * FROM foundation_unit_progress WHERE unit_progress_id=?", id)[0];
     return row ? Object.freeze({ id: row.unit_progress_id, learnerId: row.learner_id, curriculumVersionId: row.curriculum_version_id, unitId: row.unit_id, currentStage: row.current_stage, status: row.status, startedAt: row.started_at, updatedAt: row.updated_at, completedAt: row.completed_at }) : null;
   }
+
+  async findActiveUnitProgress(learnerId: string, curriculumVersionId: string, unitId: string): Promise<FoundationUnitProgress | null> {
+    const row = this.database.all<ProgressRow>("SELECT * FROM foundation_unit_progress WHERE learner_id=? AND curriculum_version_id=? AND unit_id=? AND status='IN_PROGRESS'", learnerId, curriculumVersionId, unitId)[0];
+    return row ? Object.freeze({ id: row.unit_progress_id, learnerId: row.learner_id, curriculumVersionId: row.curriculum_version_id, unitId: row.unit_id, currentStage: row.current_stage, status: row.status, startedAt: row.started_at, updatedAt: row.updated_at, completedAt: row.completed_at }) : null;
+  }
 }

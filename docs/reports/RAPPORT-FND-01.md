@@ -6,7 +6,7 @@ Contrat directeur : `docs/specs/V6-FND-01-FOUNDATION-CONTRACTS.md`
 
 ## Périmètre général
 
-Ce rapport est complété cumulativement pour FND-01A à FND-01F. À ce stade, FND-01A à FND-01D sont implémentés. Aucun élément de FND-01E ou ultérieur n'a commencé.
+Ce rapport est complété cumulativement pour FND-01A à FND-01F. À ce stade, FND-01A à FND-01E sont implémentés. Aucun élément de FND-01F n'a commencé.
 
 ## FND-01A — Domain contracts
 
@@ -325,8 +325,83 @@ MIG-0001 à MIG-0007 sont inchangées et aucune MIG-0008 n'est créée. MIG-0007
 - `TECH-DEBT-MIG-REGISTRY` reste inchangée.
 - Aucun travail FND-01E, push, merge ou rebase n'a été effectué.
 
-Le commit attendu est `feat(foundation): implement fnd-01d diagnostic`; son hash sera renseigné après création.
+Commit FND-01D : `4aba3ce feat(foundation): implement fnd-01d diagnostic`.
 
 ### Verdict FND-01D
 
-**VALIDABLE** sous réserve du contrôle final du périmètre et de la création du commit FND-01D dédié.
+**VALIDÉ** — commit FND-01D créé et contrôlé sur la branche dédiée.
+
+## FND-01E — Unit progression / Exit Assessment
+
+### Objectif
+
+Implémenter uniquement l'orchestration Foundation d'une progression d'unité, sa reprise, l'évaluation de sortie, le re-test append-only et la résolution pédagogique dérivée d'une erreur critique. Aucun moteur de remédiation, API, UI ou intégration MCQ/Coach réelle n'est ajouté.
+
+### Fichiers
+
+Créés :
+
+- `src/application/foundation/foundation-unit-progression-use-cases.ts`
+- `src/application/foundation/foundation-unit-progression-use-cases.integration.test.ts`
+
+Modifiés :
+
+- `src/application/foundation/foundation-ports.ts`
+- `src/infrastructure/foundation/sqlite-foundation-repository.ts`
+- `docs/reports/RAPPORT-FND-01.md`
+
+Aucun fichier n'a été supprimé. Aucune migration, API, UI, configuration Next.js ou donnée seed n'est modifiée.
+
+### Cas d'usage et transitions
+
+- `StartUnitProgress` valide l'unité dans la version, démarre à `PRE_TEST` et retourne idempotemment la progression active existante.
+- `AdvanceUnit` délègue les transitions au domaine, refuse les sauts, conserve des timestamps monotones et traite la répétition de la même cible comme idempotente.
+- `ResumeUnitProgress` retrouve exactement la progression active sans créer de ligne.
+- Les huit étapes restent ordonnées : `PRE_TEST`, `MICRO_LESSON`, `GUIDED_PRACTICE`, `APPLICATION`, `TEACH_BACK`, `EXIT_ASSESSMENT`, `CONSOLIDATION`, `RETEST`.
+- Le repository ajoute seulement `findActiveUnitProgress`, utilisant la table et l'index existants de MIG-0007.
+
+### Exit Assessment, re-test et résolution critique
+
+- `CompleteExitAssessment` exige l'étape `EXIT_ASSESSMENT`, une portée apprenant/version/unité cohérente et des observations de preuve; il persiste résultat, catégories critiques, décision, timestamp et `ruleVersion`.
+- Une erreur critique non résolue force `RETEST_REQUIRED`; sans erreur non résolue, la décision pédagogique provient de la policy injectée.
+- `RecordRetest` exige une progression active à `RETEST` et crée une nouvelle `DiagnosticObservation` `RETEST` qui référence l'observation critique par `retestOfObservationId`; l'observation originale n'est jamais modifiée.
+- `ResolveCriticalError` dérive la résolution depuis une preuve de re-test distincte, postérieure et jugée satisfaisante par la policy. Le résultat conserve l'ID critique, l'ID de résolution et `ruleVersion`.
+- Un re-test insuffisant reste dans l'historique et ne résout pas l'erreur.
+- La revue finale a ajouté une garde explicite de cohérence apprenant/version entre diagnostic et progression pour le re-test et l'Exit Assessment.
+
+### Policy et ports
+
+`FoundationProgressPolicy` est le seul nouveau contrat : il expose `ruleVersion`, la décision d'Exit Assessment et l'évaluation synthétique d'un re-test. Aucun seuil PEBC, moteur générique, DSL, event bus ou dépendance npm n'est introduit.
+
+### Tests et contrôles
+
+- Tests ciblés initiaux : 1 fichier, 6/6 tests réussis.
+- Scénarios : création/idempotence/unité inconnue, huit transitions et sauts refusés, reprise sans duplication, Exit Assessment positif et `RETEST_REQUIRED`, re-tests satisfaisant/insuffisant, résolution dérivée et historique intact.
+- Après garde finale de cohérence de portée : tests ciblés 6/6, TypeScript et ESLint réussis.
+- Intégration SQLite réelle sur base `:memory:` pour tous les scénarios; aucune base fichier utilisateur.
+- `.\node_modules\.bin\tsc.cmd --noEmit` : réussi, code 0.
+- `.\node_modules\.bin\eslint.cmd src/domain/foundation src/application/foundation src/infrastructure/foundation` : réussi, code 0, aucun avertissement final.
+- Suite globale avant revue finale : 77 fichiers, 384/384 tests réussis.
+- Suite globale finale : 77 fichiers, 384/384 tests réussis.
+- Build non exécuté : aucun changement Next.js ou de configuration de build.
+- `git diff --check` : contrôle final exécuté avant indexation.
+
+### Migrations, base utilisateur et exclusions
+
+MIG-0001 à MIG-0007 sont inchangées et aucune MIG-0008 n'est créée. MIG-0007 n'est pas activée sur la base utilisateur.
+
+`data/mentor.db` n'a été ni ouverte, ni interrogée, ni modifiée, ni migrée. Restent hors périmètre et hors commit : `.tmp-migration-runner/`, `DOCS1/`, `backups/`, `dossier evolution/`, `mentor-platform-restaure/`, `docs/reports/RAPPORT-ETAT-DEVELOPPEMENT.md` et `data/`.
+
+### Dette, risques et état Git
+
+- La résolution critique reste une dérivation minimale fondée sur la convention de preuve `RETEST`; un Remediation Engine complet reste hors périmètre.
+- Les règles pédagogiques produit devront être validées humainement et versionnées; la policy de test est exclusivement synthétique.
+- La progression orchestre seulement l'état Foundation et ne déclenche aucun moteur MCQ, Coach ou Flashcards.
+- `TECH-DEBT-MIG-REGISTRY` reste inchangée.
+- Aucun travail FND-01F, push, merge ou rebase n'a été effectué.
+
+Le commit attendu est `feat(foundation): implement fnd-01e unit progression`; son hash sera renseigné après création.
+
+### Verdict FND-01E
+
+**VALIDABLE** sous réserve du contrôle final du périmètre et de la création du commit FND-01E dédié.

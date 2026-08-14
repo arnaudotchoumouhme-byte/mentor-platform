@@ -10,6 +10,7 @@ import type {
   LearningObjective,
   MasteryLevel,
   MasteryEstimate,
+  PedagogicalDecision,
   PrerequisiteRule,
   RecommendationDecision,
 } from "@/domain/foundation";
@@ -38,6 +39,7 @@ export interface FoundationLearningRepository {
   findExitAssessment(exitAssessmentId: string): Promise<ExitAssessment | null>;
   saveUnitProgress(progress: FoundationUnitProgress): Promise<void>;
   findUnitProgress(unitProgressId: string): Promise<FoundationUnitProgress | null>;
+  findActiveUnitProgress(learnerId: string, curriculumVersionId: string, unitId: string): Promise<FoundationUnitProgress | null>;
 }
 
 export type FoundationEvidenceReference = Pick<
@@ -63,4 +65,10 @@ export interface FoundationDiagnosticPolicy {
   recommend(
     scope: FoundationPolicyScope & Readonly<{ mastery: MasteryEstimate }>,
   ): Readonly<{ decision: RecommendationDecision; justification: string }>;
+}
+
+export interface FoundationProgressPolicy {
+  readonly ruleVersion: string;
+  decideExit(observations: readonly DiagnosticObservation[]): PedagogicalDecision;
+  isRetestSatisfactory(observation: DiagnosticObservation): boolean;
 }
