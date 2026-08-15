@@ -14,6 +14,7 @@ import { MigrationRegistry } from "./migration-registry";
 
 const executor = (sqlite: DatabaseSync): SqliteExecutor => ({ all: <T>(sql: string, ...params: SQLInputValue[]) => sqlite.prepare(sql).all(...params) as T[], run: (sql: string, ...params: SQLInputValue[]) => sqlite.prepare(sql).run(...params) });
 const v6 = new MigrationRegistry([coreBaselineMigration, importJournalMigration, sourceModelMigration, ragIndexMigration, clinicalCoachMigration, mcqCoreMigration]);
+const v7 = new MigrationRegistry([...v6.migrations, foundationAcademyCoreMigration]);
 
 const insertCurriculumSkeleton = (sqlite: DatabaseSync): void => {
   sqlite.exec(`
@@ -27,7 +28,7 @@ const insertCurriculumSkeleton = (sqlite: DatabaseSync): void => {
 describe("MIG-0007 Foundation Academy Core", () => {
   it("bootstraps a fresh synthetic database through version 7", () => {
     const sqlite = new DatabaseSync(":memory:");
-    const result = new FreshDatabaseBootstrap(executor(sqlite)).run();
+    const result = new FreshDatabaseBootstrap(executor(sqlite), v7).run();
     expect(result.currentVersion).toBe(7);
     const tables = sqlite.prepare("SELECT name FROM sqlite_schema WHERE type='table'").all().map(({ name }) => String(name));
     for (const table of FOUNDATION_CORE_TABLE_NAMES) expect(tables).toContain(table);
@@ -47,7 +48,7 @@ describe("MIG-0007 Foundation Academy Core", () => {
     `);
     const legacy = sqlite.prepare("SELECT * FROM subjects").all();
     const mcq = sqlite.prepare("SELECT * FROM mcq_question_versions").all();
-    const result = new FreshDatabaseBootstrap(db).run();
+    const result = new FreshDatabaseBootstrap(db, v7).run();
     expect(result.currentVersion).toBe(7);
     expect(sqlite.prepare("SELECT * FROM subjects").all()).toEqual(legacy);
     expect(sqlite.prepare("SELECT * FROM mcq_question_versions").all()).toEqual(mcq);
