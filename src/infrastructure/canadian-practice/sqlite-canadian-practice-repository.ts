@@ -1,4 +1,4 @@
-import type { CanadianPracticeRepository } from "@/application/canadian-practice/canadian-practice-ports";
+import type { CanadianPracticeRepository, CanadianPracticeSourceDisplay } from "@/application/canadian-practice/canadian-practice-ports";
 import { CanadianPracticeError, definePracticeRule, definePracticeRuleVersion, type Jurisdiction, type PracticeRule, type PracticeRuleVersion } from "@/domain/canadian-practice";
 import type { SqliteExecutor } from "@/infrastructure/database/sqlite/sqlite-executor";
 
@@ -42,5 +42,9 @@ export class SqliteCanadianPracticeRepository implements CanadianPracticeReposit
     if ((input.jurisdiction === "FEDERAL" && input.province !== null) || (input.jurisdiction === "PROVINCIAL" && input.province !== "ON")) throw new CanadianPracticeError("CANADIAN_PRACTICE_JURISDICTION_UNSUPPORTED", "Jurisdiction and province are not configured.");
     const row = this.database.all<VersionRow>(`SELECT ${VERSION_COLUMNS} FROM canadian_practice_rule_versions WHERE practice_rule_id=? AND jurisdiction=? AND province IS ? AND status='ACTIVE' AND effective_from<=? AND (effective_to IS NULL OR effective_to>?) ORDER BY rule_version DESC LIMIT 1`, input.practiceRuleId, input.jurisdiction, input.province, input.at, input.at)[0];
     return row ? mapVersion(row) : null;
+  }
+
+  async findSourceDisplay(sourceVersionId: string): Promise<CanadianPracticeSourceDisplay | null> {
+    return this.database.all<CanadianPracticeSourceDisplay>("SELECT s.source_id AS sourceId,v.source_version_id AS sourceVersionId,v.version AS sourceVersion,s.display_name AS displayName,s.provenance_type AS provenanceType FROM source_versions v JOIN sources s ON s.source_id=v.source_id WHERE v.source_version_id=?", sourceVersionId)[0] ?? null;
   }
 }
