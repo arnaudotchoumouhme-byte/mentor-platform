@@ -12,6 +12,7 @@ import { assertFoundationCoreSchema, FOUNDATION_CORE_TABLE_NAMES } from "./defin
 import { assertCanadianPracticeCoreSchema, CANADIAN_PRACTICE_TABLE_NAMES } from "./definitions/mig-0008-canadian-practice-core";
 import { assertQuebecPracticeSchema } from "./definitions/mig-0009-quebec-practice-extension";
 import { assertCalculationsLabSchema, CALCULATIONS_LAB_TABLE_NAMES } from "./definitions/mig-0010-calculations-lab-core";
+import { assertOsceSchema, OSCE_TABLE_NAMES } from "./definitions/mig-0011-osce-text-core";
 import { detectDatabaseFreshness } from "./fresh-database-detector";
 import { MigrationError } from "./migration-errors";
 import { validateMigrationHistory } from "./migration-history-validation";
@@ -65,7 +66,9 @@ export class FreshDatabaseBootstrap {
     );
     if (result.currentVersion === 1) assertCoreBaselineSchema(this.database);
     if (result.currentVersion >= 2) {
-      assertCoreBaselineSchema(this.database, result.currentVersion >= 10
+      assertCoreBaselineSchema(this.database, result.currentVersion >= 11
+        ? ["coach_learner_signals", "coaching_sessions", "document_chunks", "document_chunks_fts", "document_chunks_fts_config", "document_chunks_fts_content", "document_chunks_fts_data", "document_chunks_fts_docsize", "document_chunks_fts_idx", "document_import_journal", ...OSCE_TABLE_NAMES, ...CALCULATIONS_LAB_TABLE_NAMES, ...CANADIAN_PRACTICE_TABLE_NAMES, ...FOUNDATION_CORE_TABLE_NAMES, ...MCQ_CORE_TABLE_NAMES, "source_versions", "sources"].sort()
+        : result.currentVersion >= 10
         ? ["coach_learner_signals", "coaching_sessions", "document_chunks", "document_chunks_fts", "document_chunks_fts_config", "document_chunks_fts_content", "document_chunks_fts_data", "document_chunks_fts_docsize", "document_chunks_fts_idx", "document_import_journal", ...CALCULATIONS_LAB_TABLE_NAMES, ...CANADIAN_PRACTICE_TABLE_NAMES, ...FOUNDATION_CORE_TABLE_NAMES, ...MCQ_CORE_TABLE_NAMES, "source_versions", "sources"].sort()
         : result.currentVersion >= 8
         ? ["coach_learner_signals", "coaching_sessions", "document_chunks", "document_chunks_fts", "document_chunks_fts_config", "document_chunks_fts_content", "document_chunks_fts_data", "document_chunks_fts_docsize", "document_chunks_fts_idx", "document_import_journal", ...CANADIAN_PRACTICE_TABLE_NAMES, ...FOUNDATION_CORE_TABLE_NAMES, ...MCQ_CORE_TABLE_NAMES, "source_versions", "sources"].sort()
@@ -90,6 +93,7 @@ export class FreshDatabaseBootstrap {
     if (result.currentVersion >= 8) assertCanadianPracticeCoreSchema(this.database);
     if (result.currentVersion >= 9) assertQuebecPracticeSchema(this.database);
     if (result.currentVersion >= 10) assertCalculationsLabSchema(this.database);
+    if (result.currentVersion >= 11) assertOsceSchema(this.database);
     validateMigrationHistory(this.history.list(), this.registry);
 
     if (result.currentVersion !== this.registry.currentVersion) {

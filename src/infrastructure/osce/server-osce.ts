@@ -1,0 +1,12 @@
+import "server-only";
+import {randomUUID} from "node:crypto";
+import {OsceService} from "@/application/osce/osce-use-cases";
+import type {OsceAssessmentPolicy,OsceLogger} from "@/application/osce/osce-ports";
+import {sqliteExecutor} from "@/infrastructure/database/sqlite/server-sqlite-executor";
+import {structuredLogger} from "@/infrastructure/observability/structured-logger";
+import {SqliteOsceRepository} from "./sqlite-osce-repository";
+const repository=new SqliteOsceRepository(sqliteExecutor);
+const policy:OsceAssessmentPolicy={ruleVersion:"OSCE_INTERNAL_V1",assess:(station,interactions)=>station.rubric.criteria.map(criterion=>({criterionId:criterion.id,passed:interactions.length>=criterion.order,justification:interactions.length>=criterion.order?"Criterion evidenced.":"Criterion not evidenced.",evidence:`interaction-count:${interactions.length}`,critical:criterion.critical&&interactions.length<criterion.order}))};
+const logger:OsceLogger={event:e=>structuredLogger.log({level:"info",module:"osce",operation:e.name,status:"success",message:e.name,traceId:e.traceId,context:e.context})};
+export const osceApi=new OsceService({repository,ids:{next:()=>randomUUID()},clock:{now:()=>new Date().toISOString()},logger,policy,remediation:{record:async()=>undefined}});
+export type OsceApi=typeof osceApi;
