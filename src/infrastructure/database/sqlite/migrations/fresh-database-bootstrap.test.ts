@@ -9,6 +9,7 @@ import {
 import { MCQ_CORE_TABLE_NAMES } from "./definitions/mig-0006-mcq-core";
 import { FOUNDATION_CORE_TABLE_NAMES } from "./definitions/mig-0007-foundation-academy-core";
 import { CANADIAN_PRACTICE_TABLE_NAMES } from "./definitions/mig-0008-canadian-practice-core";
+import { CALCULATIONS_LAB_TABLE_NAMES } from "./definitions/mig-0010-calculations-lab-core";
 import { FreshDatabaseBootstrap } from "./fresh-database-bootstrap";
 import { migrationChecksum } from "./migration-checksum";
 import type { MigrationDefinition } from "./migration-definition";
@@ -51,16 +52,16 @@ describe("fresh database bootstrap with isolated SQLite", () => {
     const snapshot = new SqliteSchemaInspector(executor).inspect();
     const history = new SqliteMigrationHistoryStore(executor).list();
 
-    expect(first).toEqual({ currentVersion: 9, appliedMigrationIds: ["MIG-0001", "MIG-0002", "MIG-0003", "MIG-0004", "MIG-0005", "MIG-0006", "MIG-0007", "MIG-0008", "MIG-0009"] });
+    expect(first).toEqual({ currentVersion: 10, appliedMigrationIds: ["MIG-0001", "MIG-0002", "MIG-0003", "MIG-0004", "MIG-0005", "MIG-0006", "MIG-0007", "MIG-0008", "MIG-0009", "MIG-0010"] });
     expect(
       snapshot.tables
         .filter(({ kind }) => kind === "APPLICATION_TABLE")
         .map(({ name }) => name),
-    ).toEqual([...CORE_BASELINE_TABLE_NAMES, "coach_learner_signals", "coaching_sessions", "document_chunks", "document_chunks_fts", "document_chunks_fts_config", "document_chunks_fts_content", "document_chunks_fts_data", "document_chunks_fts_docsize", "document_chunks_fts_idx", "document_import_journal", ...CANADIAN_PRACTICE_TABLE_NAMES, ...FOUNDATION_CORE_TABLE_NAMES, ...MCQ_CORE_TABLE_NAMES, "source_versions", "sources"].sort());
+    ).toEqual([...CORE_BASELINE_TABLE_NAMES, "coach_learner_signals", "coaching_sessions", "document_chunks", "document_chunks_fts", "document_chunks_fts_config", "document_chunks_fts_content", "document_chunks_fts_data", "document_chunks_fts_docsize", "document_chunks_fts_idx", "document_import_journal", ...CALCULATIONS_LAB_TABLE_NAMES, ...CANADIAN_PRACTICE_TABLE_NAMES, ...FOUNDATION_CORE_TABLE_NAMES, ...MCQ_CORE_TABLE_NAMES, "source_versions", "sources"].sort());
     expect(snapshot.tables.some(({ name }) => name === "document_import_journal")).toBe(true);
     expect(snapshot.views).toEqual([]);
     expect(snapshot.triggers).toEqual([]);
-    expect(history).toHaveLength(9);
+    expect(history).toHaveLength(10);
     expect(history[0]).toMatchObject({
       migrationId: "MIG-0001",
       fromVersion: 0,
@@ -76,9 +77,9 @@ describe("fresh database bootstrap with isolated SQLite", () => {
     bootstrap.run();
     const before = new SqliteSchemaInspector(executor).inspect();
 
-    expect(bootstrap.run()).toEqual({ currentVersion: 9, appliedMigrationIds: [] });
+    expect(bootstrap.run()).toEqual({ currentVersion: 10, appliedMigrationIds: [] });
     expect(new SqliteSchemaInspector(executor).inspect()).toEqual(before);
-    expect(new SqliteMigrationHistoryStore(executor).list()).toHaveLength(9);
+    expect(new SqliteMigrationHistoryStore(executor).list()).toHaveLength(10);
   });
 
   it.each([
@@ -173,7 +174,7 @@ describe("fresh database bootstrap with isolated SQLite", () => {
       expect(error).toBeInstanceOf(MigrationError);
       expect((error as MigrationError).code).toBe("MIGRATION_CHECKSUM_MISMATCH");
     }
-    expect(new SqliteMigrationHistoryStore(executor).list()).toHaveLength(9);
+    expect(new SqliteMigrationHistoryStore(executor).list()).toHaveLength(10);
   });
 
   it("fails closed when stored history is ahead of the registry", () => {
@@ -182,7 +183,7 @@ describe("fresh database bootstrap with isolated SQLite", () => {
       migration_id,from_version,to_version,description,checksum,applied_at,
       duration_ms,application_kind,application_version
     ) VALUES (?,?,?,?,?,?,?,?,?)`).run(
-      "MIG-0010", 9, 10, "Future", "b".repeat(64),
+      "MIG-0011", 10, 11, "Future", "b".repeat(64),
       "2026-08-09T12:00:00.000Z", 1, "executed", null,
     );
 

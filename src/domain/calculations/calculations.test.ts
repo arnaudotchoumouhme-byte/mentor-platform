@@ -1,0 +1,14 @@
+import { describe, expect, it } from "vitest";
+import { convert, defineCalculationExerciseVersion, evaluateCalculation, type CalculationExerciseVersion } from "./calculations";
+
+const ids = { version: "10000000-0000-4000-8000-000000000001", exercise: "10000000-0000-4000-8000-000000000002", objective: "10000000-0000-4000-8000-000000000003" };
+const exercise = (overrides: Partial<CalculationExerciseVersion> = {}) => defineCalculationExerciseVersion({ id: ids.version, exerciseId: ids.exercise, learningObjectiveId: ids.objective, version: 1, difficulty: "FOUNDATIONAL", inputs: [{ value: 1, unit: "g" }], steps: [{ position: 1, label: "Synthetic conversion", expected: { value: 1000, unit: "mg" } }], expectedResult: { value: 1000, unit: "mg" }, dimension: "MASS", tolerance: 0.01, plausibility: { min: 900, max: 1100 }, status: "ACTIVE", createdAt: "2026-08-15T00:00:00.000Z", ...overrides });
+describe("Calculations Lab domain", () => {
+  it("defines a graded versioned exercise with explicit steps and units", () => expect(exercise()).toMatchObject({ version: 1, difficulty: "FOUNDATIONAL", dimension: "MASS" }));
+  it("rejects invalid versions and unknown units", () => { expect(() => exercise({ version: 0 })).toThrow(); expect(() => convert({ value: 1, unit: "kg" as never }, "g")).toThrowError(expect.objectContaining({ code: "CALCULATION_UNIT_UNSUPPORTED" })); });
+  it("supports explicit compatible conversion and rejects incompatible dimensions", () => { expect(convert({ value: 1, unit: "g" }, "mg")).toEqual({ value: 1000, unit: "mg" }); expect(() => convert({ value: 1, unit: "g" }, "mL")).toThrow(); });
+  it("validates steps, numeric result, dimension and plausibility independently", () => { expect(evaluateCalculation(exercise(), { steps: [{ value: 1000, unit: "mg" }], result: { value: 1, unit: "g" } })).toMatchObject({ correct: true, dimensionValid: true, plausible: true, mastered: true }); });
+  it("classifies calculation errors under ERR-CALC", () => expect(evaluateCalculation(exercise(), { steps: [{ value: 5, unit: "mg" }], result: { value: 5, unit: "mg" } }).observations[0]).toMatchObject({ parentCategory: "ERR-CALC", category: "ARITHMETIC" }));
+  it("prioritizes critical dimension and plausibility errors", () => { const dimension = evaluateCalculation(exercise(), { steps: [{ value: 1, unit: "L" }], result: { value: 1, unit: "L" } }); expect(dimension).toMatchObject({ dimensionValid: false, mastered: false, remediation: { priority: "CRITICAL" } }); const implausible = evaluateCalculation(exercise(), { steps: [{ value: 1000, unit: "mg" }], result: { value: 2000, unit: "mg" } }); expect(implausible).toMatchObject({ plausible: false, mastered: false }); });
+  it("rejects non-finite quantities", () => expect(() => convert({ value: Number.NaN, unit: "mg" }, "g")).toThrow());
+});

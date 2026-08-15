@@ -1,0 +1,23 @@
+import { DatabaseSync, type SQLInputValue } from "node:sqlite";
+import { describe, expect, it } from "vitest";
+import type { SqliteExecutor } from "../sqlite-executor";
+import { coreBaselineMigration } from "./definitions/mig-0001-core-baseline";
+import { importJournalMigration } from "./definitions/mig-0002-document-import-journal";
+import { sourceModelMigration } from "./definitions/mig-0003-source-model";
+import { ragIndexMigration } from "./definitions/mig-0004-rag-index";
+import { clinicalCoachMigration } from "./definitions/mig-0005-clinical-coach";
+import { mcqCoreMigration } from "./definitions/mig-0006-mcq-core";
+import { foundationAcademyCoreMigration } from "./definitions/mig-0007-foundation-academy-core";
+import { canadianPracticeCoreMigration } from "./definitions/mig-0008-canadian-practice-core";
+import { quebecPracticeExtensionMigration } from "./definitions/mig-0009-quebec-practice-extension";
+import { CALCULATIONS_LAB_TABLE_NAMES, calculationsLabCoreMigration } from "./definitions/mig-0010-calculations-lab-core";
+import { FreshDatabaseBootstrap } from "./fresh-database-bootstrap";
+import { migrationChecksum } from "./migration-checksum";
+import { MigrationRegistry } from "./migration-registry";
+const db=(sqlite:DatabaseSync):SqliteExecutor=>({all:<T>(sql:string,...params:SQLInputValue[])=>sqlite.prepare(sql).all(...params) as T[],run:(sql:string,...params:SQLInputValue[])=>sqlite.prepare(sql).run(...params)});
+const v9=new MigrationRegistry([coreBaselineMigration,importJournalMigration,sourceModelMigration,ragIndexMigration,clinicalCoachMigration,mcqCoreMigration,foundationAcademyCoreMigration,canadianPracticeCoreMigration,quebecPracticeExtensionMigration]);
+describe("MIG-0010 Calculations Lab Core",()=>{
+  it("bootstraps a fresh synthetic database through v10",()=>{const sqlite=new DatabaseSync(":memory:");const result=new FreshDatabaseBootstrap(db(sqlite)).run();expect(result.currentVersion).toBe(10);expect(sqlite.prepare("SELECT migration_id FROM schema_migrations ORDER BY to_version").all()).toHaveLength(10);expect(sqlite.prepare("SELECT checksum FROM schema_migrations WHERE migration_id='MIG-0010'").get()).toEqual({checksum:migrationChecksum(calculationsLabCoreMigration)});sqlite.close();});
+  it("migrates synthetic v9 to v10 and preserves legacy, MCQ and Foundation",()=>{const sqlite=new DatabaseSync(":memory:");const executor=db(sqlite);new FreshDatabaseBootstrap(executor,v9).run();sqlite.exec("INSERT INTO subjects(name) VALUES('legacy'); INSERT INTO curriculum_versions VALUES('cv','program',1,'DRAFT','2027',NULL,'2026',NULL); INSERT INTO mcq_question_items(item_id,latest_version) VALUES('item',1);");const result=new FreshDatabaseBootstrap(executor).run();expect(result).toMatchObject({currentVersion:10,appliedMigrationIds:["MIG-0010"]});expect(sqlite.prepare("SELECT name FROM subjects").get()).toEqual({name:"legacy"});expect(sqlite.prepare("SELECT item_id FROM mcq_question_items").get()).toEqual({item_id:"item"});expect(sqlite.prepare("PRAGMA integrity_check").get()).toEqual({integrity_check:"ok"});sqlite.close();});
+  it("creates constrained history tables with foreign keys",()=>{const sqlite=new DatabaseSync(":memory:");new FreshDatabaseBootstrap(db(sqlite)).run();const names=sqlite.prepare("SELECT name FROM sqlite_schema WHERE type='table'").all().map(({name})=>name);for(const name of CALCULATIONS_LAB_TABLE_NAMES) expect(names).toContain(name);expect(sqlite.prepare("PRAGMA foreign_key_check").all()).toEqual([]);sqlite.close();});
+});

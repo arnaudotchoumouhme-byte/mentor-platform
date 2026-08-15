@@ -11,6 +11,7 @@ import { mcqCoreMigration } from "./mig-0006-mcq-core";
 import { foundationAcademyCoreMigration } from "./mig-0007-foundation-academy-core";
 import { canadianPracticeCoreMigration } from "./mig-0008-canadian-practice-core";
 import { quebecPracticeExtensionMigration } from "./mig-0009-quebec-practice-extension";
+import { calculationsLabCoreMigration } from "./mig-0010-calculations-lab-core";
 
 export const CORE_BASELINE_TABLE_NAMES = [
   "attempts",
@@ -248,4 +249,5 @@ export const coreMigrationRegistry = new MigrationRegistry([
   foundationAcademyCoreMigration,
   canadianPracticeCoreMigration,
   quebecPracticeExtensionMigration,
+  calculationsLabCoreMigration,
 ]);
