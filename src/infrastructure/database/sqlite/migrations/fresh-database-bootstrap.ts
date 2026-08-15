@@ -9,6 +9,7 @@ import { assertRagIndexSchema } from "./definitions/mig-0004-rag-index";
 import { assertClinicalCoachSchema } from "./definitions/mig-0005-clinical-coach";
 import { assertMcqCoreSchema, MCQ_CORE_TABLE_NAMES } from "./definitions/mig-0006-mcq-core";
 import { assertFoundationCoreSchema, FOUNDATION_CORE_TABLE_NAMES } from "./definitions/mig-0007-foundation-academy-core";
+import { assertCanadianPracticeCoreSchema, CANADIAN_PRACTICE_TABLE_NAMES } from "./definitions/mig-0008-canadian-practice-core";
 import { detectDatabaseFreshness } from "./fresh-database-detector";
 import { MigrationError } from "./migration-errors";
 import { validateMigrationHistory } from "./migration-history-validation";
@@ -62,7 +63,9 @@ export class FreshDatabaseBootstrap {
     );
     if (result.currentVersion === 1) assertCoreBaselineSchema(this.database);
     if (result.currentVersion >= 2) {
-      assertCoreBaselineSchema(this.database, result.currentVersion >= 7
+      assertCoreBaselineSchema(this.database, result.currentVersion >= 8
+        ? ["coach_learner_signals", "coaching_sessions", "document_chunks", "document_chunks_fts", "document_chunks_fts_config", "document_chunks_fts_content", "document_chunks_fts_data", "document_chunks_fts_docsize", "document_chunks_fts_idx", "document_import_journal", ...CANADIAN_PRACTICE_TABLE_NAMES, ...FOUNDATION_CORE_TABLE_NAMES, ...MCQ_CORE_TABLE_NAMES, "source_versions", "sources"].sort()
+        : result.currentVersion >= 7
         ? ["coach_learner_signals", "coaching_sessions", "document_chunks", "document_chunks_fts", "document_chunks_fts_config", "document_chunks_fts_content", "document_chunks_fts_data", "document_chunks_fts_docsize", "document_chunks_fts_idx", "document_import_journal", ...FOUNDATION_CORE_TABLE_NAMES, ...MCQ_CORE_TABLE_NAMES, "source_versions", "sources"].sort()
         : result.currentVersion >= 6
         ? ["coach_learner_signals", "coaching_sessions", "document_chunks", "document_chunks_fts", "document_chunks_fts_config", "document_chunks_fts_content", "document_chunks_fts_data", "document_chunks_fts_docsize", "document_chunks_fts_idx", "document_import_journal", ...MCQ_CORE_TABLE_NAMES, "source_versions", "sources"].sort()
@@ -80,6 +83,7 @@ export class FreshDatabaseBootstrap {
     if (result.currentVersion >= 5) assertClinicalCoachSchema(this.database);
     if (result.currentVersion >= 6) assertMcqCoreSchema(this.database);
     if (result.currentVersion >= 7) assertFoundationCoreSchema(this.database);
+    if (result.currentVersion >= 8) assertCanadianPracticeCoreSchema(this.database);
     validateMigrationHistory(this.history.list(), this.registry);
 
     if (result.currentVersion !== this.registry.currentVersion) {
