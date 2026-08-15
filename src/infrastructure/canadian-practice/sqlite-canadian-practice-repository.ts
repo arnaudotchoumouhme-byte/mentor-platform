@@ -1,9 +1,9 @@
 import type { CanadianPracticeRepository, CanadianPracticeSourceDisplay } from "@/application/canadian-practice/canadian-practice-ports";
-import { CanadianPracticeError, definePracticeRule, definePracticeRuleVersion, type Jurisdiction, type PracticeRule, type PracticeRuleVersion } from "@/domain/canadian-practice";
+import { CanadianPracticeError, definePracticeRule, definePracticeRuleVersion, type CanadianProvince, type Jurisdiction, type PracticeRule, type PracticeRuleVersion } from "@/domain/canadian-practice";
 import type { SqliteExecutor } from "@/infrastructure/database/sqlite/sqlite-executor";
 
 type RuleRow = Readonly<{ practice_rule_id: string; code: string; learning_objective_id: string }>;
-type VersionRow = Readonly<{ practice_rule_version_id: string; practice_rule_id: string; rule_version: number; jurisdiction: Jurisdiction; province: "ON" | null; source_version_id: string; verified_at: string; effective_from: string; effective_to: string | null; status: PracticeRuleVersion["status"]; pedagogical_summary: string; independence_disclaimer: string; created_at: string }>;
+type VersionRow = Readonly<{ practice_rule_version_id: string; practice_rule_id: string; rule_version: number; jurisdiction: Jurisdiction; province: CanadianProvince | null; source_version_id: string; verified_at: string; effective_from: string; effective_to: string | null; status: PracticeRuleVersion["status"]; pedagogical_summary: string; independence_disclaimer: string; created_at: string }>;
 
 const mapRule = (row: RuleRow): PracticeRule => definePracticeRule({ practiceRuleId: row.practice_rule_id, code: row.code, learningObjectiveId: row.learning_objective_id });
 const mapVersion = (row: VersionRow): PracticeRuleVersion => definePracticeRuleVersion({ id: row.practice_rule_version_id, practiceRuleId: row.practice_rule_id, ruleVersion: row.rule_version, jurisdiction: row.jurisdiction, province: row.province, sourceVersionId: row.source_version_id, verifiedAt: row.verified_at, effectiveFrom: row.effective_from, effectiveTo: row.effective_to, status: row.status, pedagogicalSummary: row.pedagogical_summary, independenceDisclaimer: row.independence_disclaimer, createdAt: row.created_at });
@@ -38,8 +38,8 @@ export class SqliteCanadianPracticeRepository implements CanadianPracticeReposit
     return Object.freeze(this.database.all<VersionRow>(`SELECT ${VERSION_COLUMNS} FROM canadian_practice_rule_versions WHERE practice_rule_id=? ORDER BY rule_version`, practiceRuleId).map(mapVersion));
   }
 
-  async resolveActive(input: Readonly<{ practiceRuleId: string; jurisdiction: Jurisdiction; province: "ON" | null; at: string }>): Promise<PracticeRuleVersion | null> {
-    if ((input.jurisdiction === "FEDERAL" && input.province !== null) || (input.jurisdiction === "PROVINCIAL" && input.province !== "ON")) throw new CanadianPracticeError("CANADIAN_PRACTICE_JURISDICTION_UNSUPPORTED", "Jurisdiction and province are not configured.");
+  async resolveActive(input: Readonly<{ practiceRuleId: string; jurisdiction: Jurisdiction; province: CanadianProvince | null; at: string }>): Promise<PracticeRuleVersion | null> {
+    if ((input.jurisdiction === "FEDERAL" && input.province !== null) || (input.jurisdiction === "PROVINCIAL" && input.province !== "ON" && input.province !== "QC")) throw new CanadianPracticeError("CANADIAN_PRACTICE_JURISDICTION_UNSUPPORTED", "Jurisdiction and province are not configured.");
     const row = this.database.all<VersionRow>(`SELECT ${VERSION_COLUMNS} FROM canadian_practice_rule_versions WHERE practice_rule_id=? AND jurisdiction=? AND province IS ? AND status='ACTIVE' AND effective_from<=? AND (effective_to IS NULL OR effective_to>?) ORDER BY rule_version DESC LIMIT 1`, input.practiceRuleId, input.jurisdiction, input.province, input.at, input.at)[0];
     return row ? mapVersion(row) : null;
   }

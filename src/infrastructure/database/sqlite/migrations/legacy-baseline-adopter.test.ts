@@ -128,7 +128,7 @@ describe("LegacyBaselineAdopter with synthetic in-memory legacy data", () => {
       migration_id,from_version,to_version,description,checksum,applied_at,
       duration_ms,application_kind,application_version
     ) VALUES (?,?,?,?,?,?,?,?,?)`).run(
-      "MIG-0009", 8, 9, "Future", "b".repeat(64),
+      "MIG-0010", 9, 10, "Future", "b".repeat(64),
       "2026-08-09T12:00:00.000Z", 1, "executed", null,
     );
     try {

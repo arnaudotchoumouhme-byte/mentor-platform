@@ -13,7 +13,7 @@ const query = z.discriminatedUnion("resource", [
   z.object({ resource: z.literal("rule"), practiceRuleId: uuid }),
   z.object({ resource: z.literal("version"), practiceRuleId: uuid, ruleVersion: z.coerce.number().int().positive() }),
   z.object({ resource: z.literal("history"), practiceRuleId: uuid }),
-  z.object({ resource: z.literal("active"), practiceRuleId: uuid, jurisdiction: z.enum(["FEDERAL", "PROVINCIAL"]), province: z.preprocess((value) => value === undefined || value === "" ? null : value, z.enum(["ON"]).nullable()), at: z.string().datetime() }),
+  z.object({ resource: z.literal("active"), practiceRuleId: uuid, jurisdiction: z.enum(["FEDERAL", "PROVINCIAL"]), province: z.preprocess((value) => value === undefined || value === "" ? null : value, z.enum(["ON", "QC"]).nullable()), at: z.string().datetime() }),
 ]);
 const invalid = (traceId: string) => NextResponse.json({ success: false, error: { code: "CANADIAN_PRACTICE_RULE_INVALID", message: "Requête de pratique canadienne invalide." } }, { status: 400, headers: { "x-trace-id": traceId, "cache-control": "no-store" } });
 
@@ -21,7 +21,7 @@ export function createCanadianPracticeGet(load: () => Promise<CanadianPracticeQu
   return async (request: Request) => {
     const traceId = resolveTraceId(request.headers.get("x-trace-id"));
     const parsed = query.safeParse(Object.fromEntries(new URL(request.url).searchParams));
-    if (!parsed.success || (parsed.data.resource === "active" && ((parsed.data.jurisdiction === "FEDERAL" && parsed.data.province !== null) || (parsed.data.jurisdiction === "PROVINCIAL" && parsed.data.province !== "ON")))) return invalid(traceId);
+    if (!parsed.success || (parsed.data.resource === "active" && ((parsed.data.jurisdiction === "FEDERAL" && parsed.data.province !== null) || (parsed.data.jurisdiction === "PROVINCIAL" && parsed.data.province !== "ON" && parsed.data.province !== "QC")))) return invalid(traceId);
     try {
       const service = await load(); const input = parsed.data;
       const data = input.resource === "rule" ? await service.readRule(input.practiceRuleId)

@@ -1,5 +1,5 @@
 import { performance } from "node:perf_hooks";
-import { CanadianPracticeError, type Jurisdiction, type PracticeRuleVersion } from "@/domain/canadian-practice";
+import { CanadianPracticeError, type CanadianProvince, type Jurisdiction, type PracticeRuleVersion } from "@/domain/canadian-practice";
 import type { CanadianPracticeLogger, CanadianPracticeRepository, CanadianPracticeSourceDisplay } from "./canadian-practice-ports";
 
 export type PracticeRuleVersionView = Readonly<PracticeRuleVersion & { source: CanadianPracticeSourceDisplay }>;
@@ -24,7 +24,7 @@ export class CanadianPracticeQueries {
     } catch (error) { this.logRejected(traceId, { practiceRuleId }); throw error; }
   }
 
-  async resolveActive(input: Readonly<{ practiceRuleId: string; jurisdiction: Jurisdiction; province: "ON" | null; at: string; traceId: string }>): Promise<PracticeRuleVersionView> {
+  async resolveActive(input: Readonly<{ practiceRuleId: string; jurisdiction: Jurisdiction; province: CanadianProvince | null; at: string; traceId: string }>): Promise<PracticeRuleVersionView> {
     const started = performance.now();
     try {
       const version = await this.repository.resolveActive(input);

@@ -8,6 +8,7 @@ import { assertClinicalCoachSchema } from "../migrations/definitions/mig-0005-cl
 import { assertMcqCoreSchema, MCQ_CORE_TABLE_NAMES } from "../migrations/definitions/mig-0006-mcq-core";
 import { assertFoundationCoreSchema, FOUNDATION_CORE_TABLE_NAMES } from "../migrations/definitions/mig-0007-foundation-academy-core";
 import { assertCanadianPracticeCoreSchema, CANADIAN_PRACTICE_TABLE_NAMES } from "../migrations/definitions/mig-0008-canadian-practice-core";
+import { assertQuebecPracticeSchema } from "../migrations/definitions/mig-0009-quebec-practice-extension";
 import { detectDatabaseFreshness } from "../migrations/fresh-database-detector";
 import { LegacySchemaRecognizer } from "../migrations/legacy-schema-recognizer";
 import { MigrationError } from "../migrations/migration-errors";
@@ -98,6 +99,7 @@ export class DatabaseMigrationPreflight {
           assertMcqCoreSchema(this.database);
           assertFoundationCoreSchema(this.database);
           assertCanadianPracticeCoreSchema(this.database);
+          assertQuebecPracticeSchema(this.database);
           return Object.freeze({
             status: "NO_MIGRATION",
             schemaState: "VERSIONED_CURRENT",

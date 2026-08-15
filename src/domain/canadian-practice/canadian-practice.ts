@@ -1,7 +1,7 @@
 import { AppError } from "@/shared/errors/app-error";
 
 export type Jurisdiction = "FEDERAL" | "PROVINCIAL";
-export type CanadianProvince = "ON";
+export type CanadianProvince = "ON" | "QC";
 export type PracticeRuleStatus = "DRAFT" | "ACTIVE" | "RETIRED";
 
 export type PracticeRule = Readonly<{
@@ -66,7 +66,7 @@ export function definePracticeRule(input: PracticeRule): PracticeRule {
 export function definePracticeRuleVersion(input: PracticeRuleVersion): PracticeRuleVersion {
   if (!Number.isInteger(input.ruleVersion) || input.ruleVersion < 1) throw new CanadianPracticeError("CANADIAN_PRACTICE_RULE_INVALID", "ruleVersion must be positive.");
   if (input.jurisdiction === "FEDERAL" && input.province !== null) throw new CanadianPracticeError("CANADIAN_PRACTICE_JURISDICTION_UNSUPPORTED", "Federal rules cannot specify a province.");
-  if (input.jurisdiction === "PROVINCIAL" && input.province !== "ON") throw new CanadianPracticeError("CANADIAN_PRACTICE_JURISDICTION_UNSUPPORTED", "Only Ontario is configured.");
+  if (input.jurisdiction === "PROVINCIAL" && input.province !== "ON" && input.province !== "QC") throw new CanadianPracticeError("CANADIAN_PRACTICE_JURISDICTION_UNSUPPORTED", "Only Ontario and Quebec are configured.");
   const effectiveFrom = instant(input.effectiveFrom, "effectiveFrom");
   const effectiveTo = input.effectiveTo === null ? null : instant(input.effectiveTo, "effectiveTo");
   if (effectiveTo && Date.parse(effectiveTo) <= Date.parse(effectiveFrom)) throw new CanadianPracticeError("CANADIAN_PRACTICE_RULE_INVALID", "Effective window is invalid.");
