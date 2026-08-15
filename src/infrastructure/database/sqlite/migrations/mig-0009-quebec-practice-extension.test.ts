@@ -16,6 +16,7 @@ import { MigrationRegistry } from "./migration-registry";
 
 const executor = (sqlite: DatabaseSync): SqliteExecutor => ({ all: <T>(sql: string, ...params: SQLInputValue[]) => sqlite.prepare(sql).all(...params) as T[], run: (sql: string, ...params: SQLInputValue[]) => sqlite.prepare(sql).run(...params) });
 const v8 = new MigrationRegistry([coreBaselineMigration, importJournalMigration, sourceModelMigration, ragIndexMigration, clinicalCoachMigration, mcqCoreMigration, foundationAcademyCoreMigration, canadianPracticeCoreMigration]);
+const v9 = new MigrationRegistry([coreBaselineMigration, importJournalMigration, sourceModelMigration, ragIndexMigration, clinicalCoachMigration, mcqCoreMigration, foundationAcademyCoreMigration, canadianPracticeCoreMigration, quebecPracticeExtensionMigration]);
 const seedV8 = (sqlite: DatabaseSync) => sqlite.exec(`
   INSERT INTO subjects(name) VALUES('legacy');
   INSERT INTO documents(name,type) VALUES('TEST_FIXTURE','txt');
@@ -32,20 +33,20 @@ const seedV8 = (sqlite: DatabaseSync) => sqlite.exec(`
 
 describe("MIG-0009 Quebec Practice Extension", () => {
   it("bootstraps a fresh synthetic database through version 9", () => {
-    const sqlite = new DatabaseSync(":memory:"); const result = new FreshDatabaseBootstrap(executor(sqlite)).run();
+    const sqlite = new DatabaseSync(":memory:"); const result = new FreshDatabaseBootstrap(executor(sqlite), v9).run();
     expect(result.currentVersion).toBe(9); expect(sqlite.prepare("SELECT COUNT(*) AS count FROM schema_migrations").get()).toEqual({ count: 9 });
     expect(sqlite.prepare("SELECT checksum FROM schema_migrations WHERE migration_id='MIG-0009'").get()).toEqual({ checksum: migrationChecksum(quebecPracticeExtensionMigration) }); sqlite.close();
   });
   it("migrates v8 to v9 preserving Ontario, legacy, MCQ and Foundation data", () => {
     const sqlite = new DatabaseSync(":memory:"); sqlite.exec("PRAGMA foreign_keys=ON"); const db = executor(sqlite); new FreshDatabaseBootstrap(db, v8).run(); seedV8(sqlite);
-    const before = sqlite.prepare("SELECT * FROM canadian_practice_rule_versions").all(); const result = new FreshDatabaseBootstrap(db).run();
+    const before = sqlite.prepare("SELECT * FROM canadian_practice_rule_versions").all(); const result = new FreshDatabaseBootstrap(db, v9).run();
     expect(result.currentVersion).toBe(9); expect(sqlite.prepare("SELECT * FROM canadian_practice_rule_versions WHERE province='ON'").all()).toEqual(before);
     expect(sqlite.prepare("SELECT name FROM subjects").get()).toEqual({ name: "legacy" }); expect(sqlite.prepare("SELECT item_id FROM mcq_question_items").get()).toEqual({ item_id: "item" }); expect(sqlite.prepare("SELECT learning_objective_id FROM learning_objectives").get()).toEqual({ learning_objective_id: "objective" });
     expect(sqlite.prepare("PRAGMA integrity_check").get()).toEqual({ integrity_check: "ok" });
     expect(sqlite.prepare("SELECT migration_id FROM schema_migrations ORDER BY to_version").all().map(({ migration_id }) => migration_id)).toEqual(["MIG-0001","MIG-0002","MIG-0003","MIG-0004","MIG-0005","MIG-0006","MIG-0007","MIG-0008","MIG-0009"]); sqlite.close();
   });
   it("accepts only coherent Federal, Ontario and Quebec rows with preserved indexes", () => {
-    const sqlite = new DatabaseSync(":memory:"); sqlite.exec("PRAGMA foreign_keys=ON"); const db = executor(sqlite); new FreshDatabaseBootstrap(db, v8).run(); seedV8(sqlite); new FreshDatabaseBootstrap(db).run();
+    const sqlite = new DatabaseSync(":memory:"); sqlite.exec("PRAGMA foreign_keys=ON"); const db = executor(sqlite); new FreshDatabaseBootstrap(db, v8).run(); seedV8(sqlite); new FreshDatabaseBootstrap(db, v9).run();
     sqlite.prepare("INSERT INTO canadian_practice_rules VALUES('qc','TEST_FIXTURE_QC','objective')").run();
     const insert = (id: string, jurisdiction: string, province: string | null) => sqlite.prepare("INSERT INTO canadian_practice_rule_versions VALUES(?,?,1,?,?, 'source-v','2026','2026',NULL,'ACTIVE','TEST_FIXTURE','TEST_FIXTURE not official','2026')").run(id,id === 'qc-v' ? 'qc' : 'rule',jurisdiction,province);
     expect(() => insert('qc-v','PROVINCIAL','QC')).not.toThrow(); expect(() => insert('bad','PROVINCIAL','BC')).toThrow(); expect(() => insert('bad2','FEDERAL','QC')).toThrow();

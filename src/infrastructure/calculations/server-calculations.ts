@@ -1,0 +1,11 @@
+import "server-only";
+import { randomUUID } from "node:crypto";
+import { GetCalculationExercise, PrepareCalculationRetest, SubmitCalculationAttempt } from "@/application/calculations/calculations-use-cases";
+import type { CalculationsLogger } from "@/application/calculations/calculations-ports";
+import { sqliteExecutor } from "@/infrastructure/database/sqlite/server-sqlite-executor";
+import { structuredLogger } from "@/infrastructure/observability/structured-logger";
+import { SqliteCalculationsRepository } from "./sqlite-calculations-repository";
+const repository=new SqliteCalculationsRepository(sqliteExecutor);const ids={next:()=>randomUUID()};const clock={now:()=>new Date().toISOString()};
+const logger:CalculationsLogger={event:(event)=>structuredLogger.log({level:event.status==="failure"?"warn":"info",module:"calculations",operation:event.name,status:event.status,message:event.name,traceId:event.traceId,context:event.context})};
+export const calculationsApi=Object.freeze({exercise:new GetCalculationExercise(repository,logger),submit:new SubmitCalculationAttempt(repository,ids,clock,logger),retest:new PrepareCalculationRetest(repository,ids,clock,logger)});
+export type CalculationsApi=typeof calculationsApi;
