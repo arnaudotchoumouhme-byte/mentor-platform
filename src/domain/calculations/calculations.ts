@@ -15,8 +15,9 @@ export type CalculationExerciseVersion = Readonly<{
 export type CalculationSubmission = Readonly<{ steps: readonly Quantity[]; result: Quantity }>;
 export type CalculationObservation = Readonly<{ step: number | null; parentCategory: "ERR-CALC"; category: CalculationErrorCategory; critical: boolean; message: string }>;
 export type CalculationEvaluation = Readonly<{ correct: boolean; dimensionValid: boolean; plausible: boolean; mastered: boolean; observations: readonly CalculationObservation[]; remediation: Readonly<{ required: boolean; priority: "NORMAL" | "CRITICAL"; destination: "CALCULATIONS_LAB"; focus: readonly string[] }> }>;
-export type CalculationAttempt = Readonly<{ id: string; learnerId: string; exerciseVersionId: string; submittedAt: string; submission: CalculationSubmission; evaluation: CalculationEvaluation }>;
-export type CalculationRetest = Readonly<{ id: string; sourceAttemptId: string; exerciseVersionId: string; createdAt: string; resultAttemptId: string | null; resolved: boolean }>;
+export type PersistedCalculationObservation = Readonly<CalculationObservation & { id: string; attemptId: string }>;
+export type CalculationAttempt = Readonly<{ id: string; learnerId: string; exerciseVersionId: string; submittedAt: string; submission: CalculationSubmission; evaluation: CalculationEvaluation; observations: readonly PersistedCalculationObservation[] }>;
+export type CalculationRetest = Readonly<{ id: string; sourceAttemptId: string; sourceExerciseVersionId: string; retestExerciseVersionId: string; reason: CalculationErrorCategory; createdAt: string; completedAt: string | null; resultAttemptId: string | null; resolved: boolean }>;
 
 export class CalculationError extends AppError {
   constructor(code: "CALCULATION_INVALID" | "CALCULATION_UNIT_UNSUPPORTED" | "CALCULATION_VERSION_NOT_FOUND" | "CALCULATION_RETEST_INVALID", message: string, context: Readonly<Record<string, unknown>> = {}) {

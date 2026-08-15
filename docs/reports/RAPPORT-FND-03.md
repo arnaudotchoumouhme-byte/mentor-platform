@@ -81,6 +81,20 @@ Toutes les commandes susceptibles d'initialiser SQLite ont utilisé `MENTOR_ENAB
 
 Les deux défauts de fixture/narrowing ont reçu des corrections minimales. Le timeout d'intégration a été ajusté sur preuve reproductible liée au passage à dix migrations, sans modifier le mécanisme contrôlé. Le moteur reste volontairement limité à quatre unités et deux dimensions ; son extension devra être versionnée et justifiée. Aucun générateur de variantes ni corpus d'exercices réel n'est inclus.
 
+### Correction de revue avant intégration
+
+La revue finale a détecté deux blocages, corrigés dans un commit séparé :
+
+- chaque `CalculationObservation` persistée reçoit désormais un UUID produit par le port `CalculationsIds`; aucune identité n'est dérivée de l'index ou de `${attemptId}:${index}` ;
+- les UUID d'observation sont relus depuis SQLite et restent stables ;
+- un re-test conserve la tentative et la version source, la version variante cible, la catégorie d'erreur, les dates de création et d'achèvement, la tentative résultat et l'état de résolution ;
+- la même version d'exercice que la tentative source est explicitement refusée ; une version distincte existante est acceptée comme variante ;
+- l'achèvement calcule `resolved` depuis la maîtrise de la tentative résultat, tout en conservant l'observation critique source dans l'historique.
+
+MIG-0010, non intégrée et non appliquée à la base utilisateur, a été ajustée dans le même périmètre pour persister `reason_category` et `completed_at`. Aucune nouvelle migration n'a été créée.
+
+Contrôles de correction : tests ciblés `9/9`, typecheck réussi, lint ciblé réussi sans avertissement, puis campagne globale unique `89/89` fichiers et `431/431` tests. Le build n'a pas été relancé, car ni l'API ni la configuration Next.js n'ont été modifiées par ce correctif.
+
 ## Éléments exclus et actions non effectuées
 
 Exclus : `.tmp-migration-runner/`, `DOCS1/`, `backups/`, `dossier evolution/`, `mentor-platform-restaure/`, `docs/reports/RAPPORT-ETAT-DEVELOPPEMENT.md`, `data/`, contenu clinique réel et tout travail FND-04.
