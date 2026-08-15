@@ -78,12 +78,21 @@ MIG-0008 est additive `v7 → v8`. Elle crée `canadian_practice_rules` et `cana
 
 `data/mentor.db` n'a pas été modifiée ni migrée et MIG-0008 n'y a pas été appliquée. Toutefois, le premier build a provoqué une ouverture en lecture seule par le preflight de démarrage; l'exigence « non ouverte » n'est donc pas satisfaite littéralement. La base a été reconnue version 7 par ce preflight, sans changement.
 
+## Incident de lecture seule de la base utilisateur
+
+- `data/mentor.db` a été ouverte accidentellement en lecture seule pendant le preflight déclenché par le premier build.
+- Aucune écriture, migration ou modification n'a été effectuée.
+- Aucune donnée utilisateur n'a été altérée; l'impact démontré sur les données est nul.
+- Classification : **non-conformité procédurale non bloquante**.
+- Mesure préventive : pour tous les prochains BUILD et tests, définir explicitement un `MENTOR_DATA_DIRECTORY` temporaire avant toute commande susceptible de charger le runtime et empêcher l'ouverture implicite de la base utilisateur hors mission autorisée.
+- Décision humaine : **FND-02 accepté avec réserve de procédure**.
+
 ## État Git et exclusions
 
-Commit phase 1 : `8db8580 feat(canadian-practice): add fnd-02 domain persistence`. Phase 2 destinée à un commit séparé. Index vide avant l'indexation phase 2. Sont volontairement exclus : `.tmp-migration-runner/`, `backups/`, `DOCS1/`, `dossier evolution/`, `mentor-platform-restaure/`, `docs/reports/RAPPORT-ETAT-DEVELOPPEMENT.md`, `data/` et les répertoires temporaires système.
+Commit phase 1 : `8db8580 feat(canadian-practice): add fnd-02 domain persistence`. Commit phase 2 : `5e9eb7d feat(canadian-practice): complete fnd-02 core`. Sont volontairement exclus : `.tmp-migration-runner/`, `backups/`, `DOCS1/`, `dossier evolution/`, `mentor-platform-restaure/`, `docs/reports/RAPPORT-ETAT-DEVELOPPEMENT.md`, `data/` et les répertoires temporaires système.
 
 Aucun push, merge, rebase, activation utilisateur, seed réglementaire réel, ajout de dépendance ou travail FND-03 n'a été effectué.
 
 ## Verdict et prochaine étape
 
-Verdict : **non validable en l'état strict**, uniquement parce que `data/mentor.db` a été ouverte en lecture seule par le premier build malgré le garde-fou; code, migration synthétique et quality gates sont verts. Prochaine étape recommandée : revue humaine de cet incident de lecture seule et décision explicite sur l'acceptation du lot avant intégration.
+Verdict : **validable avec réserve de procédure**. La décision humaine classe la lecture seule accidentelle comme non-conformité procédurale non bloquante; aucune écriture, migration ou altération de donnée utilisateur n'a été démontrée. Le code, la migration synthétique et les quality gates sont verts. Prochaine étape recommandée : effectuer la revue finale ciblée et intégrer FND-02 vers `main`.
