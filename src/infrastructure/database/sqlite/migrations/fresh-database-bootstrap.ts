@@ -10,6 +10,7 @@ import { assertClinicalCoachSchema } from "./definitions/mig-0005-clinical-coach
 import { assertMcqCoreSchema, MCQ_CORE_TABLE_NAMES } from "./definitions/mig-0006-mcq-core";
 import { assertFoundationCoreSchema, FOUNDATION_CORE_TABLE_NAMES } from "./definitions/mig-0007-foundation-academy-core";
 import { assertCanadianPracticeCoreSchema, CANADIAN_PRACTICE_TABLE_NAMES } from "./definitions/mig-0008-canadian-practice-core";
+import { assertQuebecPracticeSchema } from "./definitions/mig-0009-quebec-practice-extension";
 import { detectDatabaseFreshness } from "./fresh-database-detector";
 import { MigrationError } from "./migration-errors";
 import { validateMigrationHistory } from "./migration-history-validation";
@@ -84,6 +85,7 @@ export class FreshDatabaseBootstrap {
     if (result.currentVersion >= 6) assertMcqCoreSchema(this.database);
     if (result.currentVersion >= 7) assertFoundationCoreSchema(this.database);
     if (result.currentVersion >= 8) assertCanadianPracticeCoreSchema(this.database);
+    if (result.currentVersion >= 9) assertQuebecPracticeSchema(this.database);
     validateMigrationHistory(this.history.list(), this.registry);
 
     if (result.currentVersion !== this.registry.currentVersion) {

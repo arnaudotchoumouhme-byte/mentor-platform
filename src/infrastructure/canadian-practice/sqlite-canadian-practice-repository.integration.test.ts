@@ -42,4 +42,18 @@ describe("SqliteCanadianPracticeRepository", () => {
     await expect(repository.insertRuleVersion({ ...makeVersion(ids.version1, 1, "2026-01-01T00:00:00.000Z"), sourceVersionId: "50000000-0000-4000-8000-000000000001" })).rejects.toThrow();
     sqlite.close();
   });
+  it("resolves Ontario and Quebec independently", async () => {
+    const { sqlite, repository } = await setup();
+    const objective = INITIAL_FOUNDATION_CURRICULUM.objectives[4]!.id;
+    const qcRule = "10000000-0000-4000-8000-000000000002";
+    await repository.insertRule({ practiceRuleId: ids.rule, code: "TEST_FIXTURE_ON", learningObjectiveId: objective });
+    await repository.insertRule({ practiceRuleId: qcRule, code: "TEST_FIXTURE_QC", learningObjectiveId: objective });
+    await repository.insertRuleVersion(makeVersion(ids.version1, 1, "2026-01-01T00:00:00.000Z"));
+    await repository.insertRuleVersion({ ...makeVersion(ids.version2, 1, "2026-01-01T00:00:00.000Z"), practiceRuleId: qcRule, province: "QC" });
+    expect((await repository.resolveActive({ practiceRuleId: ids.rule, jurisdiction: "PROVINCIAL", province: "ON", at: "2026-08-14T00:00:00.000Z" }))?.province).toBe("ON");
+    expect((await repository.resolveActive({ practiceRuleId: qcRule, jurisdiction: "PROVINCIAL", province: "QC", at: "2026-08-14T00:00:00.000Z" }))?.province).toBe("QC");
+    expect(await repository.resolveActive({ practiceRuleId: ids.rule, jurisdiction: "PROVINCIAL", province: "QC", at: "2026-08-14T00:00:00.000Z" })).toBeNull();
+    expect(await repository.resolveActive({ practiceRuleId: qcRule, jurisdiction: "PROVINCIAL", province: "ON", at: "2026-08-14T00:00:00.000Z" })).toBeNull();
+    sqlite.close();
+  });
 });

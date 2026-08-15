@@ -9,11 +9,13 @@ describe("Canadian Practice domain", () => {
     expect(Object.isFrozen(definePracticeRule({ practiceRuleId: ids.rule, code: "TEST_FIXTURE", learningObjectiveId: ids.objective }))).toBe(true);
     expect(version().province).toBeNull();
   });
-  it("enforces federal and Ontario jurisdiction invariants", () => {
+  it("enforces federal, Ontario and Quebec jurisdiction invariants", () => {
     expect(() => version({ province: "ON" })).toThrowError(/Federal/);
     expect(() => version({ jurisdiction: "PROVINCIAL", province: null })).toThrowError(/Ontario/);
     expect(version({ jurisdiction: "PROVINCIAL", province: "ON" }).province).toBe("ON");
-    expect(() => version({ jurisdiction: "PROVINCIAL", province: "QC" })).toThrowError(/Ontario/);
+    expect(version({ jurisdiction: "PROVINCIAL", province: "QC" }).province).toBe("QC");
+    expect(() => version({ jurisdiction: "PROVINCIAL", province: "BC" })).toThrowError(/Ontario and Quebec/);
+    expect(() => version({ province: "QC" })).toThrowError(/Federal/);
   });
   it("requires provenance, positive versions, verification and coherent dates", () => {
     expect(() => version({ sourceVersionId: "" })).toThrow();

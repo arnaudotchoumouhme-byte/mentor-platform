@@ -13,6 +13,8 @@ describe("CanadianPracticeQueries", () => {
     expect(federal.source).toEqual(source); expect(federal.verifiedAt).toBe(version.verifiedAt); expect(JSON.stringify(events)).toContain("rule_version_loaded"); expect(JSON.stringify(events)).not.toContain("pedagogicalSummary");
     const provincialRepository = repository({ resolveActive: vi.fn(async () => ({ ...version, jurisdiction: "PROVINCIAL" as const, province: "ON" as const })) });
     expect((await new CanadianPracticeQueries(provincialRepository, { event: vi.fn() }).resolveActive({ practiceRuleId: version.practiceRuleId, jurisdiction: "PROVINCIAL", province: "ON", at: "2026-08-14T00:00:00.000Z", traceId: "trace_fixture_123" })).province).toBe("ON");
+    const quebecRepository = repository({ resolveActive: vi.fn(async (input) => input.province === "QC" ? ({ ...version, jurisdiction: "PROVINCIAL" as const, province: "QC" as const }) : null) });
+    expect((await new CanadianPracticeQueries(quebecRepository, { event: vi.fn() }).resolveActive({ practiceRuleId: version.practiceRuleId, jurisdiction: "PROVINCIAL", province: "QC", at: "2026-08-14T00:00:00.000Z", traceId: "trace_fixture_123" })).province).toBe("QC");
   });
   it("keeps historical reads versioned and fails closed for missing versions/rules", async () => {
     const service = new CanadianPracticeQueries(repository(), { event: vi.fn() });

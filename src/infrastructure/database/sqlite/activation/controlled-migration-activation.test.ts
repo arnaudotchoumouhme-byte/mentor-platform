@@ -20,6 +20,7 @@ import { clinicalCoachMigration } from "../migrations/definitions/mig-0005-clini
 import { mcqCoreMigration } from "../migrations/definitions/mig-0006-mcq-core";
 import { foundationAcademyCoreMigration } from "../migrations/definitions/mig-0007-foundation-academy-core";
 import { canadianPracticeCoreMigration } from "../migrations/definitions/mig-0008-canadian-practice-core";
+import { quebecPracticeExtensionMigration } from "../migrations/definitions/mig-0009-quebec-practice-extension";
 import { FreshDatabaseBootstrap } from "../migrations/fresh-database-bootstrap";
 import { MigrationRegistry } from "../migrations/migration-registry";
 import {
@@ -105,16 +106,16 @@ describe("ControlledMigrationActivation", () => {
     expect(request).toMatchObject({
       databaseState: "FRESH",
       currentVersion: 0,
-      targetVersion: 8,
+      targetVersion: 9,
       backupId: null,
       requiresExplicitAuthorization: true,
     });
     expect(request.actions.map(({ kind, migrationId }) => [kind, migrationId])).toEqual([
-      ["EXECUTE", "MIG-0001"], ["EXECUTE", "MIG-0002"], ["EXECUTE", "MIG-0003"], ["EXECUTE", "MIG-0004"], ["EXECUTE", "MIG-0005"], ["EXECUTE", "MIG-0006"], ["EXECUTE", "MIG-0007"], ["EXECUTE", "MIG-0008"],
+      ["EXECUTE", "MIG-0001"], ["EXECUTE", "MIG-0002"], ["EXECUTE", "MIG-0003"], ["EXECUTE", "MIG-0004"], ["EXECUTE", "MIG-0005"], ["EXECUTE", "MIG-0006"], ["EXECUTE", "MIG-0007"], ["EXECUTE", "MIG-0008"], ["EXECUTE", "MIG-0009"],
     ]);
     expect(await service.execute(databasePath, request, null)).toMatchObject({ status: "BLOCKED", reason: "AUTHORIZATION_MISSING" });
     expect(await service.execute(databasePath, request, authorization(request))).toMatchObject({
-      status: "MIGRATION_ACTIVATED", fromVersion: 0, toVersion: 8, verificationStatus: "VERIFIED",
+      status: "MIGRATION_ACTIVATED", fromVersion: 0, toVersion: 9, verificationStatus: "VERIFIED",
     });
   });
 
@@ -148,6 +149,7 @@ describe("ControlledMigrationActivation", () => {
       { kind: "EXECUTE", migrationId: "MIG-0006" },
       { kind: "EXECUTE", migrationId: "MIG-0007" },
       { kind: "EXECUTE", migrationId: "MIG-0008" },
+      { kind: "EXECUTE", migrationId: "MIG-0009" },
     ]);
     expect(await service.execute(databasePath, outdated, authorization(outdated))).toMatchObject({ status: "MIGRATION_ACTIVATED" });
     const current = await prepare(service);
@@ -175,7 +177,7 @@ describe("ControlledMigrationActivation", () => {
       databasePath = candidate;
       createVersion(4);
       const sqlite = new DatabaseSync(candidate);
-      if (mode === "ahead") sqlite.prepare("INSERT INTO schema_migrations VALUES(?,?,?,?,?,?,?,?,?)").run("MIG-0009",8,9,"Future","0".repeat(64),"2026-01-01",0,"executed",null);
+      if (mode === "ahead") sqlite.prepare("INSERT INTO schema_migrations VALUES(?,?,?,?,?,?,?,?,?)").run("MIG-0010",9,10,"Future","0".repeat(64),"2026-01-01",0,"executed",null);
       if (mode === "checksum") sqlite.prepare("UPDATE schema_migrations SET checksum=? WHERE migration_id='MIG-0001'").run("f".repeat(64));
       if (mode === "schema") sqlite.exec("DROP TABLE document_import_journal; CREATE TABLE document_import_journal(storage_id TEXT PRIMARY KEY)");
       sqlite.close();
@@ -243,8 +245,8 @@ describe("ControlledMigrationActivation", () => {
     createLegacy();
     const original = new ControlledMigrationActivation();
     const request = await prepare(original);
-    const extra = { id: "MIG-0009", fromVersion: 8, toVersion: 9, description: "Synthetic", checksumMaterial: ["v1"], up: () => undefined };
-    const changed = new ControlledMigrationActivation(new MigrationRegistry([coreBaselineMigration, importJournalMigration, sourceModelMigration, ragIndexMigration, clinicalCoachMigration, mcqCoreMigration, foundationAcademyCoreMigration, canadianPracticeCoreMigration, extra]));
+    const extra = { id: "MIG-0010", fromVersion: 9, toVersion: 10, description: "Synthetic", checksumMaterial: ["v1"], up: () => undefined };
+    const changed = new ControlledMigrationActivation(new MigrationRegistry([coreBaselineMigration, importJournalMigration, sourceModelMigration, ragIndexMigration, clinicalCoachMigration, mcqCoreMigration, foundationAcademyCoreMigration, canadianPracticeCoreMigration, quebecPracticeExtensionMigration, extra]));
     expect(await changed.execute(databasePath, request, authorization(request))).toMatchObject({ status: "BLOCKED", reason: "MIGRATION_PLAN_CHANGED" });
   });
 

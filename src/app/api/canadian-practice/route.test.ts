@@ -19,9 +19,14 @@ describe("GET /api/canadian-practice", () => {
     expect((await get(request(`resource=version&practiceRuleId=${ruleId}&ruleVersion=1`))).status).toBe(200);
     expect((await get(request(`resource=history&practiceRuleId=${ruleId}`))).status).toBe(200);
   });
+  it("accepts Quebec while preserving provenance and jurisdiction metadata", async () => {
+    const api = service(); api.resolveActive.mockResolvedValue({ ...view, province: "QC" });
+    const response = await createCanadianPracticeGet(async () => api as unknown as CanadianPracticeQueries)(request(`resource=active&practiceRuleId=${ruleId}&jurisdiction=PROVINCIAL&province=QC&at=2026-08-14T00%3A00%3A00.000Z`));
+    expect(response.status).toBe(200); expect(await response.json()).toMatchObject({ data: { jurisdiction: "PROVINCIAL", province: "QC", ruleVersion: 1, verifiedAt: view.verifiedAt, effectiveFrom: view.effectiveFrom, source: { sourceVersion: 1 }, independenceDisclaimer: view.independenceDisclaimer } });
+  });
   it("fails closed for invalid and unsupported provinces before loading infrastructure", async () => {
     const load = vi.fn(); const get = createCanadianPracticeGet(load);
-    expect((await get(request(`resource=active&practiceRuleId=${ruleId}&jurisdiction=PROVINCIAL&province=QC&at=2026-08-14T00%3A00%3A00.000Z`))).status).toBe(400); expect(load).not.toHaveBeenCalled();
+    expect((await get(request(`resource=active&practiceRuleId=${ruleId}&jurisdiction=PROVINCIAL&province=BC&at=2026-08-14T00%3A00%3A00.000Z`))).status).toBe(400); expect(load).not.toHaveBeenCalled();
   });
   it("maps not-effective and missing-version errors without exposing internals", async () => {
     const api = service(); api.resolveActive.mockRejectedValue(new AppError({ code: "CANADIAN_PRACTICE_RULE_NOT_EFFECTIVE", userMessage: "Règle non effective.", internalMessage: "secret database detail" }));
