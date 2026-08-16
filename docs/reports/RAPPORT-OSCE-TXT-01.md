@@ -75,3 +75,15 @@ Dette maintenue : `TECH-DEBT-MIG-REGISTRY` (registre global colocalisé avec MIG
 Aucun merge, push de branche feature, activation MIG-0011, seed utilisateur ou travail du lot suivant. Verdict : **VALIDABLE**.
 
 Prochaine étape : revue finale ciblée puis intégration contrôlée vers `main`.
+
+## Correction de sécurité après revue finale
+
+La revue finale a détecté deux failles bloquantes : les opérations de session ne vérifiaient pas l'appartenance `learnerId`, et `interact()` acceptait un `disclosureId` sans confirmer son appartenance à la version de station ni sa révélation dans la session courante.
+
+Correction minimale : toutes les opérations sensibles (`state`, `interact`, `reveal`, `complete`, `replay`, ainsi que l'accès indirect assessment/debrief) exigent désormais un `callerLearnerId` UUID. Un contrôle centralisé compare cette identité opaque à `session.learnerId` avant toute lecture ou mutation ; un mismatch échoue avec `OSCE_SESSION_NOT_FOUND` afin de ne pas révéler l'existence de la session. L'API transmet obligatoirement cette identité sans introduire de système d'authentification parallèle.
+
+Lorsqu'une interaction référence une disclosure, celle-ci doit appartenir à la version de station de la session et être présente dans les disclosures révélées de cette session précise. Une disclosure d'autre station, non révélée ou révélée dans une autre session est refusée.
+
+Tests négatifs ajoutés : refus de learner-B sur state/interact/reveal/complete/replay de learner-A, absence de mutation, disclosure d'autre station refusée, disclosure non révélée refusée, disclosure révélée dans une autre session refusée et disclosure correctement révélée acceptée.
+
+Résultats après correction : tests ciblés sécurité `17/17`, typecheck réussi, lint ciblé réussi sans avertissement, tests globaux `94/94` fichiers et `456/456` tests, build Next.js réussi avec `21/21` pages et `/api/osce`. Le build a été relancé car le contrat de route exige désormais l'identité appelante. `data/mentor.db` n'a pas été ouverte et MIG-0011 n'a pas été appliquée.

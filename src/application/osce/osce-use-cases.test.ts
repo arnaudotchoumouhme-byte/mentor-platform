@@ -1,4 +1,76 @@
-import {describe,expect,it,vi} from "vitest";import type {OsceRepository} from "./osce-ports";import {OsceService} from "./osce-use-cases";import {station} from "@/domain/osce/osce.test";import type {OsceAssessment,OsceDebrief,OsceInteraction,OsceRemediationLink,OsceSession} from "@/domain/osce";
-const id=(n:number)=>`10000000-0000-4000-8000-${String(n).padStart(12,"0")}`;
-const setup=()=>{let seq=20;let session:OsceSession|null=null;const interactions:OsceInteraction[]=[];const revealed:{disclosureId:string;revealedAt:string}[]=[];let assessment:OsceAssessment|null=null;let debrief:OsceDebrief|null=null;const links:OsceRemediationLink[]=[];const repo:OsceRepository={saveStationVersion:async()=>{},findStationVersion:async x=>x===id(1)?station():null,saveSession:async x=>{session=x},findSession:async()=>session,appendInteraction:async x=>{interactions.push(x)},listInteractions:async()=>interactions,revealDisclosure:async(_,d,t)=>{revealed.push({disclosureId:d,revealedAt:t})},listRevealedDisclosures:async()=>revealed,saveAssessment:async x=>{assessment=x},findAssessment:async()=>assessment,saveDebrief:async x=>{debrief=x},findDebrief:async()=>debrief,saveRemediationLink:async x=>{links.push(x)},listRemediationLinks:async()=>links,getReplay:async()=>session?{session,stationVersionId:id(1),rubricVersion:"v1",interactions,disclosures:revealed,assessment,debrief,remediationLinks:links}:null};let now="2026-01-01T00:00:00.000Z";const remediation={record:vi.fn()};const service=new OsceService({repository:repo,ids:{next:()=>id(seq++)},clock:{now:()=>now},logger:{event:vi.fn()},policy:{ruleVersion:"v1",assess:(s,x)=>s.rubric.criteria.map(c=>({criterionId:c.id,passed:x.length>0,justification:"fixture",evidence:"fixture",critical:c.critical&&x.length===0}))},remediation});return{service,repo,remediation,setNow:(x:string)=>{now=x}}};
-describe("OSCE application",()=>{it("starts, hides future disclosure and records append-only interaction",async()=>{const c=setup();const s=await c.service.start({learnerId:id(11),stationVersionId:id(1),traceId:"trace_osce"});expect(JSON.stringify(await c.service.state(s.id))).not.toContain("hidden");await c.service.interact({sessionId:s.id,roleId:id(4),text:"TEST_FIXTURE",traceId:"trace_osce"});expect(await c.repo.listInteractions(s.id)).toHaveLength(1);});it("enforces disclosure trigger then reveals only authorized content",async()=>{const c=setup();const s=await c.service.start({learnerId:id(11),stationVersionId:id(1),traceId:"trace_osce"});await expect(c.service.reveal({sessionId:s.id,disclosureId:id(6),traceId:"trace_osce"})).rejects.toThrow();await c.service.interact({sessionId:s.id,roleId:id(4),text:"x",traceId:"trace_osce"});await c.service.reveal({sessionId:s.id,disclosureId:id(6),traceId:"trace_osce"});expect(JSON.stringify(await c.service.state(s.id))).toContain("hidden");});it("persists expiration and refuses late interactions",async()=>{const c=setup();const s=await c.service.start({learnerId:id(11),stationVersionId:id(1),traceId:"trace_osce"});c.setNow("2026-01-01T00:02:00.000Z");await expect(c.service.interact({sessionId:s.id,roleId:id(4),text:"late",traceId:"trace_osce"})).rejects.toThrow();expect((await c.repo.findSession(s.id))?.state).toBe("EXPIRED");});it("persists post-close assessment/debrief and historical replay",async()=>{const c=setup();const s=await c.service.start({learnerId:id(11),stationVersionId:id(1),traceId:"trace_osce"});await c.service.interact({sessionId:s.id,roleId:id(4),text:"x",traceId:"trace_osce"});const done=await c.service.complete({sessionId:s.id,traceId:"trace_osce"});expect(done.assessment.result).toBe("SATISFACTORY");expect((await c.service.replay(s.id)).stationVersionId).toBe(id(1));await expect(c.service.interact({sessionId:s.id,roleId:id(4),text:"late",traceId:"trace_osce"})).rejects.toThrow();});it("records critical remediation provenance when criterion fails",async()=>{const c=setup();const s=await c.service.start({learnerId:id(11),stationVersionId:id(1),traceId:"trace_osce"});const done=await c.service.complete({sessionId:s.id,traceId:"trace_osce"});expect(done.debrief.criticalErrors).toEqual([id(8)]);expect(c.remediation.record).toHaveBeenCalledWith(expect.objectContaining({sessionId:s.id,criterionId:id(8),critical:true,ruleVersion:"v1"}));});});
+import { describe, expect, it, vi } from "vitest";
+import type { OsceRepository } from "./osce-ports";
+import { OsceService } from "./osce-use-cases";
+import { station } from "@/domain/osce/osce.test";
+import type { OsceAssessment, OsceDebrief, OsceInteraction, OsceRemediationLink, OsceSession, OsceStationVersion } from "@/domain/osce";
+
+const id = (n: number) => `10000000-0000-4000-8000-${String(n).padStart(12, "0")}`;
+const otherStation = (): OsceStationVersion => ({
+  ...station(), id: id(101), stationId: id(102), code: "OTHER_FIXTURE",
+  disclosures: [{ ...station().disclosures[0]!, id: id(106) }],
+  rubric: { ...station().rubric, id: id(107), criteria: [{ ...station().rubric.criteria[0]!, id: id(108) }] },
+});
+
+const setup = () => {
+  let sequence = 20;
+  const sessions = new Map<string, OsceSession>();
+  const interactions = new Map<string, OsceInteraction[]>();
+  const revealed = new Map<string, { disclosureId: string; revealedAt: string }[]>();
+  let assessment: OsceAssessment | null = null;
+  let debrief: OsceDebrief | null = null;
+  const links: OsceRemediationLink[] = [];
+  const repository: OsceRepository = {
+    saveStationVersion: async () => undefined,
+    findStationVersion: async (value) => value === id(1) ? station() : value === id(101) ? otherStation() : null,
+    saveSession: async (value) => { sessions.set(value.id, value); },
+    findSession: async (value) => sessions.get(value) ?? null,
+    appendInteraction: async (value) => { interactions.set(value.sessionId, [...(interactions.get(value.sessionId) ?? []), value]); },
+    listInteractions: async (value) => interactions.get(value) ?? [],
+    revealDisclosure: async (sessionId, disclosureId, revealedAt) => { revealed.set(sessionId, [...(revealed.get(sessionId) ?? []), { disclosureId, revealedAt }]); },
+    listRevealedDisclosures: async (value) => revealed.get(value) ?? [],
+    saveAssessment: async (value) => { assessment = value; }, findAssessment: async () => assessment,
+    saveDebrief: async (value) => { debrief = value; }, findDebrief: async () => debrief,
+    saveRemediationLink: async (value) => { links.push(value); }, listRemediationLinks: async () => links,
+    getReplay: async (sessionId) => { const session = sessions.get(sessionId); return session ? { session, stationVersionId: session.stationVersionId, rubricVersion: "v1", interactions: interactions.get(sessionId) ?? [], disclosures: revealed.get(sessionId) ?? [], assessment, debrief, remediationLinks: links } : null; },
+  };
+  let now = "2026-01-01T00:00:00.000Z";
+  const remediation = { record: vi.fn() };
+  const service = new OsceService({ repository, ids: { next: () => id(sequence++) }, clock: { now: () => now }, logger: { event: vi.fn() }, policy: { ruleVersion: "v1", assess: (value, observed) => value.rubric.criteria.map((criterion) => ({ criterionId: criterion.id, passed: observed.length > 0, justification: "fixture", evidence: "fixture", critical: criterion.critical && observed.length === 0 })) }, remediation });
+  return { service, repository, remediation, sessions, interactions, setNow: (value: string) => { now = value; } };
+};
+
+describe("OSCE application security", () => {
+  it("fails closed for another learner on every session operation without mutation", async () => {
+    const context = setup();
+    const owner = id(11); const intruder = id(12);
+    const session = await context.service.start({ learnerId: owner, stationVersionId: id(1), traceId: "trace_osce" });
+    const attempts = [
+      () => context.service.state(session.id, intruder),
+      () => context.service.interact({ sessionId: session.id, callerLearnerId: intruder, roleId: id(4), text: "forbidden", traceId: "trace_osce" }),
+      () => context.service.reveal({ sessionId: session.id, callerLearnerId: intruder, disclosureId: id(6), traceId: "trace_osce" }),
+      () => context.service.complete({ sessionId: session.id, callerLearnerId: intruder, traceId: "trace_osce" }),
+      () => context.service.replay(session.id, intruder),
+    ];
+    for (const attempt of attempts) await expect(attempt()).rejects.toMatchObject({ code: "OSCE_SESSION_NOT_FOUND" });
+    expect(context.sessions.get(session.id)?.state).toBe("ACTIVE");
+    expect(context.interactions.get(session.id) ?? []).toHaveLength(0);
+  });
+
+  it("accepts a disclosure context only when it belongs to and was revealed in this session", async () => {
+    const context = setup(); const learner = id(11);
+    const session = await context.service.start({ learnerId: learner, stationVersionId: id(1), traceId: "trace_osce" });
+    const base = { sessionId: session.id, callerLearnerId: learner, roleId: id(4), text: "TEST_FIXTURE", traceId: "trace_osce" };
+    await expect(context.service.interact({ ...base, disclosureId: id(106) })).rejects.toMatchObject({ code: "OSCE_DISCLOSURE_FORBIDDEN" });
+    await expect(context.service.interact({ ...base, disclosureId: id(6) })).rejects.toMatchObject({ code: "OSCE_DISCLOSURE_FORBIDDEN" });
+    await context.repository.revealDisclosure(id(99), id(6), "now");
+    await expect(context.service.interact({ ...base, disclosureId: id(6) })).rejects.toMatchObject({ code: "OSCE_DISCLOSURE_FORBIDDEN" });
+    await context.service.interact(base);
+    await context.service.reveal({ sessionId: session.id, callerLearnerId: learner, disclosureId: id(6), traceId: "trace_osce" });
+    await expect(context.service.interact({ ...base, disclosureId: id(6) })).resolves.toMatchObject({ disclosureId: id(6) });
+  });
+});
+
+describe("OSCE application behavior", () => {
+  it("hides future disclosure and persists expiration", async () => { const context = setup(); const session = await context.service.start({ learnerId: id(11), stationVersionId: id(1), traceId: "trace_osce" }); expect(JSON.stringify(await context.service.state(session.id, id(11)))).not.toContain("hidden"); context.setNow("2026-01-01T00:02:00.000Z"); await expect(context.service.interact({ sessionId: session.id, callerLearnerId: id(11), roleId: id(4), text: "late", traceId: "trace_osce" })).rejects.toThrow(); expect((await context.repository.findSession(session.id))?.state).toBe("EXPIRED"); });
+  it("persists assessment, debrief, replay and remediation", async () => { const context = setup(); const learner = id(11); const session = await context.service.start({ learnerId: learner, stationVersionId: id(1), traceId: "trace_osce" }); const done = await context.service.complete({ sessionId: session.id, callerLearnerId: learner, traceId: "trace_osce" }); expect(done.debrief.criticalErrors).toEqual([id(8)]); expect((await context.service.replay(session.id, learner)).stationVersionId).toBe(id(1)); expect(context.remediation.record).toHaveBeenCalledWith(expect.objectContaining({ sessionId: session.id, critical: true })); });
+});
