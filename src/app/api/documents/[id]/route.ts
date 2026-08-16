@@ -1,15 +1,4 @@
-import { NextResponse } from "next/server";
-import { SqliteLibrarySources } from "@/infrastructure/database/sqlite/sqlite-library-sources";
-import { sqliteExecutor } from "@/infrastructure/database/sqlite/server-sqlite-executor";
-
-export const dynamic = "force-dynamic";
-const library = new SqliteLibrarySources(sqliteExecutor);
-
-export async function GET(_request: Request, { params }: { params: Promise<{ id: string }> }) {
-  const id = Number((await params).id);
-  if (!Number.isSafeInteger(id) || id <= 0) return NextResponse.json({ error: "Identifiant invalide" }, { status: 400 });
-  const document = library.getByDocumentId(id);
-  return document
-    ? NextResponse.json(document)
-    : NextResponse.json({ error: "Document introuvable" }, { status: 404 });
-}
+import {NextResponse} from "next/server";import type {PilotIdentity} from "@/application/pilot/pilot-core";import {SqliteLibrarySources} from "@/infrastructure/database/sqlite/sqlite-library-sources";import {sqliteExecutor} from "@/infrastructure/database/sqlite/server-sqlite-executor";import {mapErrorToHttp} from "@/presentation/api/http-error-mapper";
+export const dynamic="force-dynamic";const library=new SqliteLibrarySources(sqliteExecutor);
+export function createDocumentGet(identity:()=>Promise<PilotIdentity>){return async(_request:Request,{params}:{params:Promise<{id:string}>})=>{try{await identity();const id=Number((await params).id);if(!Number.isSafeInteger(id)||id<=0)return NextResponse.json({error:"Identifiant invalide"},{status:400});const document=library.getByDocumentId(id);return document?NextResponse.json(document):NextResponse.json({error:"Document introuvable"},{status:404});}catch(error){const mapped=mapErrorToHttp(error);return NextResponse.json(mapped.body,{status:mapped.status});}};}
+export const GET=createDocumentGet(async()=>(await import("@/infrastructure/pilot/server-pilot")).requirePilotIdentity());

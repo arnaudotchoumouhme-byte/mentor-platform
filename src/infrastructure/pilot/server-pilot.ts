@@ -13,3 +13,8 @@ export async function meterOsceSession<T>(identity: Awaited<ReturnType<typeof re
   try { const result=await operation(); await service.record(identity,{usageId:crypto.randomUUID(),feature:"OSCE_SESSION",provider:null,model:null,inputUnits:null,outputUnits:null,estimatedCost:null,durationMs:Date.now()-started,success:true,traceId,createdAt:new Date().toISOString()}); return result; }
   catch(error){await service.record(identity,{usageId:crypto.randomUUID(),feature:"OSCE_SESSION",provider:null,model:null,inputUnits:null,outputUnits:null,estimatedCost:null,durationMs:Date.now()-started,success:false,traceId,createdAt:new Date().toISOString()});throw error;}
 }
+export async function meterAiRequest<T>(identity: Awaited<ReturnType<typeof requirePilotIdentity>>, traceId: string, operation: () => Promise<T>): Promise<T> {
+  const started=Date.now(); await service.consume(identity,"AI_REQUEST",new Date().toISOString());
+  try { const result=await operation(); await service.record(identity,{usageId:crypto.randomUUID(),feature:"AI_REQUEST",provider:null,model:null,inputUnits:null,outputUnits:null,estimatedCost:null,durationMs:Date.now()-started,success:true,traceId,createdAt:new Date().toISOString()}); return result; }
+  catch(error){await service.record(identity,{usageId:crypto.randomUUID(),feature:"AI_REQUEST",provider:null,model:null,inputUnits:null,outputUnits:null,estimatedCost:null,durationMs:Date.now()-started,success:false,traceId,createdAt:new Date().toISOString()});throw error;}
+}

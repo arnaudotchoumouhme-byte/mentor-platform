@@ -1,25 +1,4 @@
-import { NextResponse } from "next/server";
-import { all } from "@/lib/db";
-import { SqliteLibrarySources } from "@/infrastructure/database/sqlite/sqlite-library-sources";
-import { sqliteExecutor } from "@/infrastructure/database/sqlite/server-sqlite-executor";
-
-export const dynamic = "force-dynamic";
-
-export async function GET() {
-  const library = new SqliteLibrarySources(sqliteExecutor);
-  const [subjects, documents, flashcards, questions, attempts, weaknesses, tasks, messages, settings] = [
-    all("SELECT * FROM subjects ORDER BY name"),
-    library.list(),
-    all("SELECT * FROM flashcards ORDER BY due_at"),
-    all("SELECT * FROM questions ORDER BY id"),
-    all("SELECT * FROM attempts ORDER BY created_at DESC"),
-    all("SELECT * FROM weaknesses ORDER BY status, confidence DESC"),
-    all("SELECT * FROM study_tasks ORDER BY task_date, priority"),
-    all("SELECT * FROM conversations ORDER BY id DESC LIMIT 30").reverse(),
-    all<{ key: string; value: string }>("SELECT * FROM settings"),
-  ];
-  return NextResponse.json({
-    subjects, documents, flashcards, questions, attempts, weaknesses, tasks, messages,
-    settings: Object.fromEntries(settings.map((item) => [item.key, item.value])),
-  });
-}
+import {NextResponse} from "next/server";import type {PilotIdentity} from "@/application/pilot/pilot-core";import {all} from "@/lib/db";import {SqliteLibrarySources} from "@/infrastructure/database/sqlite/sqlite-library-sources";import {sqliteExecutor} from "@/infrastructure/database/sqlite/server-sqlite-executor";import {mapErrorToHttp} from "@/presentation/api/http-error-mapper";
+export const dynamic="force-dynamic";
+export function createStateGet(identity:()=>Promise<PilotIdentity>){return async()=>{try{await identity();const library=new SqliteLibrarySources(sqliteExecutor);const[subjects,documents,flashcards,questions,attempts,weaknesses,tasks,messages,settings]=[all("SELECT * FROM subjects ORDER BY name"),library.list(),all("SELECT * FROM flashcards ORDER BY due_at"),all("SELECT * FROM questions ORDER BY id"),all("SELECT * FROM attempts ORDER BY created_at DESC"),all("SELECT * FROM weaknesses ORDER BY status, confidence DESC"),all("SELECT * FROM study_tasks ORDER BY task_date, priority"),all("SELECT * FROM conversations ORDER BY id DESC LIMIT 30").reverse(),all<{key:string;value:string}>("SELECT * FROM settings")];return NextResponse.json({subjects,documents,flashcards,questions,attempts,weaknesses,tasks,messages,settings:Object.fromEntries(settings.map(item=>[item.key,item.value]))});}catch(error){const mapped=mapErrorToHttp(error);return NextResponse.json(mapped.body,{status:mapped.status});}};}
+export const GET=createStateGet(async()=>(await import("@/infrastructure/pilot/server-pilot")).requirePilotIdentity());

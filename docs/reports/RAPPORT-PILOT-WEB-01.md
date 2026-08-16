@@ -90,7 +90,7 @@ Toutes les commandes SQLite/runtime ont utilisé `MENTOR_ENABLE_DEMO_DATA=0` et 
 - Tests migrations/preflight/activation : 22 fichiers, 157/157 tests réussis.
 - `pnpm run typecheck` : réussi avec pnpm 11.19.0 et `tsc --noEmit`.
 - `pnpm run lint` : premier passage en échec sur la construction JSX dans un `try/catch`, correction minimale; second passage réussi, 0 erreur et 0 avertissement.
-- `pnpm run test` : premier passage 466/467, attente synthétique de backup restée en v11; test isolé corrigé 10/10; relance globale réussie, 98 fichiers et 467/467 tests.
+- `pnpm run test` : premier passage 466/467, attente synthétique de backup restée en v11; test isolé corrigé 10/10; relance BUILD réussie, 98 fichiers et 467/467 tests. Après correction d'autorisation, campagne globale réussie avec 99 fichiers et 470/470 tests.
 - `pnpm run build` : réussi avec Next.js 16.3.0, 22/22 pages générées, route `/pilot`, API `/api/pilot` et Proxy présents.
 - `git diff --check` : réussi; avertissements Git de normalisation LF vers CRLF seulement.
 
@@ -100,6 +100,15 @@ Toutes les commandes SQLite/runtime ont utilisé `MENTOR_ENABLE_DEMO_DATA=0` et 
 - Le bootstrap v12 exigeait l'ajout des tables Pilot à la validation canonique et la mise à jour des attentes de version courante dans les tests historiques.
 - ESLint refusait du JSX construit dans un `try/catch`; l'état d'identité est désormais résolu avant le rendu.
 - Le test de restauration déclarait encore un manifeste v11; son attente synthétique a été alignée sur v12.
+- La revue finale a démontré que `/api/actions`, `/api/ai`, `/api/coach`, `/api/documents`, `/api/search` et `/api/state` reposaient encore uniquement sur le middleware Auth0 et contournaient l'autorisation métier du pilote. Toutes ces surfaces, y compris la lecture `/api/documents/[id]`, appellent désormais `requirePilotIdentity()` et refusent les comptes absents ou désactivés. Les corpus Documents/Search et l'état legacy restent globaux, sans ownership artificiel. `/api/ai` consomme le quota `AI_REQUEST` et écrit un événement sans contenu dans le ledger.
+
+## Correction d'autorisation API
+
+- Frontière appliquée : `Auth0 subject -> Account ACTIVE -> learnerId serveur`.
+- Routes corrigées : `/api/actions`, `/api/ai`, `/api/coach`, `/api/documents`, `/api/documents/[id]`, `/api/search`, `/api/state`.
+- Tests négatifs : absence de compte ou compte désactivé refusé sur chaque surface; compte actif accepté selon le contrat; quota/ledger AI invoqués uniquement après résolution de l'identité.
+- Résultats : tests ciblés 29/29, `tsc --noEmit` réussi, ESLint ciblé réussi sans sortie, tests globaux 470/470.
+- Build non relancé : aucune modification structurelle Next.js; seules les routes, leurs tests, le helper de metering existant et ce rapport ont changé.
 
 ## Décisions techniques et simplicité
 

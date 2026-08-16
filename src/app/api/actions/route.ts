@@ -7,6 +7,7 @@ import { sqliteExecutor } from "@/infrastructure/database/sqlite/server-sqlite-e
 import { mapErrorToHttp } from "@/presentation/api/http-error-mapper";
 import { AppError } from "@/shared/errors/app-error";
 import { LocalDocumentStorage } from "@/infrastructure/documents/local-document-storage";
+import type { PilotIdentity } from "@/application/pilot/pilot-core";
 
 const actionSchema = z.discriminatedUnion("action", [
   z.object({ action: z.literal("archiveDocument"), id: z.number(), archived: z.boolean() }),
@@ -33,6 +34,7 @@ function validationFailure() {
 
 export function createActionsPost(
   useCase: UseCase<z.infer<typeof actionSchema>, void>,
+  identity: () => Promise<PilotIdentity> = async () => ({ accountId: "test", learnerId: "test" }),
 ) {
   return async function POST(request: Request) {
     let body: unknown;
@@ -50,6 +52,7 @@ export function createActionsPost(
     }
 
     try {
+      await identity();
       await useCase.execute(parsed.data);
       return NextResponse.json({ success: true });
     } catch (error) {
@@ -59,4 +62,4 @@ export function createActionsPost(
   };
 }
 
-export const POST = createActionsPost(actions);
+export const POST = createActionsPost(actions, async () => (await import("@/infrastructure/pilot/server-pilot")).requirePilotIdentity());

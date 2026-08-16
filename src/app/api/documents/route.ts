@@ -11,6 +11,7 @@ import { importDocuments } from "@/infrastructure/documents/server-document-impo
 import { mapErrorToHttp } from "@/presentation/api/http-error-mapper";
 import { AppError } from "@/shared/errors/app-error";
 import { resolveTraceId } from "@/shared/observability/trace-id";
+import type { PilotIdentity } from "@/application/pilot/pilot-core";
 
 const subjectSchema = z.string().trim().min(1).max(120).default("Non classé");
 export const MAX_MULTIPART_REQUEST_BYTES = MAX_DOCUMENT_SIZE_BYTES + 2 * 1024 * 1024;
@@ -32,9 +33,11 @@ function requestFailure(status: 400 | 413 | 415, code: string, message: string) 
 
 export function createDocumentsPost(
   useCase: UseCase<ImportDocumentsInput, ImportDocumentsOutput>,
+  identity: () => Promise<PilotIdentity> = async () => ({ accountId: "test", learnerId: "test" }),
 ) {
   return async function POST(request: Request) {
     const traceId = resolveTraceId(request.headers.get("x-trace-id"));
+    try { await identity(); } catch (error) { const response=mapErrorToHttp(error); return NextResponse.json(response.body,{status:response.status,headers:{"x-trace-id":traceId}}); }
     const contentType = request.headers.get("content-type")?.toLowerCase() ?? "";
     if (!contentType.startsWith("multipart/form-data;") || !contentType.includes("boundary=")) {
       return requestFailure(415, "UNSUPPORTED_MEDIA_TYPE", "Un formulaire multipart valide est requis.");
@@ -111,4 +114,4 @@ export function createDocumentsPost(
   };
 }
 
-export const POST = createDocumentsPost(importDocuments);
+export const POST = createDocumentsPost(importDocuments, async () => (await import("@/infrastructure/pilot/server-pilot")).requirePilotIdentity());
