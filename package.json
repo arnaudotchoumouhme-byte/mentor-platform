@@ -23,6 +23,7 @@
     "verify": "pnpm run check && pnpm run build"
   },
   "dependencies": {
+    "@auth0/nextjs-auth0": "4.26.0",
     "@tailwindcss/postcss": "4.3.3",
     "clsx": "2.1.1",
     "lucide-react": "1.28.0",

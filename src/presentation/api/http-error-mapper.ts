@@ -46,6 +46,8 @@ const httpStatusByErrorCode: Readonly<Record<string, number>> = {
   OSCE_INVALID_TRANSITION: 409,
   OSCE_DISCLOSURE_FORBIDDEN: 403,
   OSCE_PRIVATE_CONTENT: 403,
+  PILOT_ACCESS_DENIED: 403,
+  PILOT_QUOTA_EXCEEDED: 429,
 };
 
 export type HttpErrorResponse = Readonly<{

@@ -31,7 +31,7 @@ describe("MIG-0002 import journal with isolated SQLite", () => {
   }
 
   it("is registered as deterministic version 1 to 2", () => {
-    expect(coreMigrationRegistry.currentVersion).toBe(11);
+    expect(coreMigrationRegistry.currentVersion).toBe(12);
     expect(coreMigrationRegistry.findById("MIG-0002")).toEqual(importJournalMigration);
     expect(migrationChecksum(importJournalMigration)).toBe(migrationChecksum(importJournalMigration));
   });
@@ -43,8 +43,8 @@ describe("MIG-0002 import journal with isolated SQLite", () => {
     const history = new SqliteMigrationHistoryStore(executor);
 
     expect(new MigrationRunner(executor, history).runPending(coreMigrationRegistry)).toEqual({
-      currentVersion: 11,
-      appliedMigrationIds: ["MIG-0002", "MIG-0003", "MIG-0004", "MIG-0005", "MIG-0006", "MIG-0007", "MIG-0008", "MIG-0009", "MIG-0010", "MIG-0011"],
+      currentVersion: 12,
+      appliedMigrationIds: ["MIG-0002", "MIG-0003", "MIG-0004", "MIG-0005", "MIG-0006", "MIG-0007", "MIG-0008", "MIG-0009", "MIG-0010", "MIG-0011", "MIG-0012"],
     });
     expect(() => assertImportJournalSchema(executor)).not.toThrow();
     expect(sqlite.prepare("SELECT * FROM documents").all()).toEqual(before);
