@@ -14,7 +14,7 @@ describe("MIG-0003 source model", () => {
       all: <T>(sql: string, ...params: SQLInputValue[]) => sqlite.prepare(sql).all(...params) as T[],
       run: (sql: string, ...params: SQLInputValue[]) => sqlite.prepare(sql).run(...params),
     };
-    expect(new FreshDatabaseBootstrap(database).run()).toMatchObject({ currentVersion: 10 });
+    expect(new FreshDatabaseBootstrap(database).run()).toMatchObject({ currentVersion: 11 });
     expect(() => assertSourceModelSchema(database)).not.toThrow();
     expect(sqlite.prepare("PRAGMA table_info(sources)").all()).toEqual(expect.arrayContaining([
       expect.objectContaining({ name: "source_id" }),

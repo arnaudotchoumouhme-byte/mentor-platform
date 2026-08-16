@@ -134,7 +134,7 @@ describe("SqliteBackupService", () => {
       sourceDatabase: source,
       sourcePath,
       destinationDirectory: path.join(root, "backups"),
-      schemaVersion: 10,
+      schemaVersion: 11,
     });
     const stagingPath = path.join(root, "restore", "staged.sqlite");
     const restored = await service.restoreToStaging(verified, stagingPath, sourcePath);
