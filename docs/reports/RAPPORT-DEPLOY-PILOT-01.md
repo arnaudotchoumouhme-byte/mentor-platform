@@ -26,9 +26,9 @@ La solution minimale confirmée reste : un service Node.js, une instance, un dom
 - Sauvegardes vérifiées via `SqliteBackupService`, avec restauration préalable vers un nouveau fichier staging grâce à `restoreToStaging()`.
 - Auth0 comme fournisseur OIDC, sans inscription publique ni auto-provisionnement.
 
-## Choix d'hebergeur requis
+## Choix d'hebergeur
 
-Aucun hébergeur concret n’est défini dans le dépôt. Le plan `docs/specs/V6-PILOT-WEB-01-IMPLEMENTATION-PLAN.md` indique explicitement que ce choix reste à valider. Aucune configuration fournisseur ne peut donc être créée dans cette mission.
+Le choix humain est désormais **Render** : un Web Service Node.js payant, une instance et un disque persistant chiffré au repos. La configuration opérationnelle est documentée dans `docs/deployment/PILOT-WEB-DEPLOYMENT.md`. Aucun service Render n’a été créé.
 
 ### Option A — Render
 
@@ -46,9 +46,9 @@ Aucun hébergeur concret n’est défini dans le dépôt. Le plan `docs/specs/V6
 - Limites : le volume n’est pas répliqué automatiquement ; une Machine et un volume uniques impliquent une indisponibilité possible en cas de panne matérielle. La stratégie de backup vérifié est donc indispensable.
 - Source : [Fly.io — Volumes](https://fly.io/docs/volumes/overview/) et [Fly.io — Pricing](https://fly.io/docs/about/pricing/).
 
-### Recommandation
+### Décision
 
-Choisir **Render** pour ce pilote fermé : son service Web payant avec disque persistant, secrets, HTTPS et health check demande moins de configuration opérateur. Cette recommandation doit être validée humainement avant toute création de fichier fournisseur ou de compte externe.
+**Render est validé** pour ce pilote fermé : son service Web payant avec disque persistant, secrets, HTTPS et health check demande moins de configuration opérateur. La configuration reste manuelle afin de ne pas figer dans `render.yaml` un nom, une région, un plan ou une taille de disque non encore créés.
 
 ## Configuration minimale deja disponible
 
@@ -90,22 +90,23 @@ Choisir **Render** pour ce pilote fermé : son service Web payant avec disque pe
 
 ## Fichiers et dossiers
 
-- Créé : `docs/reports/RAPPORT-DEPLOY-PILOT-01.md`.
-- Modifiés ou supprimés : aucun autre fichier.
+- Créé dans la phase Render : `docs/deployment/PILOT-WEB-DEPLOYMENT.md`.
+- Modifié : `docs/reports/RAPPORT-DEPLOY-PILOT-01.md`.
+- Supprimés : aucun fichier.
 - Exclus : `.tmp-migration-runner/`, `backups/`, `DOCS1/`, `dossier evolution/`, `mentor-platform-restaure/`, `docs/reports/RAPPORT-ETAT-DEVELOPPEMENT.md` et `data/`.
 
 ## Controles et limites
 
 - Commandes exécutées : preflight Git, lecture ciblée des fichiers autorisés, recherche ciblée des références d’hébergement et vérification des documentations officielles Render/Fly.io.
 - Tests/build : non exécutés, car aucun code ni fichier runtime n’a changé.
-- Déploiement, compte externe, secret réel, migration, provisioning, merge et push : non effectués.
-- Problème rencontré : hébergeur absent des décisions du dépôt. Résolution : arrêt avant toute configuration spécifique et présentation de deux options compatibles.
-- Dette restante : choisir l’hébergeur, le domaine, la région, la taille du volume, la rétention et les paramètres Auth0 exacts avant de produire le runbook exécutable.
+- Déploiement, compte externe, secret réel, migration, provisioning et merge : non effectués. Le commit documentaire initial `611a97f` a été poussé avant la phase Render ; le commit de configuration Render reste local.
+- Problème rencontré : hébergeur initialement absent des décisions du dépôt. Résolution : choix humain de Render et création d’un runbook manuel minimal.
+- Dette restante : créer le service pour connaître son hôte exact, puis valider la région, le plan, la taille du volume, la rétention et les paramètres Auth0 avant le premier déploiement.
 
 ## Simplicite et verdict
 
 Question de revue : « Ce déploiement peut-il être plus simple sans réduire la sécurité ou la capacité à restaurer les données ? » Non : l’approche minimale tient déjà à un service, une instance, un volume, un domaine, Auth0 et le backup existant.
 
-Verdict : **NON VALIDABLE POUR DEPLOIEMENT tant que l’hébergeur n’est pas choisi**. La préparation documentaire du choix est complète.
+Verdict : **VALIDABLE POUR UN PREMIER DEPLOIEMENT CONTROLE**, sans transfert de base ni ouverture aux utilisateurs.
 
-Prochaine étape recommandée : choisir humainement l’hébergeur du pilote fermé.
+Prochaine étape recommandée : valider humainement le runbook Render puis effectuer le premier déploiement sans transférer la base utilisateur ni ouvrir l’accès aux pilotes.
