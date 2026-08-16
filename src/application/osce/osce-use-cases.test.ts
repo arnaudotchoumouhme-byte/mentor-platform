@@ -73,4 +73,36 @@ describe("OSCE application security", () => {
 describe("OSCE application behavior", () => {
   it("hides future disclosure and persists expiration", async () => { const context = setup(); const session = await context.service.start({ learnerId: id(11), stationVersionId: id(1), traceId: "trace_osce" }); expect(JSON.stringify(await context.service.state(session.id, id(11)))).not.toContain("hidden"); context.setNow("2026-01-01T00:02:00.000Z"); await expect(context.service.interact({ sessionId: session.id, callerLearnerId: id(11), roleId: id(4), text: "late", traceId: "trace_osce" })).rejects.toThrow(); expect((await context.repository.findSession(session.id))?.state).toBe("EXPIRED"); });
   it("persists assessment, debrief, replay and remediation", async () => { const context = setup(); const learner = id(11); const session = await context.service.start({ learnerId: learner, stationVersionId: id(1), traceId: "trace_osce" }); const done = await context.service.complete({ sessionId: session.id, callerLearnerId: learner, traceId: "trace_osce" }); expect(done.debrief.criticalErrors).toEqual([id(8)]); expect((await context.service.replay(session.id, learner)).stationVersionId).toBe(id(1)); expect(context.remediation.record).toHaveBeenCalledWith(expect.objectContaining({ sessionId: session.id, critical: true })); });
+
+  it("refuses interaction after completion without changing history", async () => {
+    const context = setup();
+    const learner = id(11);
+    const session = await context.service.start({ learnerId: learner, stationVersionId: id(1), traceId: "trace_osce" });
+    await context.service.interact({ sessionId: session.id, callerLearnerId: learner, roleId: id(4), text: "before close", traceId: "trace_osce" });
+    await context.service.complete({ sessionId: session.id, callerLearnerId: learner, traceId: "trace_osce" });
+    const historyBefore = await context.repository.listInteractions(session.id);
+
+    await expect(context.service.interact({ sessionId: session.id, callerLearnerId: learner, roleId: id(4), text: "after close", traceId: "trace_osce" }))
+      .rejects.toMatchObject({ code: "OSCE_INVALID_TRANSITION" });
+
+    expect((await context.repository.findSession(session.id))?.state).toBe("COMPLETED");
+    expect(await context.repository.listInteractions(session.id)).toEqual(historyBefore);
+  });
+
+  it("persists and replays a satisfactory assessment without recalculation", async () => {
+    const context = setup();
+    const learner = id(11);
+    const session = await context.service.start({ learnerId: learner, stationVersionId: id(1), traceId: "trace_osce" });
+    await context.service.interact({ sessionId: session.id, callerLearnerId: learner, roleId: id(4), text: "criterion evidence", traceId: "trace_osce" });
+
+    const completed = await context.service.complete({ sessionId: session.id, callerLearnerId: learner, traceId: "trace_osce" });
+    const persisted = await context.repository.findAssessment(session.id);
+    const replay = await context.service.replay(session.id, learner);
+
+    expect(completed.session.state).toBe("COMPLETED");
+    expect(completed.assessment.result).toBe("SATISFACTORY");
+    expect(persisted?.result).toBe("SATISFACTORY");
+    expect(replay.assessment).toEqual(persisted);
+    expect(replay.debrief).toEqual(completed.debrief);
+  });
 });

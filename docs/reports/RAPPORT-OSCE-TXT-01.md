@@ -87,3 +87,9 @@ Lorsqu'une interaction référence une disclosure, celle-ci doit appartenir à l
 Tests négatifs ajoutés : refus de learner-B sur state/interact/reveal/complete/replay de learner-A, absence de mutation, disclosure d'autre station refusée, disclosure non révélée refusée, disclosure révélée dans une autre session refusée et disclosure correctement révélée acceptée.
 
 Résultats après correction : tests ciblés sécurité `17/17`, typecheck réussi, lint ciblé réussi sans avertissement, tests globaux `94/94` fichiers et `456/456` tests, build Next.js réussi avec `21/21` pages et `/api/osce`. Le build a été relancé car le contrat de route exige désormais l'identité appelante. `data/mentor.db` n'a pas été ouverte et MIG-0011 n'a pas été appliquée.
+
+## Restauration de la couverture critique
+
+Deux assertions historiques ont été restaurées explicitement avant intégration : une interaction après clôture est refusée avec `OSCE_INVALID_TRANSITION` sans nouvelle persistance ni changement de l'état `COMPLETED`, et une session dont les critères sont satisfaits produit un assessment `SATISFACTORY` persisté puis relu à l'identique par le replay avec son debrief historique. Aucun comportement fonctionnel n'a été modifié ; seuls les tests et ce rapport ont changé.
+
+Validation finale de cette restauration : test applicatif OSCE ciblé `10/10`, typecheck réussi, lint ciblé réussi sans avertissement et campagne globale `94/94` fichiers, `458/458` tests. Le build n'a pas été relancé, car aucun code API/runtime n'a changé. Toutes les commandes susceptibles d'initialiser SQLite ont utilisé `MENTOR_ENABLE_DEMO_DATA=0` et un `MENTOR_DATA_DIRECTORY` temporaire absolu ; `data/mentor.db` n'a pas été ouverte et MIG-0011 n'a pas été appliquée.
