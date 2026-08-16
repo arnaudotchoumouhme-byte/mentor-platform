@@ -17,7 +17,7 @@ const ids = {
 const fakeApi = () => {
   const execute = () => vi.fn(async (input?: unknown) => input ?? { ok: true });
   return {
-    curriculum: { execute: execute() }, diagnostic: { execute: execute() }, mastery: { execute: execute() }, recommendations: { execute: execute() }, progress: { execute: execute() }, exitAssessment: { execute: execute() },
+    curriculum: { execute: execute() }, diagnostic: { execute: vi.fn(async () => ({ learnerId: ids.learner })) }, mastery: { execute: execute() }, recommendations: { execute: execute() }, progress: { execute: vi.fn(async () => ({ learnerId: ids.learner })) }, exitAssessment: { execute: vi.fn(async () => ({ learnerId: ids.learner })) },
     startDiagnostic: { execute: execute() }, recordObservation: { execute: execute() }, completeDiagnostic: { execute: execute() }, estimateMastery: { execute: execute() }, recommend: { execute: execute() }, startProgress: { execute: execute() }, resumeProgress: { execute: execute() }, advanceProgress: { execute: execute() }, completeExitAssessment: { execute: execute() }, recordRetest: { execute: execute() }, resolveCriticalError: { execute: execute() },
   };
 };

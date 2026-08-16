@@ -108,16 +108,16 @@ describe("ControlledMigrationActivation", { timeout: 10_000 }, () => {
     expect(request).toMatchObject({
       databaseState: "FRESH",
       currentVersion: 0,
-      targetVersion: 11,
+      targetVersion: 12,
       backupId: null,
       requiresExplicitAuthorization: true,
     });
     expect(request.actions.map(({ kind, migrationId }) => [kind, migrationId])).toEqual([
-      ["EXECUTE", "MIG-0001"], ["EXECUTE", "MIG-0002"], ["EXECUTE", "MIG-0003"], ["EXECUTE", "MIG-0004"], ["EXECUTE", "MIG-0005"], ["EXECUTE", "MIG-0006"], ["EXECUTE", "MIG-0007"], ["EXECUTE", "MIG-0008"], ["EXECUTE", "MIG-0009"], ["EXECUTE", "MIG-0010"], ["EXECUTE", "MIG-0011"],
+      ["EXECUTE", "MIG-0001"], ["EXECUTE", "MIG-0002"], ["EXECUTE", "MIG-0003"], ["EXECUTE", "MIG-0004"], ["EXECUTE", "MIG-0005"], ["EXECUTE", "MIG-0006"], ["EXECUTE", "MIG-0007"], ["EXECUTE", "MIG-0008"], ["EXECUTE", "MIG-0009"], ["EXECUTE", "MIG-0010"], ["EXECUTE", "MIG-0011"], ["EXECUTE", "MIG-0012"],
     ]);
     expect(await service.execute(databasePath, request, null)).toMatchObject({ status: "BLOCKED", reason: "AUTHORIZATION_MISSING" });
     expect(await service.execute(databasePath, request, authorization(request))).toMatchObject({
-      status: "MIGRATION_ACTIVATED", fromVersion: 0, toVersion: 11, verificationStatus: "VERIFIED",
+      status: "MIGRATION_ACTIVATED", fromVersion: 0, toVersion: 12, verificationStatus: "VERIFIED",
     });
   });
 
@@ -154,6 +154,7 @@ describe("ControlledMigrationActivation", { timeout: 10_000 }, () => {
       { kind: "EXECUTE", migrationId: "MIG-0009" },
       { kind: "EXECUTE", migrationId: "MIG-0010" },
       { kind: "EXECUTE", migrationId: "MIG-0011" },
+      { kind: "EXECUTE", migrationId: "MIG-0012" },
     ]);
     expect(await service.execute(databasePath, outdated, authorization(outdated))).toMatchObject({ status: "MIGRATION_ACTIVATED" });
     const current = await prepare(service);
@@ -181,7 +182,7 @@ describe("ControlledMigrationActivation", { timeout: 10_000 }, () => {
       databasePath = candidate;
       createVersion(4);
       const sqlite = new DatabaseSync(candidate);
-      if (mode === "ahead") sqlite.prepare("INSERT INTO schema_migrations VALUES(?,?,?,?,?,?,?,?,?)").run("MIG-0012",11,12,"Future","0".repeat(64),"2026-01-01",0,"executed",null);
+      if (mode === "ahead") sqlite.prepare("INSERT INTO schema_migrations VALUES(?,?,?,?,?,?,?,?,?)").run("MIG-0013",12,13,"Future","0".repeat(64),"2026-01-01",0,"executed",null);
       if (mode === "checksum") sqlite.prepare("UPDATE schema_migrations SET checksum=? WHERE migration_id='MIG-0001'").run("f".repeat(64));
       if (mode === "schema") sqlite.exec("DROP TABLE document_import_journal; CREATE TABLE document_import_journal(storage_id TEXT PRIMARY KEY)");
       sqlite.close();

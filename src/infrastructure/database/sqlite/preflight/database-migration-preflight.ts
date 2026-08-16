@@ -11,6 +11,7 @@ import { assertCanadianPracticeCoreSchema, CANADIAN_PRACTICE_TABLE_NAMES } from 
 import { assertQuebecPracticeSchema } from "../migrations/definitions/mig-0009-quebec-practice-extension";
 import { assertCalculationsLabSchema, CALCULATIONS_LAB_TABLE_NAMES } from "../migrations/definitions/mig-0010-calculations-lab-core";
 import { assertOsceSchema, OSCE_TABLE_NAMES } from "../migrations/definitions/mig-0011-osce-text-core";
+import { assertPilotSchema, PILOT_TABLE_NAMES } from "../migrations/definitions/mig-0012-closed-web-pilot";
 import { detectDatabaseFreshness } from "../migrations/fresh-database-detector";
 import { LegacySchemaRecognizer } from "../migrations/legacy-schema-recognizer";
 import { MigrationError } from "../migrations/migration-errors";
@@ -93,7 +94,7 @@ export class DatabaseMigrationPreflight {
         validateMigrationHistory(history, this.registry);
         const version = history.at(-1)?.toVersion ?? 0;
         if (version === this.registry.currentVersion) {
-          assertCoreBaselineSchema(this.database, ["coach_learner_signals", "coaching_sessions", "document_chunks", "document_chunks_fts", "document_chunks_fts_config", "document_chunks_fts_content", "document_chunks_fts_data", "document_chunks_fts_docsize", "document_chunks_fts_idx", "document_import_journal", ...OSCE_TABLE_NAMES, ...CALCULATIONS_LAB_TABLE_NAMES, ...CANADIAN_PRACTICE_TABLE_NAMES, ...FOUNDATION_CORE_TABLE_NAMES, ...MCQ_CORE_TABLE_NAMES, "source_versions", "sources"].sort());
+          assertCoreBaselineSchema(this.database, ["coach_learner_signals", "coaching_sessions", "document_chunks", "document_chunks_fts", "document_chunks_fts_config", "document_chunks_fts_content", "document_chunks_fts_data", "document_chunks_fts_docsize", "document_chunks_fts_idx", "document_import_journal", ...PILOT_TABLE_NAMES, ...OSCE_TABLE_NAMES, ...CALCULATIONS_LAB_TABLE_NAMES, ...CANADIAN_PRACTICE_TABLE_NAMES, ...FOUNDATION_CORE_TABLE_NAMES, ...MCQ_CORE_TABLE_NAMES, "source_versions", "sources"].sort());
           assertImportJournalSchema(this.database);
           assertSourceModelSchema(this.database);
           assertRagIndexSchema(this.database);
@@ -104,6 +105,7 @@ export class DatabaseMigrationPreflight {
           assertQuebecPracticeSchema(this.database);
           assertCalculationsLabSchema(this.database);
           assertOsceSchema(this.database);
+          assertPilotSchema(this.database);
           return Object.freeze({
             status: "NO_MIGRATION",
             schemaState: "VERSIONED_CURRENT",

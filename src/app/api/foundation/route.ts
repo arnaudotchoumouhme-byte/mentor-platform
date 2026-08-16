@@ -4,6 +4,8 @@ import type { FoundationApi } from "@/infrastructure/foundation/server-foundatio
 import { mapErrorToHttp } from "@/presentation/api/http-error-mapper";
 import { apiSuccess } from "@/shared/api/contracts";
 import { resolveTraceId } from "@/shared/observability/trace-id";
+import type { PilotIdentity } from "@/application/pilot/pilot-core";
+import { AppError } from "@/shared/errors/app-error";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -45,7 +47,9 @@ const respond = async (traceId: string, operation: () => Promise<unknown>, statu
   catch (error) { const mapped = mapErrorToHttp(error); return NextResponse.json(mapped.body, { status: mapped.status, headers: { "x-trace-id": traceId, "cache-control": "no-store" } }); }
 };
 
-export function createFoundationHandlers(load: () => Promise<FoundationApi>) {
+const assertOwner = (actual: string, expected: string) => { if (actual !== expected) throw new AppError({ code: "PILOT_ACCESS_DENIED", userMessage: "Accès au pilote refusé.", category: "security" }); };
+
+export function createFoundationHandlers(load: () => Promise<FoundationApi>, identity: () => Promise<PilotIdentity> = async () => ({ accountId: "test", learnerId: "20000000-0000-4000-8000-000000000001" })) {
   return {
     GET: async (request: Request) => {
       const traceId = resolveTraceId(request.headers.get("x-trace-id"));
@@ -54,12 +58,13 @@ export function createFoundationHandlers(load: () => Promise<FoundationApi>) {
       if (!parsed.success) return invalid(traceId);
       return respond(traceId, async () => {
         const query = parsed.data;
-        if (query.resource === "curriculum") return (await load()).curriculum.execute(query.id);
-        if (query.resource === "diagnostic") return (await load()).diagnostic.execute(query.id);
-        if (query.resource === "mastery") return (await load()).mastery.execute(query.learnerId);
-        if (query.resource === "recommendations") return (await load()).recommendations.execute(query.learnerId);
-        if (query.resource === "progress") return (await load()).progress.execute(query.id);
-        return (await load()).exitAssessment.execute(query.id);
+        const caller = await identity(); const api = await load();
+        if (query.resource === "curriculum") return api.curriculum.execute(query.id);
+        if (query.resource === "diagnostic") { const value = await api.diagnostic.execute(query.id); assertOwner(value.learnerId, caller.learnerId); return value; }
+        if (query.resource === "mastery") return api.mastery.execute(caller.learnerId);
+        if (query.resource === "recommendations") return api.recommendations.execute(caller.learnerId);
+        if (query.resource === "progress") { const value = await api.progress.execute(query.id); assertOwner(value.learnerId, caller.learnerId); return value; }
+        const value = await api.exitAssessment.execute(query.id); assertOwner(value.learnerId, caller.learnerId); return value;
       });
     },
     POST: async (request: Request) => {
@@ -69,25 +74,27 @@ export function createFoundationHandlers(load: () => Promise<FoundationApi>) {
       const parsed = mutation.safeParse(body);
       if (!parsed.success) return invalid(traceId);
       return respond(traceId, async () => {
-        const api = await load(); const input = parsed.data;
+        const api = await load(); const caller = await identity(); const input = parsed.data;
+        const ownDiagnostic = async (id: string) => assertOwner((await api.diagnostic.execute(id)).learnerId, caller.learnerId);
+        const ownProgress = async (id: string) => assertOwner((await api.progress.execute(id)).learnerId, caller.learnerId);
         switch (input.action) {
-          case "startDiagnostic": return api.startDiagnostic.execute(payload(input));
-          case "recordObservation": return api.recordObservation.execute(payload(input));
-          case "completeDiagnostic": return api.completeDiagnostic.execute(input.diagnosticId);
-          case "estimateMastery": return api.estimateMastery.execute(payload(input));
-          case "recommend": return api.recommend.execute(payload(input));
-          case "startProgress": return api.startProgress.execute(payload(input));
-          case "resumeProgress": return api.resumeProgress.execute(payload(input));
-          case "advanceProgress": return api.advanceProgress.execute(payload(input));
-          case "completeExitAssessment": return api.completeExitAssessment.execute(payload(input));
-          case "recordRetest": return api.recordRetest.execute(payload(input));
-          case "resolveCriticalError": return api.resolveCriticalError.execute(payload(input));
+          case "startDiagnostic": return api.startDiagnostic.execute({ ...payload(input), learnerId: caller.learnerId });
+          case "recordObservation": await ownDiagnostic(input.diagnosticId); return api.recordObservation.execute(payload(input));
+          case "completeDiagnostic": await ownDiagnostic(input.diagnosticId); return api.completeDiagnostic.execute(input.diagnosticId);
+          case "estimateMastery": await ownDiagnostic(input.diagnosticId); return api.estimateMastery.execute(payload(input));
+          case "recommend": await ownDiagnostic(input.diagnosticId); return api.recommend.execute(payload(input));
+          case "startProgress": return api.startProgress.execute({ ...payload(input), learnerId: caller.learnerId });
+          case "resumeProgress": return api.resumeProgress.execute({ ...payload(input), learnerId: caller.learnerId });
+          case "advanceProgress": await ownProgress(input.progressId); return api.advanceProgress.execute(payload(input));
+          case "completeExitAssessment": await ownProgress(input.progressId); await ownDiagnostic(input.diagnosticId); return api.completeExitAssessment.execute(payload(input));
+          case "recordRetest": await ownProgress(input.progressId); await ownDiagnostic(input.diagnosticId); return api.recordRetest.execute(payload(input));
+          case "resolveCriticalError": await ownDiagnostic(input.diagnosticId); return api.resolveCriticalError.execute(payload(input));
         }
       }, parsed.data.action.startsWith("start") ? 201 : 200);
     },
   };
 }
 
-const handlers = createFoundationHandlers(async () => (await import("@/infrastructure/foundation/server-foundation")).foundationApi);
+const handlers = createFoundationHandlers(async () => (await import("@/infrastructure/foundation/server-foundation")).foundationApi, async () => (await import("@/infrastructure/pilot/server-pilot")).requirePilotIdentity());
 export const GET = handlers.GET;
 export const POST = handlers.POST;
