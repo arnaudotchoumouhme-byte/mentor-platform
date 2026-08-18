@@ -14,13 +14,15 @@ describe("API contracts", () => {
       internalMessage: "SQLITE_BUSY on C:\\private\\mentor.db",
     });
 
-    expect(apiFailure(error)).toEqual({
+    expect(apiFailure(error, "trace_test_12345")).toEqual({
       success: false,
       error: {
         code: "DATABASE_ERROR",
         message: "Une erreur est survenue.",
+        traceId: "trace_test_12345",
+        retriable: false,
       },
     });
-    expect(JSON.stringify(apiFailure(error))).not.toContain("SQLITE_BUSY");
+    expect(JSON.stringify(apiFailure(error, "trace_test_12345"))).not.toContain("SQLITE_BUSY");
   });
 });

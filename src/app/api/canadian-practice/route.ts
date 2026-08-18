@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import type { CanadianPracticeQueries } from "@/application/canadian-practice/canadian-practice-queries";
-import { mapErrorToHttp } from "@/presentation/api/http-error-mapper";
+import { apiErrorResponse } from "@/infrastructure/observability/api-boundary";
 import { apiSuccess } from "@/shared/api/contracts";
 import { resolveTraceId } from "@/shared/observability/trace-id";
 
@@ -15,7 +15,7 @@ const query = z.discriminatedUnion("resource", [
   z.object({ resource: z.literal("history"), practiceRuleId: uuid }),
   z.object({ resource: z.literal("active"), practiceRuleId: uuid, jurisdiction: z.enum(["FEDERAL", "PROVINCIAL"]), province: z.preprocess((value) => value === undefined || value === "" ? null : value, z.enum(["ON", "QC"]).nullable()), at: z.string().datetime() }),
 ]);
-const invalid = (traceId: string) => NextResponse.json({ success: false, error: { code: "CANADIAN_PRACTICE_RULE_INVALID", message: "Requête de pratique canadienne invalide." } }, { status: 400, headers: { "x-trace-id": traceId, "cache-control": "no-store" } });
+const invalid = (traceId: string) => NextResponse.json({ success: false, error: { code: "CANADIAN_PRACTICE_RULE_INVALID", message: "Requête de pratique canadienne invalide.", traceId, retriable: false } }, { status: 400, headers: { "x-trace-id": traceId, "cache-control": "no-store" } });
 
 export function createCanadianPracticeGet(load: () => Promise<CanadianPracticeQueries>) {
   return async (request: Request) => {
@@ -29,7 +29,7 @@ export function createCanadianPracticeGet(load: () => Promise<CanadianPracticeQu
         : input.resource === "history" ? await service.readHistory(input.practiceRuleId, traceId)
         : await service.resolveActive({ ...input, traceId });
       return NextResponse.json(apiSuccess(data), { headers: { "x-trace-id": traceId, "cache-control": "no-store" } });
-    } catch (error) { const mapped = mapErrorToHttp(error); return NextResponse.json(mapped.body, { status: mapped.status, headers: { "x-trace-id": traceId, "cache-control": "no-store" } }); }
+    } catch (error) { return apiErrorResponse(error, { traceId, module: "canadian-practice", operation: "canadian-practice.request" }); }
   };
 }
 

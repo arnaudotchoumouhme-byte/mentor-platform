@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import type { FoundationApi } from "@/infrastructure/foundation/server-foundation";
-import { mapErrorToHttp } from "@/presentation/api/http-error-mapper";
+import { apiErrorResponse } from "@/infrastructure/observability/api-boundary";
 import { apiSuccess } from "@/shared/api/contracts";
 import { resolveTraceId } from "@/shared/observability/trace-id";
 import type { PilotIdentity } from "@/application/pilot/pilot-core";
@@ -36,7 +36,7 @@ const readQuery = z.discriminatedUnion("resource", [
   z.object({ resource: z.literal("exitAssessment"), id: uuid }),
 ]);
 
-const invalid = (traceId: string) => NextResponse.json({ success: false, error: { code: "VALIDATION_ERROR", message: "Requête Foundation invalide." } }, { status: 400, headers: { "x-trace-id": traceId } });
+const invalid = (traceId: string) => NextResponse.json({ success: false, error: { code: "VALIDATION_ERROR", message: "Requête Foundation invalide.", traceId, retriable: false } }, { status: 400, headers: { "x-trace-id": traceId } });
 const payload = <T extends { action: string }>(input: T): Omit<T, "action"> => {
   const copy: Partial<T> = { ...input };
   delete copy.action;
@@ -44,7 +44,7 @@ const payload = <T extends { action: string }>(input: T): Omit<T, "action"> => {
 };
 const respond = async (traceId: string, operation: () => Promise<unknown>, status = 200) => {
   try { return NextResponse.json(apiSuccess(await operation()), { status, headers: { "x-trace-id": traceId, "cache-control": "no-store" } }); }
-  catch (error) { const mapped = mapErrorToHttp(error); return NextResponse.json(mapped.body, { status: mapped.status, headers: { "x-trace-id": traceId, "cache-control": "no-store" } }); }
+  catch (error) { return apiErrorResponse(error, { traceId, module: "foundation", operation: "foundation.request" }); }
 };
 
 const assertOwner = (actual: string, expected: string) => { if (actual !== expected) throw new AppError({ code: "PILOT_ACCESS_DENIED", userMessage: "Accès au pilote refusé.", category: "security" }); };

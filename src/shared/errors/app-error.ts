@@ -5,6 +5,7 @@ export type AppErrorOptions = Readonly<{
   cause?: unknown;
   category?: AppErrorCategory;
   severity?: AppErrorSeverity;
+  retriable?: boolean;
   context?: Readonly<Record<string, unknown>>;
 }>;
 
@@ -24,6 +25,7 @@ export class AppError extends Error {
   readonly userMessage: string;
   readonly category: AppErrorCategory;
   readonly severity: AppErrorSeverity;
+  readonly retriable: boolean;
   readonly context: Readonly<Record<string, unknown>>;
 
   constructor(options: AppErrorOptions) {
@@ -33,6 +35,7 @@ export class AppError extends Error {
     this.userMessage = options.userMessage;
     this.category = options.category ?? "internal";
     this.severity = options.severity ?? "error";
+    this.retriable = options.retriable ?? false;
     this.context = options.context ?? {};
   }
 }

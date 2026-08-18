@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { clientFetch, ClientRequestError } from "@/shared/api/client-fetch";
 
 export type AppState = {
   subjects: Array<{ id: number; name: string; mastery: number; color: string }>;
@@ -14,17 +15,56 @@ export type AppState = {
   settings: Record<string, string>;
 };
 
+export type AppStateStatus = "loading" | "unauthenticated" | "access-denied" | "conflict" | "quota-exceeded" | "loaded-empty" | "loaded" | "network-error" | "server-error";
+export type AppStateDiagnostic = Readonly<{ status: AppStateStatus; code?: string; message?: string; traceId?: string; retriable?: boolean }>;
+
+let diagnosticSnapshot: AppStateDiagnostic = { status: "loading" };
+const diagnosticListeners = new Set<() => void>();
+
+export function subscribeAppStateDiagnostic(listener: () => void) { diagnosticListeners.add(listener); return () => diagnosticListeners.delete(listener); }
+export function getAppStateDiagnostic() { return diagnosticSnapshot; }
+function publishDiagnostic(next: AppStateDiagnostic) { diagnosticSnapshot = next; for (const listener of diagnosticListeners) listener(); }
+
+function isEmptyState(data: AppState): boolean {
+  return data.subjects.length === 0 && data.documents.length === 0 && data.flashcards.length === 0 && data.questions.length === 0 && data.attempts.length === 0 && data.weaknesses.length === 0 && data.tasks.length === 0 && data.messages.length === 0 && Object.keys(data.settings).length === 0;
+}
+function statusForHttp(status: number): AppStateStatus { if (status === 401) return "unauthenticated"; if (status === 403) return "access-denied"; if (status === 409) return "conflict"; if (status === 429) return "quota-exceeded"; return "server-error"; }
+type FailureBody = { error?: { code?: string; message?: string; traceId?: string; retriable?: boolean } };
+
 export function useAppState() {
   const [data, setData] = useState<AppState | null>(null);
-  const [error, setError] = useState("");
+  const [diagnostic, setDiagnostic] = useState<AppStateDiagnostic>({ status: "loading" });
+  const setTerminal = useCallback((next: AppStateDiagnostic) => { setDiagnostic(next); publishDiagnostic(next); }, []);
   const refresh = useCallback(async () => {
-    try { const response = await fetch("/api/state", { cache: "no-store" }); if (!response.ok) throw new Error(); setData(await response.json()); }
-    catch { setError("Impossible de lire les données locales."); }
-  }, []);
-  useEffect(() => {
-    const timer = window.setTimeout(() => void refresh(), 0);
-    return () => window.clearTimeout(timer);
-  }, [refresh]);
-  const act = useCallback(async (payload: object) => { const response = await fetch("/api/actions", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) }); if (!response.ok) throw new Error("Action impossible"); await refresh(); }, [refresh]);
-  return { data, error, refresh, act };
+    const traceId = crypto.randomUUID(); setData(null); setTerminal({ status: "loading", traceId });
+    try {
+      const response = await clientFetch("/api/state", { cache: "no-store", headers: { "x-trace-id": traceId } });
+      if (!response.ok) {
+        const body = await response.json().catch(() => ({})) as FailureBody;
+        setTerminal({ status: statusForHttp(response.status), code: body.error?.code ?? `HTTP_${response.status}`, message: body.error?.message ?? "La requête a échoué.", traceId: body.error?.traceId ?? response.headers.get("x-trace-id") ?? traceId, retriable: body.error?.retriable ?? response.status >= 500 }); return;
+      }
+      const next = await response.json() as AppState; setData(next); setTerminal({ status: isEmptyState(next) ? "loaded-empty" : "loaded", traceId: response.headers.get("x-trace-id") ?? traceId });
+    } catch (error) {
+      const timedOut = error instanceof ClientRequestError && error.code === "NET_REQUEST_TIMEOUT";
+      setTerminal({ status: "network-error", code: timedOut ? "NET_REQUEST_TIMEOUT" : "NET_REQUEST_FAILED", message: timedOut ? "Le serveur n’a pas répondu dans le délai prévu." : "Le serveur est injoignable.", traceId, retriable: true });
+    }
+  }, [setTerminal]);
+  useEffect(() => { const timer = window.setTimeout(() => void refresh(), 0); return () => window.clearTimeout(timer); }, [refresh]);
+  const act = useCallback(async (payload: object) => {
+    const traceId = crypto.randomUUID();
+    try {
+      const response = await clientFetch("/api/actions", { method: "POST", headers: { "Content-Type": "application/json", "x-trace-id": traceId }, body: JSON.stringify(payload) });
+      if (!response.ok) {
+        const body = await response.json().catch(() => ({})) as FailureBody;
+        const failure = { status: statusForHttp(response.status), code: body.error?.code ?? `HTTP_${response.status}`, message: body.error?.message ?? "Action impossible.", traceId: body.error?.traceId ?? response.headers.get("x-trace-id") ?? traceId, retriable: body.error?.retriable ?? response.status >= 500 } satisfies AppStateDiagnostic;
+        setTerminal(failure); throw new Error(failure.code);
+      }
+      await refresh();
+    } catch (error) {
+      if (error instanceof Error && diagnosticSnapshot.traceId === traceId) throw error;
+      const timedOut = error instanceof ClientRequestError && error.code === "NET_REQUEST_TIMEOUT";
+      setTerminal({ status: "network-error", code: timedOut ? "NET_REQUEST_TIMEOUT" : "NET_REQUEST_FAILED", message: timedOut ? "Le serveur n’a pas répondu dans le délai prévu." : "Le serveur est injoignable.", traceId, retriable: true }); throw error;
+    }
+  }, [refresh, setTerminal]);
+  return { data, error: diagnostic.message ?? "", status: diagnostic.status, diagnostic, refresh, act };
 }

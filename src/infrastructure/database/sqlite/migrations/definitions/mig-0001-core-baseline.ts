@@ -14,6 +14,7 @@ import { quebecPracticeExtensionMigration } from "./mig-0009-quebec-practice-ext
 import { calculationsLabCoreMigration } from "./mig-0010-calculations-lab-core";
 import { osceTextCoreMigration } from "./mig-0011-osce-text-core";
 import { closedWebPilotMigration } from "./mig-0012-closed-web-pilot";
+import { pilotProvisioningAuditMigration } from "./mig-0013-pilot-provisioning-audit";
 
 export const CORE_BASELINE_TABLE_NAMES = [
   "attempts",
@@ -254,4 +255,5 @@ export const coreMigrationRegistry = new MigrationRegistry([
   calculationsLabCoreMigration,
   osceTextCoreMigration,
   closedWebPilotMigration,
+  pilotProvisioningAuditMigration,
 ]);

@@ -5,6 +5,7 @@ import { useState } from "react";
 import { BookOpen, Send, ShieldCheck, Sparkles } from "lucide-react";
 import { useAppState } from "@/hooks/use-state";
 import { Loading, Notice, PageHeader } from "@/components/ui";
+import { clientFetch } from "@/shared/api/client-fetch";
 
 type Citation = Readonly<{ documentId: number; document: string; excerpt: string; pageStart: number | null; pageEnd: number | null; sectionTitle: string | null; retrievalScore: number }>;
 type CoachResult = Readonly<{ session: { sessionId: string; currentStep: string; hintLevel: number; status: string }; step: { message: string; question: string | null; expectedLearnerAction: string }; evidenceStatus?: string; conflicts?: readonly unknown[] }>;
@@ -24,7 +25,7 @@ export default function AiPage() {
   async function requestCoach(body: object) {
     setBusy(true);
     try {
-      const response = await fetch("/api/coach", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+      const response = await clientFetch("/api/coach", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
       const payload = await response.json();
       if (!response.ok) throw new Error(payload.message ?? "Session Coach indisponible.");
       setCoach(payload); setAnswer("");
@@ -34,7 +35,7 @@ export default function AiPage() {
   async function ask(event: React.FormEvent) {
     event.preventDefault(); setBusy(true);
     try {
-      const response = await fetch("/api/ai", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ question, mode }) });
+      const response = await clientFetch("/api/ai", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ question, mode }) });
       setResult(await response.json()); setQuestion(""); await refresh();
     } finally { setBusy(false); }
   }

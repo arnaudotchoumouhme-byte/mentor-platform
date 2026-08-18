@@ -13,12 +13,12 @@ import type { PilotIdentity } from "@/application/pilot/pilot-core";
 
 const schema = z.object({ question: z.string().trim().min(3).max(2_000), mode: z.string().max(80).default("Explication") });
 
-function validationFailure() {
+function validationFailure(traceId: string) {
   return mapErrorToHttp(
     new AppError({
       code: "VALIDATION_ERROR",
       userMessage: "La question doit être précisée.",
-    }),
+    }), traceId,
   );
 }
 
@@ -33,22 +33,22 @@ export function createAiPost(
     try {
       body = await request.json();
     } catch {
-      const response = validationFailure();
-      return NextResponse.json(response.body, { status: response.status });
+      const response = validationFailure(traceId);
+      return NextResponse.json(response.body, { status: response.status, headers: { "x-trace-id": traceId, "cache-control": "no-store" } });
     }
 
     const parsed = schema.safeParse(body);
     if (!parsed.success) {
-      const response = validationFailure();
-      return NextResponse.json(response.body, { status: response.status });
+      const response = validationFailure(traceId);
+      return NextResponse.json(response.body, { status: response.status, headers: { "x-trace-id": traceId, "cache-control": "no-store" } });
     }
 
     try {
       const caller = await identity();
       return NextResponse.json(await meter(caller, traceId, () => useCase.execute({ ...parsed.data, traceId })), { headers: { "x-trace-id": traceId } });
     } catch (error) {
-      const response = mapErrorToHttp(error);
-      return NextResponse.json(response.body, { status: response.status });
+      const response = mapErrorToHttp(error, traceId);
+      return NextResponse.json(response.body, { status: response.status, headers: { "x-trace-id": traceId, "cache-control": "no-store" } });
     }
   };
 }

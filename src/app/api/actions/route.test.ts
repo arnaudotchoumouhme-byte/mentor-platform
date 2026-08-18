@@ -12,7 +12,7 @@ import { createActionsPost } from "./route";
 function request(body: string) {
   return new Request("http://localhost/api/actions", {
     method: "POST",
-    headers: { "content-type": "application/json" },
+    headers: { "content-type": "application/json", "x-trace-id": "trace_test_12345" },
     body,
   });
 }
@@ -44,7 +44,7 @@ describe("POST /api/actions", () => {
     expect(response.status).toBe(400);
     await expect(response.json()).resolves.toEqual({
       success: false,
-      error: { code: "VALIDATION_ERROR", message: "Données invalides" },
+      error: { code: "VALIDATION_ERROR", message: "Données invalides", traceId: "trace_test_12345", retriable: false },
     });
   });
 
@@ -57,7 +57,7 @@ describe("POST /api/actions", () => {
     expect(response.status).toBe(409);
     await expect(response.json()).resolves.toEqual({
       success: false,
-      error: { code: "CONFLICT", message: "Conflit." },
+      error: { code: "CONFLICT", message: "Conflit.", traceId: "trace_test_12345", retriable: false },
     });
   });
 
@@ -73,7 +73,7 @@ describe("POST /api/actions", () => {
     expect(response.status).toBe(404);
     await expect(response.json()).resolves.toEqual({
       success: false,
-      error: { code: "NOT_FOUND", message: "Ressource introuvable." },
+      error: { code: "NOT_FOUND", message: "Ressource introuvable.", traceId: "trace_test_12345", retriable: false },
     });
   });
 

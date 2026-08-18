@@ -48,6 +48,18 @@ const httpStatusByErrorCode: Readonly<Record<string, number>> = {
   OSCE_PRIVATE_CONTENT: 403,
   PILOT_ACCESS_DENIED: 403,
   PILOT_QUOTA_EXCEEDED: 429,
+  DB_STARTUP_FAILED: 503,
+  DB_NOT_READY: 503,
+  DB_SCHEMA_OUTDATED: 503,
+  DB_SCHEMA_AHEAD: 503,
+  DB_MIGRATION_HISTORY_INVALID: 503,
+  DB_QUOTA_UPDATE_FAILED: 503,
+  FS_PERSISTENT_STORAGE_NOT_MOUNTED: 503,
+  CFG_AUTH0_INCOMPLETE: 503,
+  CFG_PILOT_PROVISIONING_INCOMPLETE: 503,
+  AUTH_SESSION_UNAVAILABLE: 503,
+  STATE_LOAD_FAILED: 503,
+  COACH_SESSION_STATE_INVALID: 409,
 };
 
 export type HttpErrorResponse = Readonly<{
@@ -55,7 +67,7 @@ export type HttpErrorResponse = Readonly<{
   body: ApiFailure;
 }>;
 
-export function mapErrorToHttp(error: unknown): HttpErrorResponse {
+export function mapErrorToHttp(error: unknown, traceId = "trace-unavailable"): HttpErrorResponse {
   const appError =
     error instanceof AppError
       ? error
@@ -68,6 +80,6 @@ export function mapErrorToHttp(error: unknown): HttpErrorResponse {
 
   return {
     status: httpStatusByErrorCode[appError.code] ?? 500,
-    body: apiFailure(appError),
+    body: apiFailure(appError, traceId),
   };
 }

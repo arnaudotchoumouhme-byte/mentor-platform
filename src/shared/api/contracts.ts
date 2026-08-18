@@ -10,6 +10,8 @@ export type ApiFailure = Readonly<{
   error: Readonly<{
     code: string;
     message: string;
+    traceId: string;
+    retriable: boolean;
   }>;
 }>;
 
@@ -19,12 +21,14 @@ export function apiSuccess<T>(data: T): ApiSuccess<T> {
   return { success: true, data };
 }
 
-export function apiFailure(error: AppError): ApiFailure {
+export function apiFailure(error: AppError, traceId = "trace-unavailable"): ApiFailure {
   return {
     success: false,
     error: {
       code: error.code,
-      message: error.userMessage,
+        message: error.userMessage,
+        traceId,
+        retriable: error.retriable,
     },
   };
 }

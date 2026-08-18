@@ -6,14 +6,20 @@ import { useAppState } from "@/hooks/use-state";
 import { Loading, Metric, Notice, PageHeader } from "@/components/ui";
 
 export default function Dashboard() {
-  const { data, error, act } = useAppState();
-  if (!data) return <Loading/>;
+  const { data, error, status, refresh, act } = useAppState();
+  if (status === "loading") return <Loading/>;
+  if (status === "unauthenticated") return <div className="mx-auto max-w-xl"><PageHeader eyebrow="Pilote fermé" title="Authentification requise" description="Connectez-vous avec votre compte Auth0 autorisé."/><Link className="btn btn-primary" href="/auth/login">Se connecter</Link></div>;
+  if (status === "access-denied") return <div className="mx-auto max-w-xl"><PageHeader eyebrow="Pilote fermé" title="Accès refusé" description="Votre compte Auth0 n’est pas provisionné ou actif."/><Link className="btn btn-secondary" href="/auth/logout">Se déconnecter</Link></div>;
+  if (status === "conflict") return <div className="mx-auto max-w-xl"><PageHeader eyebrow="Conflit" title="État incompatible" description={error||"L’état courant ne permet pas le chargement."}/><button className="btn btn-primary" onClick={()=>void refresh()}>Actualiser</button></div>;
+  if (status === "quota-exceeded") return <div className="mx-auto max-w-xl"><PageHeader eyebrow="Pilote fermé" title="Quota atteint" description={error||"Le quota autorisé est épuisé."}/></div>;
+  if (status === "network-error" || status === "server-error" || !data) return <div className="mx-auto max-w-xl"><PageHeader eyebrow="Indisponible" title="Chargement impossible" description={error||"Une erreur est survenue."}/><button className="btn btn-primary" onClick={()=>void refresh()}>Réessayer</button></div>;
   const due = data.flashcards.filter((card) => new Date(card.due_at) <= new Date()).length;
   const avg = data.attempts.length ? Math.round(data.attempts.reduce((sum, item) => sum + item.score, 0) / data.attempts.length) : 0;
   const todo = data.tasks.filter((task) => task.status !== "done").slice(0, 4);
   return <div className="mx-auto max-w-7xl">
     <PageHeader eyebrow="Votre espace d’apprentissage" title="Bonjour, prêt à avancer?" description="Un plan clair, fondé sur vos documents et adapté à vos résultats récents." action={<Link href="/ai" className="btn btn-primary"><MessageCircle size={17}/> Poser une question</Link>}/>
     {error && <Notice>{error}</Notice>}
+    {status === "loaded-empty" && <div className="mb-6"><Notice>Votre espace est prêt. Importez un premier document pour commencer.</Notice></div>}
     <section className="mb-7 grid gap-4 sm:grid-cols-2 xl:grid-cols-4" aria-label="Indicateurs">
       <Metric label="Progression globale" value={`${avg}%`} detail="Moyenne des activités évaluées"/>
       <Metric label="Temps planifié aujourd’hui" value={`${todo.filter(t => t.task_date === new Date().toISOString().slice(0,10)).reduce((s,t)=>s+t.minutes,0)} min`} detail="Charge conforme à vos disponibilités" tone="blue"/>

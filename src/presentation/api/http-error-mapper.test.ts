@@ -8,26 +8,26 @@ describe("mapErrorToHttp", () => {
       new AppError({
         code: "VALIDATION_ERROR",
         userMessage: "Données invalides.",
-      }),
+      }), "trace_test_12345",
     );
 
     expect(result).toEqual({
       status: 400,
       body: {
         success: false,
-        error: { code: "VALIDATION_ERROR", message: "Données invalides." },
+        error: { code: "VALIDATION_ERROR", message: "Données invalides.", traceId: "trace_test_12345", retriable: false },
       },
     });
   });
 
   it("hides unknown technical errors", () => {
-    const result = mapErrorToHttp(new Error("secret internal path"));
+    const result = mapErrorToHttp(new Error("secret internal path"), "trace_test_12345");
 
     expect(result.status).toBe(500);
     expect(JSON.stringify(result.body)).not.toContain("secret internal path");
   });
 
   it.each([["MCQ_SESSION_NOT_FOUND", 404], ["MCQ_ANSWER_DUPLICATE", 409], ["MCQ_SELECTION_IMPOSSIBLE", 422]] as const)("maps %s to %i", (code, status) => {
-    expect(mapErrorToHttp(new AppError({ code, userMessage: "MCQ" })).status).toBe(status);
+    expect(mapErrorToHttp(new AppError({ code, userMessage: "MCQ" }), "trace_test_12345").status).toBe(status);
   });
 });

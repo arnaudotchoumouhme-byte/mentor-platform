@@ -15,7 +15,7 @@ import { createAiPost } from "./route";
 function request(body: string) {
   return new Request("http://localhost/api/ai", {
     method: "POST",
-    headers: { "content-type": "application/json" },
+    headers: { "content-type": "application/json", "x-trace-id": "trace_test_12345" },
     body,
   });
 }
@@ -58,6 +58,8 @@ describe("POST /api/ai", () => {
       error: {
         code: "VALIDATION_ERROR",
         message: "La question doit être précisée.",
+        traceId: "trace_test_12345",
+        retriable: false,
       },
     });
   });
@@ -72,7 +74,7 @@ describe("POST /api/ai", () => {
     expect(response.status).toBe(400);
     await expect(response.json()).resolves.toEqual({
       success: false,
-      error: { code: "VALIDATION_ERROR", message: "Question invalide." },
+      error: { code: "VALIDATION_ERROR", message: "Question invalide.", traceId: "trace_test_12345", retriable: false },
     });
   });
 

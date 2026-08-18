@@ -1,4 +1,9 @@
+"use client";
+
+import Link from "next/link";
+import { useSyncExternalStore } from "react";
 import { AlertCircle, CheckCircle2, Loader2 } from "lucide-react";
+import { getAppStateDiagnostic, subscribeAppStateDiagnostic } from "@/hooks/use-state";
 
 export function PageHeader({ eyebrow, title, description, action }: { eyebrow?: string; title: string; description: string; action?: React.ReactNode }) {
   return <header className="mb-8 flex flex-wrap items-end justify-between gap-5">
@@ -21,4 +26,18 @@ export function Notice({ children, success = false }: { children: React.ReactNod
   return <div className={`flex gap-2 rounded-xl p-3 text-sm ${success ? "bg-emerald-50 text-emerald-800" : "bg-amber-50 text-amber-800"}`}><Icon size={18}/><span>{children}</span></div>;
 }
 
-export function Loading() { return <div className="grid min-h-64 place-items-center"><Loader2 className="animate-spin text-[var(--primary)]"/><span className="sr-only">Chargement</span></div>; }
+export function Loading() {
+  const diagnostic = useSyncExternalStore(subscribeAppStateDiagnostic, getAppStateDiagnostic, getAppStateDiagnostic);
+  if (diagnostic.status === "loading") return <div className="grid min-h-64 place-items-center"><Loader2 className="animate-spin text-[var(--primary)]"/><span className="sr-only">Chargement</span></div>;
+  if (diagnostic.status === "unauthenticated") return <DiagnosticState title="Authentification requise" detail={diagnostic.message ?? "Connectez-vous pour continuer."} traceId={diagnostic.traceId} action={<Link className="btn btn-primary" href="/auth/login">Se connecter</Link>}/>;
+  if (diagnostic.status === "access-denied") return <DiagnosticState title="Accès refusé" detail={diagnostic.message ?? "Votre compte n’est pas autorisé."} traceId={diagnostic.traceId}/>;
+  if (diagnostic.status === "conflict") return <DiagnosticState title="Conflit détecté" detail={diagnostic.message ?? "L’état de la ressource ne permet pas cette opération."} traceId={diagnostic.traceId}/>;
+  if (diagnostic.status === "quota-exceeded") return <DiagnosticState title="Quota atteint" detail={diagnostic.message ?? "Le quota du pilote est épuisé."} traceId={diagnostic.traceId}/>;
+  if (diagnostic.status === "network-error") return <DiagnosticState title="Serveur injoignable" detail={diagnostic.message ?? "Vérifiez la connexion puis réessayez."} traceId={diagnostic.traceId}/>;
+  if (diagnostic.status === "server-error") return <DiagnosticState title="Service indisponible" detail={diagnostic.message ?? "Une erreur serveur empêche le chargement."} traceId={diagnostic.traceId}/>;
+  return <DiagnosticState title="Données indisponibles" detail="Les données attendues ne sont pas disponibles." traceId={diagnostic.traceId}/>;
+}
+
+function DiagnosticState({title,detail,traceId,action}:{title:string;detail:string;traceId?:string;action?:React.ReactNode}) {
+  return <div className="card mx-auto max-w-xl p-6"><AlertCircle className="mb-3 text-amber-700"/><h2>{title}</h2><p>{detail}</p>{traceId&&<p className="text-xs text-[var(--muted-foreground)]">Référence support : <code>{traceId}</code></p>}{action}</div>;
+}

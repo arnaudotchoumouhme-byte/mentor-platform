@@ -4,8 +4,8 @@ import { MentorActionsService } from "@/application/actions/mentor-actions";
 import type { UseCase } from "@/application/contracts";
 import { SqliteMentorActions } from "@/infrastructure/database/sqlite/sqlite-mentor-actions";
 import { sqliteExecutor } from "@/infrastructure/database/sqlite/server-sqlite-executor";
-import { mapErrorToHttp } from "@/presentation/api/http-error-mapper";
-import { AppError } from "@/shared/errors/app-error";
+import { apiErrorResponse, apiValidationError } from "@/infrastructure/observability/api-boundary";
+import { resolveTraceId } from "@/shared/observability/trace-id";
 import { LocalDocumentStorage } from "@/infrastructure/documents/local-document-storage";
 import type { PilotIdentity } from "@/application/pilot/pilot-core";
 
@@ -23,41 +23,30 @@ const actionSchema = z.discriminatedUnion("action", [
 
 const actions = new MentorActionsService(new SqliteMentorActions(sqliteExecutor, new LocalDocumentStorage()));
 
-function validationFailure() {
-  return mapErrorToHttp(
-    new AppError({
-      code: "VALIDATION_ERROR",
-      userMessage: "Données invalides",
-    }),
-  );
-}
-
 export function createActionsPost(
   useCase: UseCase<z.infer<typeof actionSchema>, void>,
   identity: () => Promise<PilotIdentity> = async () => ({ accountId: "test", learnerId: "test" }),
 ) {
   return async function POST(request: Request) {
+    const traceId = resolveTraceId(request.headers.get("x-trace-id"));
     let body: unknown;
     try {
       body = await request.json();
     } catch {
-      const response = validationFailure();
-      return NextResponse.json(response.body, { status: response.status });
+      return apiValidationError("Données invalides", { traceId, module: "actions", operation: "action.execute" });
     }
 
     const parsed = actionSchema.safeParse(body);
     if (!parsed.success) {
-      const response = validationFailure();
-      return NextResponse.json(response.body, { status: response.status });
+      return apiValidationError("Données invalides", { traceId, module: "actions", operation: "action.execute" });
     }
 
     try {
       await identity();
       await useCase.execute(parsed.data);
-      return NextResponse.json({ success: true });
+      return NextResponse.json({ success: true }, { headers: { "x-trace-id": traceId, "cache-control": "no-store" } });
     } catch (error) {
-      const response = mapErrorToHttp(error);
-      return NextResponse.json(response.body, { status: response.status });
+      return apiErrorResponse(error, { traceId, module: "actions", operation: "action.execute" });
     }
   };
 }

@@ -5,6 +5,7 @@ import { useRef, useState } from "react";
 import { Archive, FileText, RotateCcw, Search, Trash2, Upload } from "lucide-react";
 import { useAppState } from "@/hooks/use-state";
 import { EmptyState, Loading, Notice, PageHeader } from "@/components/ui";
+import { clientFetch } from "@/shared/api/client-fetch";
 
 export default function LibraryPage() {
   const { data, refresh, act } = useAppState();
@@ -21,7 +22,7 @@ export default function LibraryPage() {
     const form = new FormData();
     Array.from(files).forEach((file) => form.append("files", file));
     form.set("subject", subject === "Toutes" ? "Non classé" : subject);
-    const response = await fetch("/api/documents", { method: "POST", body: form });
+    const response = await clientFetch("/api/documents", { method: "POST", body: form });
     const result = await response.json();
     if (!response.ok) { setMessage(result.message ?? result.error?.message ?? "Import impossible."); return; }
     const ocr = result.documents?.filter((item: { status: string }) => item.status === "REQUIRES_OCR").length ?? 0;

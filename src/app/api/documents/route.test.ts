@@ -12,7 +12,7 @@ vi.mock("@/infrastructure/documents/server-document-import", () => ({
 import { createDocumentsPost } from "./route";
 
 function request(form: FormData) {
-  return new Request("http://localhost/api/documents", { method: "POST", body: form });
+  return new Request("http://localhost/api/documents", { method: "POST", headers: { "x-trace-id": "trace_test_12345" }, body: form });
 }
 
 describe("POST /api/documents", () => {
@@ -46,7 +46,7 @@ describe("POST /api/documents", () => {
     expect(response.status).toBe(400);
     await expect(response.json()).resolves.toEqual({
       success: false,
-      error: { code: "VALIDATION_ERROR", message: "Aucun fichier sélectionné." },
+      error: { code: "VALIDATION_ERROR", message: "Aucun fichier sélectionné.", traceId: "trace_test_12345", retriable: false },
     });
     expect(execute).not.toHaveBeenCalled();
   });

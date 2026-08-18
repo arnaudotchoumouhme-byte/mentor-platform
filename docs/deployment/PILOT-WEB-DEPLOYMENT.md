@@ -35,6 +35,16 @@ Aucun `render.yaml` n’est ajouté : le service n’existe pas encore et les pa
 
 Seuls les chemins sous le point de montage persistent. Donner au processus Render les droits lecture/écriture sur ces répertoires, sans élargir les permissions. Le même disque doit être remonté après chaque restart ou redéploiement.
 
+Le démarrage exécute `scripts/check-persistent-storage.mjs` avant `next start`. En production Render, définir obligatoirement :
+
+```text
+MENTOR_REQUIRE_PERSISTENT_STORAGE=1
+MENTOR_PERSISTENT_MOUNT_PATH=/opt/render/project/src/persistent
+MENTOR_DATA_DIRECTORY=/opt/render/project/src/persistent/data
+```
+
+Le contrôle lit `/proc/self/mountinfo`, exige un montage dédié exactement au chemin configuré, refuse `overlay`, `tmpfs` et `ramfs`, vérifie que le répertoire de données est un descendant du montage et contrôle les droits lecture/écriture. Il échoue avant le démarrage HTTP et avant toute ouverture de SQLite. Aucun fallback éphémère n'est autorisé en production Render.
+
 Choisir initialement la plus petite taille offrant une marge suffisante pour la base, les documents, les fichiers WAL temporaires et la rétention des backups. La taille exacte doit être validée après mesure des données, sans ouvrir la base dans cette mission.
 
 ## 4. Build et start
@@ -58,6 +68,13 @@ Configurer dans Render, jamais dans Git :
 | `NODE_VERSION` | `24` | Non |
 | `MENTOR_ENABLE_DEMO_DATA` | `0` | Non |
 | `MENTOR_DATA_DIRECTORY` | `/opt/render/project/src/persistent/data` | Non |
+| `MENTOR_REQUIRE_PERSISTENT_STORAGE` | `1` | Non |
+| `MENTOR_PERSISTENT_MOUNT_PATH` | `/opt/render/project/src/persistent` | Non |
+| `MENTOR_PILOT_PROVISIONER_SUBJECTS` | subjects Auth0 opérateurs séparés par virgule | Oui côté exploitation |
+| `MENTOR_PILOT_OSCE_SESSION_LIMIT` | limite validée | Non |
+| `MENTOR_PILOT_AI_REQUEST_LIMIT` | limite validée | Non |
+| `MENTOR_PILOT_QUOTA_WINDOW_DAYS` | durée validée, 1–366 | Non |
+| `MENTOR_PILOT_AUDIT_KEY` | secret aléatoire de 32 caractères minimum | Oui |
 | `AUTH0_DOMAIN` | domaine du tenant Auth0, sans secret | Non |
 | `AUTH0_CLIENT_ID` | fourni par l’application Auth0 | Oui côté exploitation |
 | `AUTH0_CLIENT_SECRET` | secret Auth0 | Oui |
@@ -95,6 +112,8 @@ Health Check Path: /api/health
 
 Le contrat actuel retourne une réponse HTTP de succès avec `status`, `version`, `environment` et `traceId`. Il n’expose ni secret, ni chemin de données, ni donnée utilisateur.
 
+`/api/health` reste la liveness Render. Après démarrage, vérifier également `/api/readiness` : il retourne HTTP 200 seulement si le Persistent Disk, SQLite, le schéma courant, l'absence de migration en attente, Auth0 et les modules indispensables sont prêts. Une réponse 503 contient uniquement des statuts non sensibles et un `traceId`; utiliser ce dernier dans les logs structurés.
+
 ## 8. Regle SQLite mono-instance
 
 **INSTANCE COUNT = 1.**
@@ -113,6 +132,39 @@ Réutiliser exclusivement `SqliteBackupService` et l’activation contrôlée :
 6. Valider le staging avant toute décision humaine de remplacement de la base active. Ne jamais restaurer automatiquement sur la base active.
 
 Les snapshots quotidiens Render complètent ce mécanisme mais ne remplacent pas les backups applicatifs vérifiés.
+
+### Attachement à un service déjà démarré sans disque
+
+1. Placer le service en maintenance et stopper les écritures.
+2. Créer un backup SQLite cohérent avec `SqliteBackupService`, puis vérifier manifeste, checksum, version, empreinte et `integrity_check`.
+3. Exporter le package vérifié hors de l'instance : le répertoire overlay actuel sera masqué ou perdu lors de l'attachement.
+4. Dans **Render Dashboard → Web Service → Disks → Add Disk**, choisir `/opt/render/project/src/persistent` et une taille couvrant base, WAL, documents, staging et rétention.
+5. Configurer les trois variables de persistance ci-dessus puis redéployer.
+6. Dans le Shell runtime, vérifier `findmnt /opt/render/project/src/persistent`, `df -h /opt/render/project/src/persistent` et l'absence de type `overlay`.
+7. Transférer le package sous `persistent/backups`, restaurer uniquement avec `restoreToStaging()` vers `persistent/recovery/<timestamp>/mentor-staging.db`, puis revérifier.
+8. Toute mise en place au chemin actif exige l'arrêt du service et une autorisation humaine distincte. Ne jamais restaurer automatiquement.
+9. Conserver une copie vérifiée hors du disque Render ; les snapshots Render ne remplacent pas le backup SQLite applicatif.
+
+## 9 bis. MIG-0013 et provisioning du premier compte
+
+MIG-0013 est additive, v12 vers v13, et crée uniquement `pilot_account_provisioning_audit`. MIG-0012 reste inchangée. L'activation de production suit exclusivement `ControlledMigrationActivation.prepare()`, backup vérifié, autorisation humaine exacte, `execute()` et post-validation.
+
+Après validation de la base en version 13 et du montage persistant :
+
+1. Créer l'utilisateur opérateur et l'utilisateur pilote dans Auth0, sans token dans SQLite.
+2. Ajouter le subject de l'opérateur à `MENTOR_PILOT_PROVISIONER_SUBJECTS` et définir les limites, fenêtre et clé d'audit.
+3. Se connecter à `/auth/login` avec l'opérateur allowlisté.
+4. Dans la console du navigateur sur le même origin, exécuter en remplaçant uniquement le subject cible :
+
+```javascript
+await fetch('/api/admin/pilot/accounts', {
+  method: 'POST',
+  headers: {'content-type': 'application/json'},
+  body: JSON.stringify({oidcSubject: 'auth0|SUBJECT_CIBLE'})
+}).then(async response => ({status: response.status, body: await response.json()}))
+```
+
+Le cookie Auth0 reste géré par le navigateur et ne doit jamais être copié dans une commande ou un journal. La réponse attendue est `201/CREATED`, ou `200/ALREADY_PROVISIONED` lors d'une répétition. Un compte `DISABLED` reste refusé. Vérifier ensuite `/api/state` à `200`, le dashboard vide, les deux quotas et l'événement d'audit dédié.
 
 ## 10. Premier deploiement
 

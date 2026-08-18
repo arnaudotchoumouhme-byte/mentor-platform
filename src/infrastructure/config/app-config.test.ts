@@ -48,5 +48,17 @@ describe("createAppConfig", () => {
       ),
     ).toThrow("chemin absolu");
   });
+  it("refuse une production Render sans garde-fou persistant ou avec les données de démonstration",()=>{
+    expect(()=>createAppConfig({NODE_ENV:"production",RENDER:"true",MENTOR_ENABLE_DEMO_DATA:"0"},"C:\\mentor")).toThrow("stockage persistant");
+    expect(()=>createAppConfig({NODE_ENV:"production",RENDER:"true",MENTOR_ENABLE_DEMO_DATA:"1",MENTOR_REQUIRE_PERSISTENT_STORAGE:"1",MENTOR_PERSISTENT_MOUNT_PATH:"/persistent",MENTOR_DATA_DIRECTORY:"/persistent/data"},"C:\\mentor")).toThrow("MENTOR_ENABLE_DEMO_DATA");
+  });
+  it("accepte une production Render explicitement liée au montage durable",()=>{
+    const config=createAppConfig({NODE_ENV:"production",RENDER:"true",MENTOR_ENABLE_DEMO_DATA:"0",MENTOR_REQUIRE_PERSISTENT_STORAGE:"1",MENTOR_PERSISTENT_MOUNT_PATH:"/opt/render/project/src/persistent",MENTOR_DATA_DIRECTORY:"/opt/render/project/src/persistent/data",AUTH0_DOMAIN:"tenant.auth0.com",AUTH0_CLIENT_ID:"client",AUTH0_CLIENT_SECRET:"client-secret",AUTH0_SECRET:"12345678901234567890123456789012",APP_BASE_URL:"https://mentor.example",MENTOR_PILOT_PROVISIONER_SUBJECTS:"auth0|operator",MENTOR_PILOT_OSCE_SESSION_LIMIT:"10",MENTOR_PILOT_AI_REQUEST_LIMIT:"10",MENTOR_PILOT_QUOTA_WINDOW_DAYS:"30",MENTOR_PILOT_AUDIT_KEY:"12345678901234567890123456789012"},"C:\\mentor");
+    expect(config.database).toMatchObject({requirePersistentStorage:true,persistentMountPath:"/opt/render/project/src/persistent"});
+  });
+  it("refuse une production Render sans Auth0 ou provisioning complet",()=>{
+    const base={NODE_ENV:"production",RENDER:"true",MENTOR_ENABLE_DEMO_DATA:"0",MENTOR_REQUIRE_PERSISTENT_STORAGE:"1",MENTOR_PERSISTENT_MOUNT_PATH:"/persistent",MENTOR_DATA_DIRECTORY:"/persistent/data"} as const;
+    expect(()=>createAppConfig(base,"C:\\mentor")).toThrow("CFG_AUTH0_INCOMPLETE");
+  });
 
 });

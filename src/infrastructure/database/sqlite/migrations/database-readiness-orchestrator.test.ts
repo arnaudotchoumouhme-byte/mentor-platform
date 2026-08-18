@@ -48,10 +48,10 @@ describe("DatabaseReadinessOrchestrator", () => {
     expect(result).toMatchObject({
       status: "READY",
       initialState: "FRESH",
-      finalVersion: 12,
-      appliedMigrationIds: ["MIG-0001", "MIG-0002", "MIG-0003", "MIG-0004", "MIG-0005", "MIG-0006", "MIG-0007", "MIG-0008", "MIG-0009", "MIG-0010", "MIG-0011", "MIG-0012"],
+      finalVersion: 13,
+      appliedMigrationIds: ["MIG-0001", "MIG-0002", "MIG-0003", "MIG-0004", "MIG-0005", "MIG-0006", "MIG-0007", "MIG-0008", "MIG-0009", "MIG-0010", "MIG-0011", "MIG-0012", "MIG-0013"],
     });
-    expect(history()).toHaveLength(12);
+    expect(history()).toHaveLength(13);
   });
 
   it("adopts a recognized legacy core and preserves business data", () => {
@@ -74,6 +74,7 @@ describe("DatabaseReadinessOrchestrator", () => {
       { migration_id: "MIG-0010", application_kind: "executed" },
       { migration_id: "MIG-0011", application_kind: "executed" },
       { migration_id: "MIG-0012", application_kind: "executed" },
+      { migration_id: "MIG-0013", application_kind: "executed" },
     ]);
   });
 
@@ -99,9 +100,9 @@ describe("DatabaseReadinessOrchestrator", () => {
     expect(result).toMatchObject({
       status: "READY",
       initialState: "VERSIONED_OUTDATED",
-      appliedMigrationIds: ["MIG-0002", "MIG-0003", "MIG-0004", "MIG-0005", "MIG-0006", "MIG-0007", "MIG-0008", "MIG-0009", "MIG-0010", "MIG-0011", "MIG-0012"],
+      appliedMigrationIds: ["MIG-0002", "MIG-0003", "MIG-0004", "MIG-0005", "MIG-0006", "MIG-0007", "MIG-0008", "MIG-0009", "MIG-0010", "MIG-0011", "MIG-0012", "MIG-0013"],
     });
-    expect(history()).toHaveLength(12);
+    expect(history()).toHaveLength(13);
   });
 
   it("is a mutation-free no-op for a current database and remains idempotent", () => {
@@ -121,7 +122,7 @@ describe("DatabaseReadinessOrchestrator", () => {
   it("fails closed when migration history is ahead", () => {
     readiness();
     sqlite.prepare(`INSERT INTO schema_migrations VALUES(?,?,?,?,?,?,?,?,?)`).run(
-      "MIG-0013", 12, 13, "Future", "0".repeat(64), new Date(0).toISOString(), 0, "executed", null,
+      "MIG-0014", 13, 14, "Future", "0".repeat(64), new Date(0).toISOString(), 0, "executed", null,
     );
     const before = history();
     expect(readiness()).toMatchObject({ status: "BLOCKED", initialState: "VERSIONED_AHEAD", reason: "MIGRATION_HISTORY_AHEAD" });
