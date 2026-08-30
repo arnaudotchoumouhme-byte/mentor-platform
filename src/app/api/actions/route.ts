@@ -1,7 +1,6 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { MentorActionsService } from "@/application/actions/mentor-actions";
-import type { UseCase } from "@/application/contracts";
 import { SqliteMentorActions } from "@/infrastructure/database/sqlite/sqlite-mentor-actions";
 import { sqliteExecutor } from "@/infrastructure/database/sqlite/server-sqlite-executor";
 import { apiErrorResponse, apiValidationError } from "@/infrastructure/observability/api-boundary";
@@ -24,7 +23,7 @@ const actionSchema = z.discriminatedUnion("action", [
 const actions = new MentorActionsService(new SqliteMentorActions(sqliteExecutor, new LocalDocumentStorage()));
 
 export function createActionsPost(
-  useCase: UseCase<z.infer<typeof actionSchema>, void>,
+  useCase: Readonly<{ execute(input: z.infer<typeof actionSchema>, learnerId: string): Promise<void> }>,
   identity: () => Promise<PilotIdentity> = async () => ({ accountId: "test", learnerId: "test" }),
 ) {
   return async function POST(request: Request) {
@@ -42,8 +41,8 @@ export function createActionsPost(
     }
 
     try {
-      await identity();
-      await useCase.execute(parsed.data);
+      const caller = await identity();
+      await useCase.execute(parsed.data, caller.learnerId);
       return NextResponse.json({ success: true }, { headers: { "x-trace-id": traceId, "cache-control": "no-store" } });
     } catch (error) {
       return apiErrorResponse(error, { traceId, module: "actions", operation: "action.execute" });

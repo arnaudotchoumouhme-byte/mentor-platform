@@ -6,7 +6,7 @@ describe("closed pilot sensitive API contract",()=>{
   it("fails closed on every sensitive API when Account is absent or disabled",async()=>{const responses=await Promise.all([
     createActionsPost({execute:vi.fn()},denied)(json("http://x/api/actions",{action:"deleteDocument",id:1})),
     createAiPost({execute:vi.fn()},denied,async(_i,_t,op)=>op())(json("http://x/api/ai",{question:"Question valide"})),
-    createCoachPost(denied,async()=>({start:vi.fn(),answer:vi.fn(),resume:vi.fn()}))(json("http://x/api/coach",{action:"resume",sessionId:"10000000-0000-4000-8000-000000000001"})),
+    createCoachPost(denied,async()=>({start:vi.fn(),answer:vi.fn(),resume:vi.fn()}),{bind:vi.fn(),assert:vi.fn()})(json("http://x/api/coach",{action:"resume",sessionId:"10000000-0000-4000-8000-000000000001"})),
     createDocumentsPost({execute:vi.fn()},denied)(new Request("http://x/api/documents",{method:"POST",body:new FormData()})),
     createDocumentGet(denied)(new Request("http://x/api/documents/1"),documentContext),
     createSearchPost(denied,vi.fn(()=>[]))(json("http://x/api/search",{query:"test"})),createStateGet(denied)(),
@@ -14,7 +14,7 @@ describe("closed pilot sensitive API contract",()=>{
   it("allows an ACTIVE account through each route boundary",async()=>{const form=new FormData();form.append("files",new File(["x"],"x.txt",{type:"text/plain"}));const responses=await Promise.all([
     createActionsPost({execute:vi.fn()},active)(json("http://x/api/actions",{action:"deleteDocument",id:1})),
     createAiPost({execute:vi.fn(async()=>({answer:"ok"}))} as never,active,async(_i,_t,op)=>op())(json("http://x/api/ai",{question:"Question valide"})),
-    createCoachPost(active,async()=>({start:vi.fn(),answer:vi.fn(),resume:vi.fn(()=>({ok:true}))}))(json("http://x/api/coach",{action:"resume",sessionId:"10000000-0000-4000-8000-000000000001"})),
+    createCoachPost(active,async()=>({start:vi.fn(),answer:vi.fn(),resume:vi.fn(()=>({ok:true}))}),{bind:vi.fn(),assert:vi.fn()})(json("http://x/api/coach",{action:"resume",sessionId:"10000000-0000-4000-8000-000000000001"})),
     createDocumentsPost({execute:vi.fn(async()=>({imported:[],rejected:[],documents:[]}))},active)(new Request("http://x/api/documents",{method:"POST",body:form})),
     createDocumentGet(active)(new Request("http://x/api/documents/1"),documentContext),createSearchPost(active,vi.fn(()=>[]))(json("http://x/api/search",{query:"test"})),createStateGet(active)(),
   ]);expect(responses.map(x=>x.status)).toEqual([200,200,200,200,404,200,200]);});

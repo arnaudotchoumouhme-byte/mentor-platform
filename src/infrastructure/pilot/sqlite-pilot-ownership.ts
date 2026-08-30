@@ -13,4 +13,12 @@ export class SqlitePilotOwnership {
     const row = this.database.all<{ learner_id: string | null }>("SELECT learner_id FROM mcq_sessions WHERE session_id=?", sessionId)[0];
     if (!row || row.learner_id !== learnerId) throw denied();
   }
+  bindCoachSession(sessionId: string, learnerId: string): void {
+    const result = this.database.run("INSERT INTO learner_coaching_session_ownership(session_id,learner_id) VALUES(?,?)", sessionId, learnerId);
+    if (result.changes !== 1) throw denied();
+  }
+  assertCoachSession(sessionId: string, learnerId: string): void {
+    const row = this.database.all<{ learner_id: string }>("SELECT learner_id FROM learner_coaching_session_ownership WHERE session_id=? AND learner_id=?", sessionId, learnerId)[0];
+    if (!row) throw denied();
+  }
 }

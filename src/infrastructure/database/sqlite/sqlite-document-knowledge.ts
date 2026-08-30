@@ -18,12 +18,15 @@ export class SqliteDocumentKnowledge implements DocumentKnowledgePort {
 
   async saveConversationMessage(
     message: ConversationMessage,
+    learnerId: string,
   ): Promise<void> {
-    this.database.run(
+    this.database.run("BEGIN IMMEDIATE");
+    try { this.database.run(
       "INSERT INTO conversations(role,content,citations) VALUES (?,?,?)",
       message.role,
       message.content,
       message.citations,
-    );
+    ); const id=this.database.all<{id:number}>("SELECT last_insert_rowid() AS id")[0]!.id; this.database.run("INSERT INTO learner_conversation_ownership(conversation_id,learner_id) VALUES(?,?)",id,learnerId); this.database.run("COMMIT"); }
+    catch(error){this.database.run("ROLLBACK");throw error;}
   }
 }

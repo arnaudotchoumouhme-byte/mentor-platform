@@ -32,14 +32,16 @@ describe("SqliteDocumentKnowledge", () => {
 
   it("persists conversation fields as bound parameters", async () => {
     const database = createDatabase();
+    database.all.mockReturnValueOnce([{ id: 9 }] as never[]);
     const adapter = new SqliteDocumentKnowledge(database);
-    await adapter.saveConversationMessage({ role: "user", content: "Question", citations: "[]" });
+    await adapter.saveConversationMessage({ role: "user", content: "Question", citations: "[]" }, "learner-a");
     expect(database.run).toHaveBeenCalledWith(
       "INSERT INTO conversations(role,content,citations) VALUES (?,?,?)",
       "user",
       "Question",
       "[]",
     );
+    expect(database.run).toHaveBeenCalledWith("INSERT INTO learner_conversation_ownership(conversation_id,learner_id) VALUES(?,?)", 9, "learner-a");
   });
 
   it("propagates controlled database failures", async () => {
@@ -49,7 +51,7 @@ describe("SqliteDocumentKnowledge", () => {
     });
     const adapter = new SqliteDocumentKnowledge(database);
     await expect(
-      adapter.saveConversationMessage({ role: "user", content: "Question", citations: "[]" }),
+      adapter.saveConversationMessage({ role: "user", content: "Question", citations: "[]" }, "learner-a"),
     ).rejects.toThrow("database unavailable");
   });
 });

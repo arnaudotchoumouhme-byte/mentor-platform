@@ -11,9 +11,9 @@ export function createDocumentGet(identity: () => Promise<PilotIdentity>) {
   return async (request: Request, { params }: { params: Promise<{ id: string }> }) => {
     const traceId = resolveTraceId(request.headers.get("x-trace-id"));
     try {
-      await identity(); const id = Number((await params).id);
+      const caller = await identity(); const id = Number((await params).id);
       if (!Number.isSafeInteger(id) || id <= 0) return apiValidationError("Identifiant invalide.", { traceId, module: "documents", operation: "document.read" });
-      const document = library.getByDocumentId(id);
+      const document = library.getByDocumentId(id, caller.learnerId);
       if (!document) throw new AppError({ code: "NOT_FOUND", userMessage: "Document introuvable." });
       return NextResponse.json(document, { headers: { "x-trace-id": traceId, "cache-control": "no-store" } });
     } catch (error) { return apiErrorResponse(error, { traceId, module: "documents", operation: "document.read" }); }

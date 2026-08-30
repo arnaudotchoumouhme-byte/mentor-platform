@@ -45,7 +45,7 @@ export function createAiPost(
 
     try {
       const caller = await identity();
-      return NextResponse.json(await meter(caller, traceId, () => useCase.execute({ ...parsed.data, traceId })), { headers: { "x-trace-id": traceId } });
+      return NextResponse.json(await meter(caller, traceId, () => useCase.execute({ ...parsed.data, traceId, learnerId: caller.learnerId })), { headers: { "x-trace-id": traceId } });
     } catch (error) {
       const response = mapErrorToHttp(error, traceId);
       return NextResponse.json(response.body, { status: response.status, headers: { "x-trace-id": traceId, "cache-control": "no-store" } });

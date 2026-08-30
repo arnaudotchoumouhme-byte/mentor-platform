@@ -18,6 +18,6 @@ export type LibraryDocument = Readonly<{
 }>;
 
 export interface LibrarySourcePort {
-  list(): readonly LibraryDocument[];
-  getByDocumentId(id: number): LibraryDocument | null;
+  list(learnerId: string): readonly LibraryDocument[];
+  getByDocumentId(id: number, learnerId: string): LibraryDocument | null;
 }

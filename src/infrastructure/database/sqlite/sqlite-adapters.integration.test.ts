@@ -18,9 +18,18 @@ describe("SQLite adapters with an isolated in-memory database", () => {
         archived INTEGER NOT NULL DEFAULT 0
       );
       CREATE TABLE conversations (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
         role TEXT NOT NULL,
         content TEXT NOT NULL,
         citations TEXT NOT NULL
+      );
+      CREATE TABLE learner_document_ownership (
+        document_id INTEGER PRIMARY KEY,
+        learner_id TEXT NOT NULL
+      );
+      CREATE TABLE learner_conversation_ownership (
+        conversation_id INTEGER PRIMARY KEY,
+        learner_id TEXT NOT NULL
       );
     `);
     executor = {
@@ -56,10 +65,11 @@ describe("SQLite adapters with an isolated in-memory database", () => {
 
   it("distinguishes a found mutation from an absent resource", async () => {
     database.exec("INSERT INTO documents(id,name,content,archived) VALUES (1,'Cours','Texte',0)");
+    database.exec("INSERT INTO learner_document_ownership(document_id,learner_id) VALUES (1,'learner-a')");
     const adapter = new SqliteMentorActions(executor);
 
-    await expect(adapter.setDocumentArchived(1, true)).resolves.toBe(true);
-    await expect(adapter.setDocumentArchived(404, true)).resolves.toBe(false);
+    await expect(adapter.setDocumentArchived(1, true, "learner-a")).resolves.toBe(true);
+    await expect(adapter.setDocumentArchived(404, true, "learner-a")).resolves.toBe(false);
     expect(
       database.prepare("SELECT archived FROM documents WHERE id = 1").get(),
     ).toEqual({ archived: 1 });
@@ -71,9 +81,10 @@ describe("SQLite adapters with an isolated in-memory database", () => {
       role: "assistant",
       content: "Réponse",
       citations: "[]",
-    });
-    expect(database.prepare("SELECT * FROM conversations").all()).toEqual([
+    }, "learner-a");
+    expect(database.prepare("SELECT role,content,citations FROM conversations").all()).toEqual([
       { role: "assistant", content: "Réponse", citations: "[]" },
     ]);
+    expect(database.prepare("SELECT learner_id FROM learner_conversation_ownership").get()).toEqual({ learner_id: "learner-a" });
   });
 });
