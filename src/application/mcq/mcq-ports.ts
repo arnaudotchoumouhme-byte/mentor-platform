@@ -3,6 +3,7 @@ import type { McqSession, SessionAnswer } from "@/domain/mcq/mcq-session";
 import type { QuestionItemVersion } from "@/domain/mcq/question-item";
 
 export interface McqRepository {
+  listPublishedBlueprints(): Promise<readonly Readonly<{ blueprintVersionId: string; itemCount: number }>[] >;
   listQuestionVersions(blueprintVersionId: string): Promise<readonly QuestionItemVersion[]>;
   findQuestionVersion(itemId: string, version: number): Promise<QuestionItemVersion | null>;
   createSession(session: McqSession): Promise<void>;

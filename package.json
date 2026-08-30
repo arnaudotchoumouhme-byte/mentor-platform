@@ -20,7 +20,10 @@
     "test": "vitest run",
     "test:coverage": "vitest run --coverage",
     "check": "pnpm run typecheck && pnpm run lint && pnpm run test",
-    "verify": "pnpm run check && pnpm run build"
+    "verify": "pnpm run check && pnpm run build",
+    "tsx": "node scripts/run-tsx.mjs",
+    "mcq:import": "node scripts/run-tsx.mjs scripts/import-mcq-corpus.ts",
+    "source-version-alias": "node scripts/run-tsx.mjs scripts/source-version-editorial-alias.ts"
   },
   "dependencies": {
     "@auth0/nextjs-auth0": "4.26.0",
@@ -46,6 +49,7 @@
     "jsdom": "30.0.1",
     "tailwindcss": "4.3.3",
     "typescript": "6.0.3",
+    "tsx": "4.20.6",
     "vitest": "4.1.10"
   }
 }

@@ -7,6 +7,7 @@ import { syntheticMcqItem } from "@/test/fixtures/mcq-items";
 export class MemoryMcqRepository implements McqRepository {
   readonly items = new Map<string, QuestionItemVersion>(); readonly sessions = new Map<string, McqSession>(); readonly scores = new Map<string, McqScore>();
   constructor(items: readonly QuestionItemVersion[] = [syntheticMcqItem("item-1"), syntheticMcqItem("item-2")]) { for (const item of items) this.items.set(`${item.itemId}:${item.version}`, item); }
+  async listPublishedBlueprints() { return this.items.size ? [{ blueprintVersionId: "bp-v1", itemCount: this.items.size }] : []; }
   async listQuestionVersions(blueprintVersionId: string) { return [...this.items.values()].filter((item) => item.mappings.some((m) => m.blueprintVersionId === blueprintVersionId)); }
   async findQuestionVersion(itemId: string, version: number) { return this.items.get(`${itemId}:${version}`) ?? null; }
   async createSession(session: McqSession) { this.sessions.set(session.sessionId, session); }

@@ -13,6 +13,7 @@ type AnswerRow = Readonly<{ item_id: string; item_version: number; choice_id: st
 
 export class SqliteMcqRepository implements McqRepository {
   constructor(private readonly database: SqliteExecutor) {}
+  async listPublishedBlueprints() { return this.database.all<{ blueprintVersionId: string; itemCount: number }>("SELECT m.blueprint_version_id AS blueprintVersionId,COUNT(DISTINCT m.item_id) AS itemCount FROM mcq_item_mappings m JOIN mcq_item_editorial_metadata e ON e.item_id=m.item_id AND e.item_version=m.item_version WHERE e.editorial_status='PUBLISHED' AND NOT EXISTS (SELECT 1 FROM mcq_item_editorial_metadata newer WHERE newer.item_id=e.item_id AND newer.editorial_status='PUBLISHED' AND newer.item_version>e.item_version) GROUP BY m.blueprint_version_id ORDER BY m.blueprint_version_id"); }
   private mappings(itemId: string, version: number): QuestionItemVersion["mappings"] {
     const rows = this.database.all<MappingRow>("SELECT * FROM mcq_item_mappings WHERE item_id=? AND item_version=? ORDER BY blueprint_version_id,domain_id,competency_id,topic_id,objective_id", itemId, version);
     const groups = new Map<string, { blueprintVersionId: string; domainId: string; competencyId: string; topicId: string; objectiveIds: string[] }>();
@@ -20,7 +21,7 @@ export class SqliteMcqRepository implements McqRepository {
     return [...groups.values()];
   }
   private item(row: ItemRow): QuestionItemVersion { return defineQuestionItemVersion({ itemId: row.item_id, version: row.version, stem: row.stem, choices: JSON.parse(row.choices_json) as QuestionItemVersion["choices"], correctChoiceId: row.correct_choice_id, explanation: row.explanation, difficulty: row.difficulty, provenance: row.provenance, mappings: this.mappings(row.item_id, row.version) }); }
-  async listQuestionVersions(blueprintVersionId: string) { return this.database.all<ItemRow>("SELECT DISTINCT v.* FROM mcq_question_versions v JOIN mcq_item_mappings m ON m.item_id=v.item_id AND m.item_version=v.version WHERE m.blueprint_version_id=? ORDER BY v.item_id,v.version", blueprintVersionId).map((row) => this.item(row)); }
+  async listQuestionVersions(blueprintVersionId: string) { return this.database.all<ItemRow>("SELECT DISTINCT v.* FROM mcq_question_versions v JOIN mcq_item_mappings m ON m.item_id=v.item_id AND m.item_version=v.version JOIN mcq_item_editorial_metadata e ON e.item_id=v.item_id AND e.item_version=v.version WHERE m.blueprint_version_id=? AND e.editorial_status='PUBLISHED' AND NOT EXISTS (SELECT 1 FROM mcq_item_editorial_metadata newer WHERE newer.item_id=e.item_id AND newer.editorial_status='PUBLISHED' AND newer.item_version>e.item_version) ORDER BY v.item_id,v.version", blueprintVersionId).map((row) => this.item(row)); }
   async findQuestionVersion(itemId: string, version: number) { const row = this.database.all<ItemRow>("SELECT * FROM mcq_question_versions WHERE item_id=? AND version=?", itemId, version)[0]; return row ? this.item(row) : null; }
   async createSession(session: McqSession): Promise<void> {
     this.database.run("BEGIN IMMEDIATE");

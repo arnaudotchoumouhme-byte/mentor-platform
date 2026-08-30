@@ -1,0 +1,458 @@
+{
+  "schemaVersion": "MCQ_CORPUS/1",
+  "corpusId": "SNC-QCM-PILOT",
+  "corpusVersion": 5,
+  "blueprintVersionId": "PEBC-PART-I-2026",
+  "items": [
+    {
+      "itemId": "SNC-001",
+      "version": 2,
+      "status": "PUBLISHED",
+      "stem": "Quelles structures composent le système nerveux central?",
+      "choices": [
+        {
+          "id": "A",
+          "text": "Le cerveau et la moelle épinière"
+        },
+        {
+          "id": "B",
+          "text": "Le cerveau et les nerfs périphériques"
+        },
+        {
+          "id": "C",
+          "text": "La moelle épinière et les ganglions périphériques"
+        },
+        {
+          "id": "D",
+          "text": "Les nerfs crâniens et les nerfs spinaux"
+        }
+      ],
+      "correctChoiceId": "A",
+      "explanation": "la source définit le SNC comme le cerveau et la moelle épinière.",
+      "difficulty": "FOUNDATION",
+      "source": {
+        "sourceVersionId": "8fdf1a28-6025-4846-a74b-1b4faca1d98f",
+        "reference": {
+          "type": "PAGE",
+          "locator": "`SYSTÈME NERVEUX CENTRAL.pdf`, p. 1, section « C'est quoi le système nerveux central (SNC)? ».",
+          "label": "`SYSTÈME NERVEUX CENTRAL.pdf`, p. 1, section « C'est quoi le système nerveux central (SNC)? »."
+        }
+      },
+      "mappings": [
+        {
+          "domainId": "PEBC-2026-KNOWLEDGE-EXPERTISE",
+          "competencyId": "PEBC-NAPRA-2026-2.2",
+          "topicId": "SNC-ANATOMIE-FONCTIONNELLE",
+          "objectiveIds": [
+            "SNC-001-OA-01"
+          ]
+        }
+      ]
+    },
+    {
+      "itemId": "SNC-002",
+      "version": 2,
+      "status": "PUBLISHED",
+      "stem": "Une intervention pharmacologique vise à réduire une excitabilité neuronale excessive. Quel effet est le plus directement cohérent avec le rôle du GABA décrit dans la source?",
+      "choices": [
+        {
+          "id": "A",
+          "text": "Accroître la transmission excitatrice du glutamate"
+        },
+        {
+          "id": "B",
+          "text": "Stimuler la conversion périphérique de la lévodopa"
+        },
+        {
+          "id": "C",
+          "text": "Renforcer l'inhibition neuronale"
+        },
+        {
+          "id": "D",
+          "text": "Augmenter les décharges neuronales répétitives"
+        }
+      ],
+      "correctChoiceId": "C",
+      "explanation": "le GABA est présenté comme inhibiteur; l'augmenter renforce le « frein » neuronal et diminue l'excitabilité excessive.",
+      "difficulty": "INTERMEDIATE",
+      "source": {
+        "sourceVersionId": "8fdf1a28-6025-4846-a74b-1b4faca1d98f",
+        "reference": {
+          "type": "PAGE",
+          "locator": "p. 4 (« Balance excitation/inhibition ») et p. 40 (questions 147-150).",
+          "label": "p. 4 (« Balance excitation/inhibition ») et p. 40 (questions 147-150)."
+        }
+      },
+      "mappings": [
+        {
+          "domainId": "PEBC-2026-KNOWLEDGE-EXPERTISE",
+          "competencyId": "PEBC-NAPRA-2026-2.2",
+          "topicId": "SNC-NEUROTRANSMISSION-EPILEPSIE",
+          "objectiveIds": [
+            "SNC-002-OA-01"
+          ]
+        }
+      ]
+    },
+    {
+      "itemId": "SNC-003",
+      "version": 2,
+      "status": "PUBLISHED",
+      "stem": "Quatre molécules expérimentales diffèrent par leurs propriétés physicochimiques. Laquelle devrait traverser le plus facilement la barrière hémato-encéphalique selon la source?",
+      "choices": [
+        {
+          "id": "A",
+          "text": "Une grande molécule hydrophile et ionisée"
+        },
+        {
+          "id": "B",
+          "text": "Une petite molécule lipophile et non ionisée"
+        },
+        {
+          "id": "C",
+          "text": "Une grande molécule lipophile et ionisée"
+        },
+        {
+          "id": "D",
+          "text": "Une petite molécule hydrophile et ionisée"
+        }
+      ],
+      "correctChoiceId": "B",
+      "explanation": "la source associe le passage plus facile à une petite taille, à la lipophilie et à une forme non ionisée.",
+      "difficulty": "INTERMEDIATE",
+      "source": {
+        "sourceVersionId": "8fdf1a28-6025-4846-a74b-1b4faca1d98f",
+        "reference": {
+          "type": "PAGE",
+          "locator": "p. 4 (« Barrière hémato-encéphalique ») et p. 48-49 (questions 197-198).",
+          "label": "p. 4 (« Barrière hémato-encéphalique ») et p. 48-49 (questions 197-198)."
+        }
+      },
+      "mappings": [
+        {
+          "domainId": "PEBC-2026-KNOWLEDGE-EXPERTISE",
+          "competencyId": "PEBC-NAPRA-2026-2.2",
+          "topicId": "SNC-PHARMACOCINETIQUE-BHE",
+          "objectiveIds": [
+            "SNC-003-OA-01"
+          ]
+        }
+      ]
+    },
+    {
+      "itemId": "SNC-004",
+      "version": 2,
+      "status": "PUBLISHED",
+      "stem": "Une personne qui utilise un opioïde présente une somnolence profonde et une respiration nettement ralentie. Quelle est la meilleure priorité immédiate selon la source?",
+      "choices": [
+        {
+          "id": "A",
+          "text": "Attendre la présence simultanée de pupilles très serrées pour confirmer le tableau complet"
+        },
+        {
+          "id": "B",
+          "text": "Omettre la prochaine dose et demander une réévaluation non urgente pendant les heures ouvrables"
+        },
+        {
+          "id": "C",
+          "text": "Réveiller la personne, puis observer si la respiration s'améliore durablement avant de décider"
+        },
+        {
+          "id": "D",
+          "text": "Appeler immédiatement le 911, administrer la naloxone si elle est disponible, rester auprès de la personne et suivre les consignes d'urgence"
+        }
+      ],
+      "correctChoiceId": "D",
+      "explanation": "Santé Canada recommande d'appeler immédiatement le 911 en cas de surdose soupçonnée, d'administrer la naloxone si elle est disponible, de rester auprès de la personne et de suivre les consignes d'urgence. La naloxone ne remplace jamais l'appel au 911.",
+      "difficulty": "ADVANCED",
+      "source": {
+        "sourceVersionId": "8fdf1a28-6025-4846-a74b-1b4faca1d98f",
+        "reference": {
+          "type": "PAGE",
+          "locator": "p. 12 (dépression respiratoire) et p. 18 (signes classiques et « si respiration ralentie : urgence »).",
+          "label": "p. 12 (dépression respiratoire) et p. 18 (signes classiques et « si respiration ralentie : urgence »)."
+        }
+      },
+      "mappings": [
+        {
+          "domainId": "PEBC-2026-CLINICAL-CARE",
+          "competencyId": "PEBC-NAPRA-2026-1.4",
+          "topicId": "SNC-OPIOIDES-SECURITE",
+          "objectiveIds": [
+            "SNC-004-OA-01"
+          ]
+        }
+      ]
+    },
+    {
+      "itemId": "SNC-005",
+      "version": 2,
+      "status": "PUBLISHED",
+      "stem": "Une personne traitée par un antipsychotique de première génération développe rigidité et tremblements. Quelle action réceptorielle explique le plus directement ces manifestations selon la source?",
+      "choices": [
+        {
+          "id": "A",
+          "text": "Blocage des récepteurs histaminiques H1 produisant principalement une sédation"
+        },
+        {
+          "id": "B",
+          "text": "Blocage excessif des récepteurs dopaminergiques D2 dans les voies motrices"
+        },
+        {
+          "id": "C",
+          "text": "Blocage des récepteurs sérotoninergiques 5-HT2A caractéristique des effets moteurs décrits"
+        },
+        {
+          "id": "D",
+          "text": "Blocage des récepteurs muscariniques expliquant à lui seul la rigidité et les tremblements"
+        }
+      ],
+      "correctChoiceId": "B",
+      "explanation": "la source relie directement le blocage D2 dans les voies motrices à la rigidité, aux tremblements, à l'akathisie et à la dystonie.",
+      "difficulty": "INTERMEDIATE",
+      "source": {
+        "sourceVersionId": "8fdf1a28-6025-4846-a74b-1b4faca1d98f",
+        "reference": {
+          "type": "PAGE",
+          "locator": "p. 18-19, questions 42-48.",
+          "label": "p. 18-19, questions 42-48."
+        }
+      },
+      "mappings": [
+        {
+          "domainId": "PEBC-2026-CLINICAL-CARE",
+          "competencyId": "PEBC-NAPRA-2026-1.2",
+          "topicId": "SNC-ANTIPSYCHOTIQUES",
+          "objectiveIds": [
+            "SNC-005-OA-01"
+          ]
+        }
+      ]
+    },
+    {
+      "itemId": "SNC-006",
+      "version": 2,
+      "status": "PUBLISHED",
+      "stem": "Une personne qui prend de la sertraline depuis trois jours ne constate pas encore d'amélioration et conclut que le médicament ne fonctionne pas. Quelle explication est la plus conforme à la source?",
+      "choices": [
+        {
+          "id": "A",
+          "text": "La sertraline n'agit sur la sérotonine qu'après plusieurs semaines parce que son absorption est très lente"
+        },
+        {
+          "id": "B",
+          "text": "L'absence d'effet après trois jours confirme un échec et justifie un arrêt brusque"
+        },
+        {
+          "id": "C",
+          "text": "La sertraline inhibe la recapture de la sérotonine, mais l'amélioration clinique peut demander plusieurs semaines; le mécanisme expliquant ce délai clinique est complexe"
+        },
+        {
+          "id": "D",
+          "text": "Le traitement doit être pris uniquement les jours où les symptômes sont plus marqués pour accélérer la réponse"
+        }
+      ],
+      "correctChoiceId": "C",
+      "explanation": "l'inhibition de la recapture de la sérotonine est un mécanisme établi de la sertraline, tandis que l'amélioration clinique peut nécessiter plusieurs semaines. Le délai thérapeutique ne doit pas être attribué avec certitude à un mécanisme unique d'adaptation des récepteurs ou des circuits.",
+      "difficulty": "INTERMEDIATE",
+      "source": {
+        "sourceVersionId": "8fdf1a28-6025-4846-a74b-1b4faca1d98f",
+        "reference": {
+          "type": "PAGE",
+          "locator": "p. 23-24, questions 63-67 et 69.",
+          "label": "p. 23-24, questions 63-67 et 69."
+        }
+      },
+      "mappings": [
+        {
+          "domainId": "PEBC-2026-CLINICAL-CARE",
+          "competencyId": "PEBC-NAPRA-2026-1.4",
+          "topicId": "SNC-ANTIDEPRESSEURS-ISRS",
+          "objectiveIds": [
+            "SNC-006-OA-01"
+          ]
+        }
+      ]
+    },
+    {
+      "itemId": "SNC-007",
+      "version": 2,
+      "status": "PUBLISHED",
+      "stem": "Une quantité excessive d'amitriptyline est soupçonnée. Quelle interprétation du risque est la plus conforme à la source?",
+      "choices": [
+        {
+          "id": "A",
+          "text": "Les effets anticholinergiques habituels résument le risque, même lorsque l'exposition est excessive"
+        },
+        {
+          "id": "B",
+          "text": "La sédation est le seul risque majeur puisque les effets cardiaques sont limités aux doses thérapeutiques"
+        },
+        {
+          "id": "C",
+          "text": "Le surdosage peut associer toxicité cardiaque, troubles du rythme ou de la conduction, hypotension, convulsions et coma"
+        },
+        {
+          "id": "D",
+          "text": "Le risque est limité parce que l'ancienneté du médicament garantit un profil de surdosage bien toléré"
+        }
+      ],
+      "correctChoiceId": "C",
+      "explanation": "les monographies canadiennes confirment qu'un surdosage d'amitriptyline peut entraîner des complications cardiaques, neurologiques et hémodynamiques graves, notamment troubles du rythme ou de la conduction, hypotension, convulsions et coma.",
+      "difficulty": "ADVANCED",
+      "source": {
+        "sourceVersionId": "8fdf1a28-6025-4846-a74b-1b4faca1d98f",
+        "reference": {
+          "type": "PAGE",
+          "locator": "p. 27, question 80.",
+          "label": "p. 27, question 80."
+        }
+      },
+      "mappings": [
+        {
+          "domainId": "PEBC-2026-CLINICAL-CARE",
+          "competencyId": "PEBC-NAPRA-2026-1.2",
+          "topicId": "SNC-ANTIDEPRESSEURS-TRICYCLIQUES",
+          "objectiveIds": [
+            "SNC-007-OA-01"
+          ]
+        }
+      ]
+    },
+    {
+      "itemId": "SNC-008",
+      "version": 2,
+      "status": "PUBLISHED",
+      "stem": "Une association est conçue pour permettre à davantage de lévodopa d'atteindre le cerveau tout en réduisant sa conversion périphérique et certains effets périphériques. Quel rôle de la carbidopa répond à cet objectif selon la source?",
+      "choices": [
+        {
+          "id": "A",
+          "text": "Accélérer la conversion périphérique de la lévodopa en dopamine"
+        },
+        {
+          "id": "B",
+          "text": "Inhiber la conversion de la lévodopa en dopamine après son entrée dans le cerveau"
+        },
+        {
+          "id": "C",
+          "text": "Fournir directement de la dopamine capable de traverser facilement la barrière hémato-encéphalique"
+        },
+        {
+          "id": "D",
+          "text": "Inhiber la dopa-décarboxylase en périphérie avant le passage de la lévodopa dans le SNC"
+        }
+      ],
+      "correctChoiceId": "D",
+      "explanation": "l'inhibition périphérique protège la lévodopa avant son passage dans le SNC, augmente la quantité disponible pour le cerveau et réduit certains effets périphériques.",
+      "difficulty": "INTERMEDIATE",
+      "source": {
+        "sourceVersionId": "8fdf1a28-6025-4846-a74b-1b4faca1d98f",
+        "reference": {
+          "type": "PAGE",
+          "locator": "p. 36, questions 124-128.",
+          "label": "p. 36, questions 124-128."
+        }
+      },
+      "mappings": [
+        {
+          "domainId": "PEBC-2026-KNOWLEDGE-EXPERTISE",
+          "competencyId": "PEBC-NAPRA-2026-2.2",
+          "topicId": "SNC-PARKINSON",
+          "objectiveIds": [
+            "SNC-008-OA-01"
+          ]
+        }
+      ]
+    },
+    {
+      "itemId": "SNC-009",
+      "version": 2,
+      "status": "PUBLISHED",
+      "stem": "Une personne sans crise récente souhaite modifier seule son antiépileptique. Quel conseil est le plus approprié selon la source?",
+      "choices": [
+        {
+          "id": "A",
+          "text": "Arrêter maintenant, car l'absence récente de crise démontre que le traitement n'est plus nécessaire"
+        },
+        {
+          "id": "B",
+          "text": "Ne pas arrêter brutalement et communiquer avec le professionnel responsable du suivi avant toute modification"
+        },
+        {
+          "id": "C",
+          "text": "Réserver désormais le médicament aux moments où des signes annonciateurs sont ressentis"
+        },
+        {
+          "id": "D",
+          "text": "Espacer progressivement les prises un jour sur deux selon un schéma personnel applicable à tous les antiépileptiques"
+        }
+      ],
+      "correctChoiceId": "B",
+      "explanation": "la source recommande une prise régulière, déconseille l'arrêt brutal et rappelle que l'absence de crise ne signifie pas guérison.",
+      "difficulty": "INTERMEDIATE",
+      "source": {
+        "sourceVersionId": "8fdf1a28-6025-4846-a74b-1b4faca1d98f",
+        "reference": {
+          "type": "PAGE",
+          "locator": "p. 46, questions 181-183.",
+          "label": "p. 46, questions 181-183."
+        }
+      },
+      "mappings": [
+        {
+          "domainId": "PEBC-2026-CLINICAL-CARE",
+          "competencyId": "PEBC-NAPRA-2026-1.4",
+          "topicId": "SNC-ANTIEPILEPTIQUES",
+          "objectiveIds": [
+            "SNC-009-OA-01"
+          ]
+        }
+      ]
+    },
+    {
+      "itemId": "SNC-010",
+      "version": 2,
+      "status": "PUBLISHED",
+      "stem": "Une personne présente des nausées et de la diarrhée après le début du donépézil. Quelle association mécanisme-distinction est la plus conforme à la source?",
+      "choices": [
+        {
+          "id": "A",
+          "text": "Le donépézil antagonise NMDA, tandis que la mémantine inhibe l'acétylcholinestérase"
+        },
+        {
+          "id": "B",
+          "text": "Le donépézil et la mémantine augmentent tous deux l'acétylcholine par inhibition de la même enzyme"
+        },
+        {
+          "id": "C",
+          "text": "Le donépézil inhibe l'acétylcholinestérase; la mémantine agit plutôt comme antagoniste des récepteurs NMDA du glutamate"
+        },
+        {
+          "id": "D",
+          "text": "Les deux médicaments antagonisent NMDA, mais seul le donépézil traverse la barrière hémato-encéphalique"
+        }
+      ],
+      "correctChoiceId": "C",
+      "explanation": "la source relie le donépézil à l'inhibition de l'acétylcholinestérase, décrit des effets digestifs avec cette classe et distingue la mémantine comme antagoniste NMDA.",
+      "difficulty": "INTERMEDIATE",
+      "source": {
+        "sourceVersionId": "8fdf1a28-6025-4846-a74b-1b4faca1d98f",
+        "reference": {
+          "type": "PAGE",
+          "locator": "p. 47-48, questions 185-195.",
+          "label": "p. 47-48, questions 185-195."
+        }
+      },
+      "mappings": [
+        {
+          "domainId": "PEBC-2026-KNOWLEDGE-EXPERTISE",
+          "competencyId": "PEBC-NAPRA-2026-2.2",
+          "topicId": "SNC-ALZHEIMER",
+          "objectiveIds": [
+            "SNC-010-OA-01"
+          ]
+        }
+      ]
+    }
+  ]
+}
