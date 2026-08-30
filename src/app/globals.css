@@ -8,6 +8,7 @@
   --muted-foreground: #64756f;
   --border: #dce6e2;
   --primary: #177a63;
+  --primary-dark: #105b4c;
   --primary-foreground: #ffffff;
   --accent: #e8f4ef;
   --danger: #b94343;
@@ -32,9 +33,24 @@ button { cursor: pointer; }
 .badge { display: inline-flex; align-items: center; border-radius: 999px; padding: .3rem .58rem; background: var(--muted); color: var(--muted-foreground); font-size: .74rem; font-weight: 800; }
 .progress { height: 8px; overflow: hidden; border-radius: 99px; background: var(--muted); }
 .progress > span { display: block; height: 100%; border-radius: inherit; background: var(--primary); }
+.section-kicker { color: var(--primary); font-size: .7rem; font-weight: 900; letter-spacing: .16em; text-transform: uppercase; }
+.mission-card { background: radial-gradient(circle at 95% 5%, rgba(255,255,255,.16), transparent 28%), linear-gradient(135deg, #105b4c, #177a63 58%, #248f70); }
+.mission-card::after { position: absolute; right: -5rem; bottom: -7rem; width: 18rem; height: 18rem; border: 1px solid rgba(255,255,255,.12); border-radius: 999px; content: ""; }
+.coach-card { background: linear-gradient(120deg, #fff, #eef9f4); }
+.pathway-card { transition: transform .15s ease, border-color .15s ease, box-shadow .15s ease; }
+.pathway-card:hover { transform: translateY(-2px); border-color: #9cd5c3; box-shadow: 0 14px 40px rgba(23, 52, 44, .09); }
 
 @media (max-width: 900px) {
   .desktop-sidebar { display: none !important; }
   .app-main { margin-left: 0 !important; padding-bottom: 86px !important; }
   .mobile-nav { display: flex !important; }
+}
+
+@media (max-width: 520px) {
+  .mobile-nav { overflow-x: auto; justify-content: flex-start !important; }
+  .mobile-nav a { flex: 0 0 auto; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { scroll-behavior: auto !important; transition-duration: .01ms !important; animation-duration: .01ms !important; animation-iteration-count: 1 !important; }
 }
