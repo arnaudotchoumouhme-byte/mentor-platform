@@ -1,5 +1,5 @@
 import type { SqliteExecutor } from "../sqlite-executor";
-import { coreMigrationRegistry } from "./definitions/mig-0001-core-baseline";
+import { coreMigrationRegistry } from "./core-migration-registry";
 import { detectDatabaseFreshness } from "./fresh-database-detector";
 import { FreshDatabaseBootstrap } from "./fresh-database-bootstrap";
 import { LegacyBaselineAdopter } from "./legacy-baseline-adopter";

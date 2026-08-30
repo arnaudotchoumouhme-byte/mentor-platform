@@ -1,6 +1,7 @@
 import type { SqliteExecutor } from "../sqlite-executor";
 import type { VerifiedBackup } from "../backup/backup-model";
-import { assertCoreBaselineSchema, coreMigrationRegistry } from "../migrations/definitions/mig-0001-core-baseline";
+import { assertCoreBaselineSchema } from "../migrations/definitions/mig-0001-core-baseline";
+import { coreMigrationRegistry } from "../migrations/core-migration-registry";
 import { assertImportJournalSchema } from "../migrations/definitions/mig-0002-document-import-journal";
 import { assertSourceModelSchema } from "../migrations/definitions/mig-0003-source-model";
 import { assertRagIndexSchema } from "../migrations/definitions/mig-0004-rag-index";
@@ -13,6 +14,9 @@ import { assertCalculationsLabSchema, CALCULATIONS_LAB_TABLE_NAMES } from "../mi
 import { assertOsceSchema, OSCE_TABLE_NAMES } from "../migrations/definitions/mig-0011-osce-text-core";
 import { assertPilotSchema, PILOT_TABLE_NAMES } from "../migrations/definitions/mig-0012-closed-web-pilot";
 import { assertPilotProvisioningAuditSchema, PILOT_PROVISIONING_AUDIT_TABLE_NAMES } from "../migrations/definitions/mig-0013-pilot-provisioning-audit";
+import { assertMcqContentSchema, MCQ_CONTENT_TABLE_NAMES } from "../migrations/definitions/mig-0014-mcq-content-import";
+import { assertSourceVersionEditorialAliasSchema, SOURCE_VERSION_EDITORIAL_ALIAS_TABLE_NAMES, withoutSourceVersionEditorialAliasTriggers } from "../migrations/definitions/mig-0015-source-version-editorial-alias";
+import { assertLearnerDataIsolationSchema, LEARNER_OWNERSHIP_TABLES } from "../migrations/definitions/mig-0016-learner-data-isolation";
 import { detectDatabaseFreshness } from "../migrations/fresh-database-detector";
 import { LegacySchemaRecognizer } from "../migrations/legacy-schema-recognizer";
 import { MigrationError } from "../migrations/migration-errors";
@@ -95,7 +99,7 @@ export class DatabaseMigrationPreflight {
         validateMigrationHistory(history, this.registry);
         const version = history.at(-1)?.toVersion ?? 0;
         if (version === this.registry.currentVersion) {
-          assertCoreBaselineSchema(this.database, ["coach_learner_signals", "coaching_sessions", "document_chunks", "document_chunks_fts", "document_chunks_fts_config", "document_chunks_fts_content", "document_chunks_fts_data", "document_chunks_fts_docsize", "document_chunks_fts_idx", "document_import_journal", ...PILOT_PROVISIONING_AUDIT_TABLE_NAMES, ...PILOT_TABLE_NAMES, ...OSCE_TABLE_NAMES, ...CALCULATIONS_LAB_TABLE_NAMES, ...CANADIAN_PRACTICE_TABLE_NAMES, ...FOUNDATION_CORE_TABLE_NAMES, ...MCQ_CORE_TABLE_NAMES, "source_versions", "sources"].sort());
+          assertCoreBaselineSchema(withoutSourceVersionEditorialAliasTriggers(this.database), ["coach_learner_signals", "coaching_sessions", "document_chunks", "document_chunks_fts", "document_chunks_fts_config", "document_chunks_fts_content", "document_chunks_fts_data", "document_chunks_fts_docsize", "document_chunks_fts_idx", "document_import_journal", ...LEARNER_OWNERSHIP_TABLES, ...SOURCE_VERSION_EDITORIAL_ALIAS_TABLE_NAMES, ...MCQ_CONTENT_TABLE_NAMES, ...PILOT_PROVISIONING_AUDIT_TABLE_NAMES, ...PILOT_TABLE_NAMES, ...OSCE_TABLE_NAMES, ...CALCULATIONS_LAB_TABLE_NAMES, ...CANADIAN_PRACTICE_TABLE_NAMES, ...FOUNDATION_CORE_TABLE_NAMES, ...MCQ_CORE_TABLE_NAMES, "source_versions", "sources"].sort());
           assertImportJournalSchema(this.database);
           assertSourceModelSchema(this.database);
           assertRagIndexSchema(this.database);
@@ -108,6 +112,9 @@ export class DatabaseMigrationPreflight {
           assertOsceSchema(this.database);
           assertPilotSchema(this.database);
           assertPilotProvisioningAuditSchema(this.database);
+          assertMcqContentSchema(this.database);
+          assertSourceVersionEditorialAliasSchema(this.database);
+          assertLearnerDataIsolationSchema(this.database);
           return Object.freeze({
             status: "NO_MIGRATION",
             schemaState: "VERSIONED_CURRENT",

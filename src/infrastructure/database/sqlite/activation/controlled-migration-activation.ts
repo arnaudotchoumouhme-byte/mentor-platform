@@ -7,7 +7,7 @@ import {
   SqliteBackupService,
   sqliteFileStateFingerprint,
 } from "../backup/sqlite-backup-service";
-import { coreMigrationRegistry } from "../migrations/definitions/mig-0001-core-baseline";
+import { coreMigrationRegistry } from "../migrations/core-migration-registry";
 import { FreshDatabaseBootstrap } from "../migrations/fresh-database-bootstrap";
 import { LegacyBaselineAdopter } from "../migrations/legacy-baseline-adopter";
 import { LegacySchemaRecognizer } from "../migrations/legacy-schema-recognizer";

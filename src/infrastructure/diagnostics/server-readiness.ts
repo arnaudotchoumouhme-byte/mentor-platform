@@ -3,7 +3,7 @@ import "server-only";
 import { accessSync, constants, existsSync, readFileSync } from "node:fs";
 import path from "node:path";
 import { config } from "@/infrastructure/config/server-config";
-import { coreMigrationRegistry } from "@/infrastructure/database/sqlite/migrations/definitions/mig-0001-core-baseline";
+import { coreMigrationRegistry } from "@/infrastructure/database/sqlite/migrations/core-migration-registry";
 import { inspectDatabaseFileReadOnly } from "@/infrastructure/database/sqlite/preflight/database-migration-preflight";
 import { evaluateRuntimeReadiness } from "./runtime-readiness";
 

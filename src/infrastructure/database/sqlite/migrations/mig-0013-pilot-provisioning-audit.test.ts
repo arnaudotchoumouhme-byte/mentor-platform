@@ -12,7 +12,7 @@ const v12 = new MigrationRegistry(coreMigrationRegistry.migrations.filter(migrat
 
 describe("MIG-0013 pilot provisioning audit", () => {
   it("bootstraps a fresh synthetic database through v13", () => {
-    const sqlite = new DatabaseSync(":memory:"); new FreshDatabaseBootstrap(executor(sqlite)).run();
+    const sqlite = new DatabaseSync(":memory:"); new FreshDatabaseBootstrap(executor(sqlite), coreMigrationRegistry).run();
     expect(sqlite.prepare("SELECT COUNT(*) count FROM schema_migrations").get()).toEqual({count:13});
     expect(sqlite.prepare("SELECT checksum FROM schema_migrations WHERE migration_id='MIG-0013'").get()).toEqual({checksum:migrationChecksum(pilotProvisioningAuditMigration)});
     sqlite.close();
@@ -20,7 +20,7 @@ describe("MIG-0013 pilot provisioning audit", () => {
   it("migrates v12 to v13 additively and preserves pilot data", () => {
     const sqlite = new DatabaseSync(":memory:"); const db = executor(sqlite); new FreshDatabaseBootstrap(db, v12).run();
     sqlite.prepare("INSERT INTO accounts VALUES(?,?,?,?,?,?)").run("a","auth0|a","learner-a","ACTIVE","now","now");
-    expect(new FreshDatabaseBootstrap(db).run()).toMatchObject({currentVersion:13,appliedMigrationIds:["MIG-0013"]});
+    expect(new FreshDatabaseBootstrap(db, coreMigrationRegistry).run()).toMatchObject({currentVersion:13,appliedMigrationIds:["MIG-0013"]});
     expect(sqlite.prepare("SELECT oidc_subject FROM accounts WHERE account_id='a'").get()).toEqual({oidc_subject:"auth0|a"});
     expect(sqlite.prepare("PRAGMA integrity_check").get()).toEqual({integrity_check:"ok"}); sqlite.close();
   });

@@ -15,7 +15,7 @@ export class SqlitePilotRepository implements PilotRepository, PilotProvisioning
     this.db.run("BEGIN IMMEDIATE");
     try {
       const version=this.db.all<{version:number|null}>("SELECT MAX(to_version) AS version FROM schema_migrations")[0]?.version??null;
-      if(version!==13)throw new AppError({code:"DB_SCHEMA_OUTDATED",userMessage:"Le schéma de provisioning n’est pas prêt.",category:"database"});
+      if(version===null||version<13)throw new AppError({code:"DB_SCHEMA_OUTDATED",userMessage:"Le schéma de provisioning n’est pas prêt.",category:"database"});
       const existing=await this.findAccountBySubject(input.account.oidcSubject);
       if(existing?.status==="DISABLED")throw new AppError({code:"CONFLICT",userMessage:"Le compte pilote est désactivé et ne peut pas être réactivé automatiquement.",category:"security"});
       const account=existing??input.account;
