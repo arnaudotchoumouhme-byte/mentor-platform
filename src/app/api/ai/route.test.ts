@@ -39,6 +39,7 @@ describe("POST /api/ai", () => {
     expect(response.status).toBe(200);
     await expect(response.json()).resolves.toEqual(output);
     expect(execute).toHaveBeenCalledWith({
+      learnerId: "test",
       question: "Une question ?",
       mode: "Explication",
       traceId: expect.any(String),

@@ -32,7 +32,7 @@ describe("SqliteDocumentKnowledge", () => {
 
   it("persists conversation fields as bound parameters", async () => {
     const database = createDatabase();
-    database.all.mockReturnValueOnce([{ id: 9 }] as never[]);
+    vi.mocked(database.all).mockReturnValueOnce([{ id: 9 }] as never[]);
     const adapter = new SqliteDocumentKnowledge(database);
     await adapter.saveConversationMessage({ role: "user", content: "Question", citations: "[]" }, "learner-a");
     expect(database.run).toHaveBeenCalledWith(
