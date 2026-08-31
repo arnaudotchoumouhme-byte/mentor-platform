@@ -25,7 +25,7 @@ export const mcqCorpusSchema = z.object({
     version: z.number().int().min(1),
     status: z.enum(["DRAFT", "IN_REVIEW", "PUBLISHED", "RETIRED"]),
     stem: z.string().trim().min(1).max(20_000),
-    choices: z.array(choice).min(2).max(20),
+    choices: z.array(choice).length(4),
     correctChoiceId: identifier,
     explanation: z.string().trim().min(1).max(20_000),
     difficulty: z.enum(["FOUNDATION", "INTERMEDIATE", "ADVANCED"]),

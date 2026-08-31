@@ -8,6 +8,7 @@ import { SqliteSourceVersionEditorialAliasRepository } from "../src/infrastructu
 import { SqliteMigrationHistoryStore } from "../src/infrastructure/database/sqlite/migrations/sqlite-migration-history-store";
 import { AppError } from "../src/shared/errors/app-error";
 import { parseEditorialSourceAlias } from "../src/domain/documents/editorial-source-alias";
+import { isSourceVersionAliasSchemaSupported, MAX_SUPPORTED_SCHEMA_VERSION } from "../src/infrastructure/database/sqlite/operational-schema-support";
 
 const values = new Map(process.argv.slice(2).filter(value => value.startsWith("--") && value.includes("=")).map(value => { const [key, ...rest] = value.split("="); return [key, rest.join("=")]; }));
 const flags = new Set(process.argv.slice(2).filter(value => value.startsWith("--") && !value.includes("=")));
@@ -31,7 +32,7 @@ if (!databaseArgument || !editorialAlias || !operation || !["associate", "resolv
     sqlite.exec("PRAGMA foreign_keys=ON");
     const database: SqliteExecutor = { all: <T>(sql: string, ...params: SQLInputValue[]) => sqlite.prepare(sql).all(...params) as T[], run: (sql: string, ...params: SQLInputValue[]) => sqlite.prepare(sql).run(...params) };
     const version = new SqliteMigrationHistoryStore(database).list().at(-1)?.toVersion ?? null;
-    if (version !== 15) throw new AppError({ code: "SOURCE_EDITORIAL_ALIAS_SCHEMA_VERSION_REQUIRED", userMessage: "Le schéma 15 est requis.", category: "database" });
+    if (!isSourceVersionAliasSchemaSupported(version)) throw new AppError({ code: "SOURCE_EDITORIAL_ALIAS_SCHEMA_VERSION_REQUIRED", userMessage: `Un schéma compris entre 15 et ${MAX_SUPPORTED_SCHEMA_VERSION} est requis.`, category: "database" });
     const repository = new SqliteSourceVersionEditorialAliasRepository(database);
     if (operation === "resolve") {
       const result = await new ResolveSourceVersionEditorialAlias(repository).execute({ editorialAlias });

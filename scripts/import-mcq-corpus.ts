@@ -6,6 +6,7 @@ import { parseMcqCorpus } from "../src/application/mcq/mcq-corpus-contract";
 import { ImportMcqCorpus } from "../src/application/mcq/import-mcq-corpus";
 import { SqliteMcqCorpusWriter } from "../src/infrastructure/mcq/sqlite-mcq-corpus-writer";
 import type { SqliteExecutor } from "../src/infrastructure/database/sqlite/sqlite-executor";
+import { isMcqImportSchemaSupported, MAX_SUPPORTED_SCHEMA_VERSION } from "../src/infrastructure/database/sqlite/operational-schema-support";
 
 const args = new Map(process.argv.slice(2).map(value => { const [key, ...rest] = value.split("="); return [key, rest.join("=")]; }));
 const databaseArgument = args.get("--database");
@@ -28,7 +29,7 @@ if (!databaseArgument || !corpusArgument) {
     const sqlite = new DatabaseSync(databasePath);
     try {
       const version = sqlite.prepare("SELECT MAX(to_version) AS version FROM schema_migrations").get() as { version: number | null };
-      if (version.version !== 14 && version.version !== 15) throw new Error(`MCQ_IMPORT_SCHEMA_VERSION_REQUIRED:14_OR_15:actual=${version.version ?? "none"}`);
+      if (!isMcqImportSchemaSupported(version.version)) throw new Error(`MCQ_IMPORT_SCHEMA_VERSION_REQUIRED:14_TO_${MAX_SUPPORTED_SCHEMA_VERSION}:actual=${version.version ?? "none"}`);
       sqlite.exec("PRAGMA foreign_keys=ON");
       const executor: SqliteExecutor = {
         all: <T>(sql: string, ...params: SQLInputValue[]) => sqlite.prepare(sql).all(...params) as T[],

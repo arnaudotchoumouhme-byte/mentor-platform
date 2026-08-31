@@ -19,7 +19,7 @@
 
    `pnpm.cmd run mcq:import -- --database=C:\chemin\absolu\mentor.db --corpus=C:\chemin\absolu\corpus.json`
 
-2. Vérifier séparément que la base cible est en version 14 et que la source référencée existe.
+2. Vérifier séparément que la base cible utilise un schéma supporté de 14 à 16 et que la source référencée existe. Un schéma futur supérieur à 16 est refusé jusqu'à une mise à jour explicite du support applicatif.
 3. Obtenir l'autorisation opérateur pour la base et le corpus précis.
 4. Exécuter une seule fois avec `--apply`.
 5. Contrôler le résultat `IMPORTED` et ouvrir une session MCQ synthétique/ciblée.
@@ -29,12 +29,14 @@ La commande n'active aucune migration. Elle n'accepte que des chemins absolus et
 ## Arrêts et erreurs stables
 
 - `MCQ_IMPORT_ABSOLUTE_PATHS_REQUIRED` : utiliser deux chemins absolus.
-- `MCQ_IMPORT_SCHEMA_VERSION_REQUIRED:14` : préparer séparément l'activation contrôlée de MIG-0014 ; ne pas contourner.
+- `MCQ_IMPORT_SCHEMA_VERSION_REQUIRED:14_TO_16` : utiliser un schéma supporté de 14 à 16 ; tout schéma futur supérieur à 16 est refusé jusqu'à mise à jour explicite.
 - `MCQ_SOURCE_VERSION_NOT_FOUND` : importer ou référencer une version documentaire validée.
 - `MCQ_ITEM_VERSION_CONFLICT` : une version immuable existe avec un contenu différent ; créer la version suivante.
 - `MCQ_ITEM_VERSION_GAP` : importer exactement la version suivant la dernière version connue.
 
 Ne jamais convertir automatiquement les questions legacy, activer les données de démonstration ou générer du contenu clinique depuis les documents.
+
+Le contrat `MCQ_CORPUS/1` exige exactement quatre options par question.
 
 ## Contrôle éditorial avant import d'un item PUBLISHED
 
