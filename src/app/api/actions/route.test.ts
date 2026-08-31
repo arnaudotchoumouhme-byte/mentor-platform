@@ -1,6 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
 import type { MentorAction } from "@/application/actions/mentor-actions";
-import type { UseCase } from "@/application/contracts";
 import { AppError } from "@/shared/errors/app-error";
 
 vi.mock("@/infrastructure/database/sqlite/server-sqlite-executor", () => ({
@@ -18,8 +17,8 @@ function request(body: string) {
 }
 
 function useCase(
-  execute: UseCase<MentorAction, void>["execute"] = vi.fn(),
-): UseCase<MentorAction, void> {
+  execute: (input: MentorAction, learnerId: string) => Promise<void> = vi.fn(),
+): Readonly<{ execute(input: MentorAction, learnerId: string): Promise<void> }> {
   return { execute };
 }
 
@@ -31,7 +30,7 @@ describe("POST /api/actions", () => {
     );
     expect(response.status).toBe(200);
     await expect(response.json()).resolves.toEqual({ success: true });
-    expect(execute).toHaveBeenCalledWith({ action: "deleteDocument", id: 7 });
+    expect(execute).toHaveBeenCalledWith({ action: "deleteDocument", id: 7 }, "test");
   });
 
   it.each([

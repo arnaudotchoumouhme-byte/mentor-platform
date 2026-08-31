@@ -61,4 +61,15 @@ describe("createAppConfig", () => {
     expect(()=>createAppConfig(base,"C:\\mentor")).toThrow("CFG_AUTH0_INCOMPLETE");
   });
 
+  it("sépare le build Render des exigences de stockage runtime",()=>{
+    const build={NODE_ENV:"production",RENDER:"true",NEXT_PHASE:"phase-production-build",MENTOR_ENABLE_DEMO_DATA:"0",AUTH0_DOMAIN:"tenant.auth0.com",AUTH0_CLIENT_ID:"client",AUTH0_CLIENT_SECRET:"client-secret",AUTH0_SECRET:"12345678901234567890123456789012",APP_BASE_URL:"https://mentor.example",MENTOR_PILOT_PROVISIONER_SUBJECTS:"auth0|operator",MENTOR_PILOT_OSCE_SESSION_LIMIT:"10",MENTOR_PILOT_AI_REQUEST_LIMIT:"10",MENTOR_PILOT_QUOTA_WINDOW_DAYS:"30",MENTOR_PILOT_AUDIT_KEY:"12345678901234567890123456789012"} as const;
+    expect(()=>createAppConfig(build,"C:\\mentor")).not.toThrow();
+    const runtime:NodeJS.ProcessEnv={...build};delete runtime.NEXT_PHASE;
+    expect(()=>createAppConfig(runtime,"C:\\mentor")).toThrow("stockage persistant");
+  });
+
+  it("conserve Auth0 obligatoire pendant le build Render",()=>{
+    expect(()=>createAppConfig({NODE_ENV:"production",RENDER:"true",NEXT_PHASE:"phase-production-build",MENTOR_ENABLE_DEMO_DATA:"0"},"C:\\mentor")).toThrow("CFG_AUTH0_INCOMPLETE");
+  });
+
 });

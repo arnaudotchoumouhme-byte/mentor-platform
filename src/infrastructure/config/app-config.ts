@@ -53,13 +53,14 @@ export function createAppConfig(
   const parsed = environmentSchema.parse(environment);
   const isVercel = parsed.VERCEL === "1";
   const isRender = parsed.RENDER === "true";
+  const isProductionBuild = environment.NEXT_PHASE === "phase-production-build";
   if (parsed.MENTOR_DATA_DIRECTORY && !path.isAbsolute(parsed.MENTOR_DATA_DIRECTORY)) {
     throw new Error("MENTOR_DATA_DIRECTORY doit être un chemin absolu.");
   }
   if (parsed.MENTOR_PERSISTENT_MOUNT_PATH && !path.isAbsolute(parsed.MENTOR_PERSISTENT_MOUNT_PATH)) throw new Error("MENTOR_PERSISTENT_MOUNT_PATH doit être un chemin absolu.");
-  if (parsed.MENTOR_REQUIRE_PERSISTENT_STORAGE === "1" && !parsed.MENTOR_PERSISTENT_MOUNT_PATH) throw new Error("MENTOR_PERSISTENT_MOUNT_PATH est requis lorsque le stockage persistant est obligatoire.");
+  if (!isProductionBuild && parsed.MENTOR_REQUIRE_PERSISTENT_STORAGE === "1" && !parsed.MENTOR_PERSISTENT_MOUNT_PATH) throw new Error("MENTOR_PERSISTENT_MOUNT_PATH est requis lorsque le stockage persistant est obligatoire.");
   if (parsed.NODE_ENV === "production" && isRender && parsed.MENTOR_ENABLE_DEMO_DATA !== "0") throw new Error("MENTOR_ENABLE_DEMO_DATA doit être 0 en production Render.");
-  if (parsed.NODE_ENV === "production" && isRender && parsed.MENTOR_REQUIRE_PERSISTENT_STORAGE !== "1") throw new Error("Le stockage persistant doit être obligatoire en production Render.");
+  if (!isProductionBuild && parsed.NODE_ENV === "production" && isRender && parsed.MENTOR_REQUIRE_PERSISTENT_STORAGE !== "1") throw new Error("Le stockage persistant doit être obligatoire en production Render.");
   if (parsed.NODE_ENV === "production" && isRender) {
     const missingAuth0 = ["AUTH0_DOMAIN", "AUTH0_CLIENT_ID", "AUTH0_CLIENT_SECRET", "AUTH0_SECRET", "APP_BASE_URL"].filter(key => !environment[key]);
     if (missingAuth0.length) throw new Error(`CFG_AUTH0_INCOMPLETE: ${missingAuth0.join(",")}`);

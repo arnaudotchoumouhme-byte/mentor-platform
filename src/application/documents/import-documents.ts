@@ -14,6 +14,7 @@ export type ImportDocumentsInput = Readonly<{
   subject: string;
   files: readonly DocumentUploadInput[];
   traceId?: string;
+  learnerId?: string;
 }>;
 
 export type ImportDocumentsOutput = Readonly<{
@@ -33,7 +34,7 @@ export interface DocumentIdGeneratorPort {
 
 export interface DocumentImportPersistencePort {
   recover(): Promise<void>;
-  hasChecksum(checksum: string): Promise<boolean>;
+  hasChecksum(checksum: string, learnerId?: string): Promise<boolean>;
   persist(input: Readonly<{
     storageId: string;
     sourceId: string;
@@ -50,6 +51,7 @@ export interface DocumentImportPersistencePort {
     extractionStatus: "COMPLETED" | "REQUIRES_OCR";
     pageCount?: number;
     bytes: Uint8Array;
+    learnerId?: string;
   }>): Promise<void>;
 }
 
@@ -90,7 +92,7 @@ export class ImportDocuments implements UseCase<ImportDocumentsInput, ImportDocu
       this.logger?.event({ name: "document.validation.completed", status: "success", traceId: input.traceId, context: { extension: validation.document.extension } });
 
       const checksum = this.checksum.sha256(file.bytes);
-      if (await this.persistence.hasChecksum(checksum)) {
+      if (await this.persistence.hasChecksum(checksum, input.learnerId)) {
         throw new AppError({
           code: "FILE_DUPLICATE",
           category: "validation",
@@ -132,6 +134,7 @@ export class ImportDocuments implements UseCase<ImportDocumentsInput, ImportDocu
         extractionStatus: extracted.status,
         pageCount: extracted.pageCount,
         bytes: file.bytes,
+        learnerId: input.learnerId,
       });
       this.logger?.event({ name: "document.stored", status: "success", traceId: input.traceId, context: { sourceId, extension, sizeBytes: file.size } });
       imported.push(validation.document.displayName);

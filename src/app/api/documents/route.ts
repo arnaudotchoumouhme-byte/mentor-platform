@@ -37,7 +37,8 @@ export function createDocumentsPost(
 ) {
   return async function POST(request: Request) {
     const traceId = resolveTraceId(request.headers.get("x-trace-id"));
-    try { await identity(); } catch (error) { const response=mapErrorToHttp(error,traceId); return NextResponse.json(response.body,{status:response.status,headers:{"x-trace-id":traceId}}); }
+    let caller: PilotIdentity;
+    try { caller = await identity(); } catch (error) { const response=mapErrorToHttp(error,traceId); return NextResponse.json(response.body,{status:response.status,headers:{"x-trace-id":traceId}}); }
     const contentType = request.headers.get("content-type")?.toLowerCase() ?? "";
     if (!contentType.startsWith("multipart/form-data;") || !contentType.includes("boundary=")) {
       return requestFailure(415, "UNSUPPORTED_MEDIA_TYPE", "Un formulaire multipart valide est requis.", traceId);
@@ -104,7 +105,7 @@ export function createDocumentsPost(
 
     try {
       return NextResponse.json(
-        await useCase.execute({ subject: subject.data, files: uploads, traceId }),
+        await useCase.execute({ subject: subject.data, files: uploads, traceId, learnerId: caller.learnerId }),
         { headers: { "x-trace-id": traceId } },
       );
     } catch (error) {

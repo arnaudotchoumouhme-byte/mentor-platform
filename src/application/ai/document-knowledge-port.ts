@@ -8,5 +8,5 @@ export type ConversationMessage = Readonly<{
 
 export interface DocumentKnowledgePort {
   listSearchableDocuments(): Promise<readonly Document[]>;
-  saveConversationMessage(message: ConversationMessage): Promise<void>;
+  saveConversationMessage(message: ConversationMessage, learnerId: string): Promise<void>;
 }

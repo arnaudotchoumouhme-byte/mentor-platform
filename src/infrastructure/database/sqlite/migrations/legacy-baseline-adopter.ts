@@ -1,5 +1,5 @@
 import type { SqliteExecutor } from "../sqlite-executor";
-import { coreMigrationRegistry } from "./definitions/mig-0001-core-baseline";
+import { coreMigrationRegistry } from "./core-migration-registry";
 import { assertImportJournalSchema } from "./definitions/mig-0002-document-import-journal";
 import { detectDatabaseFreshness } from "./fresh-database-detector";
 import { LegacySchemaRecognizer } from "./legacy-schema-recognizer";

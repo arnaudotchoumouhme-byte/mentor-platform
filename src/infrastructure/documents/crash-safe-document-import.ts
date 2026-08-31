@@ -20,6 +20,7 @@ type ImportRecord = Readonly<{
   extraction_status: "COMPLETED" | "REQUIRES_OCR" | "FAILED";
   page_count: number | null;
   original_filename: string;
+  learner_id: string | null;
 }>;
 
 type PersistInput = Parameters<DocumentImportPersistencePort["persist"]>[0];
@@ -90,6 +91,7 @@ export class CrashSafeDocumentImport implements DocumentImportPersistencePort {
         "SELECT last_insert_rowid() AS id",
       )[0];
       if (!inserted) throw new Error("Document insertion did not return an identifier.");
+      if (record.learner_id) this.database.run("INSERT INTO learner_document_ownership(document_id,learner_id) VALUES(?,?)", inserted.id, record.learner_id);
       if (!record.source_id || !record.source_version_id) {
         throw new Error("Source identifiers are missing from the import journal.");
       }
@@ -160,11 +162,16 @@ export class CrashSafeDocumentImport implements DocumentImportPersistencePort {
       extraction_status: input.extractionStatus,
       page_count: input.pageCount ?? null,
       original_filename: input.originalFilename,
+      learner_id: input.learnerId ?? null,
     };
   }
 
-  async hasChecksum(checksum: string): Promise<boolean> {
+  async hasChecksum(checksum: string, learnerId?: string): Promise<boolean> {
     this.assertSchemaReady();
+    if (learnerId) return this.database.all(
+      "SELECT s.source_id FROM sources s JOIN learner_document_ownership o ON o.document_id=s.document_id WHERE s.workspace_id='local' AND s.checksum=? AND s.provenance_type='USER_UPLOAD' AND s.status<>'DELETED' AND o.learner_id=? LIMIT 1",
+      checksum, learnerId,
+    ).length > 0;
     return this.database.all(
       "SELECT source_id FROM sources WHERE workspace_id='local' AND checksum=? AND provenance_type='USER_UPLOAD' AND status<>'DELETED' LIMIT 1",
       checksum,

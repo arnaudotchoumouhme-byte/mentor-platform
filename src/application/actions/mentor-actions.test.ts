@@ -23,9 +23,9 @@ describe("MentorActionsService", () => {
     const port = createPort();
     const service = new MentorActionsService(port);
 
-    await service.execute({ action: "archiveDocument", id: 7, archived: true });
+    await service.execute({ action: "archiveDocument", id: 7, archived: true }, "learner-a");
 
-    expect(port.setDocumentArchived).toHaveBeenCalledWith(7, true);
+    expect(port.setDocumentArchived).toHaveBeenCalledWith(7, true, "learner-a");
   });
 
   it("calculates a review interval before persistence", async () => {
@@ -37,9 +37,9 @@ describe("MentorActionsService", () => {
       id: 3,
       rating: "Facile",
       interval: 4,
-    });
+    }, "learner-a");
 
-    expect(port.scheduleCardReview).toHaveBeenCalledWith(3, 8);
+    expect(port.scheduleCardReview).toHaveBeenCalledWith(3, 8, "learner-a");
   });
 
   it("passes settings without exposing persistence details", async () => {
@@ -47,62 +47,62 @@ describe("MentorActionsService", () => {
     const service = new MentorActionsService(port);
     const settings = { language: "fr" };
 
-    await service.execute({ action: "saveSettings", settings });
+    await service.execute({ action: "saveSettings", settings }, "learner-a");
 
-    expect(port.saveSettings).toHaveBeenCalledWith(settings);
+    expect(port.saveSettings).toHaveBeenCalledWith(settings, "learner-a");
   });
 
   it("delegates every remaining action to the matching capability", async () => {
     const port = createPort();
     const service = new MentorActionsService(port);
 
-    await service.execute({ action: "deleteDocument", id: 2 });
-    await service.execute({ action: "completeTask", id: 3, completed: true });
-    await service.execute({ action: "resolveWeakness", id: 4 });
+    await service.execute({ action: "deleteDocument", id: 2 }, "learner-a");
+    await service.execute({ action: "completeTask", id: 3, completed: true }, "learner-a");
+    await service.execute({ action: "resolveWeakness", id: 4 }, "learner-a");
     await service.execute({
       action: "saveAttempt",
       module: "QCM",
       subject: "Pharmacologie",
       score: 75,
       minutes: 20,
-    });
+    }, "learner-a");
     await service.execute({
       action: "addFlashcard",
       front: "Question",
       back: "Réponse",
       subject: "Pharmacologie",
-    });
+    }, "learner-a");
     await service.execute({
       action: "addTask",
       title: "Réviser",
       subject: "Pharmacologie",
       date: "2026-08-07",
       minutes: 30,
-    });
+    }, "learner-a");
 
-    expect(port.deleteDocument).toHaveBeenCalledWith(2);
-    expect(port.setTaskCompleted).toHaveBeenCalledWith(3, true);
-    expect(port.resolveWeakness).toHaveBeenCalledWith(4);
+    expect(port.deleteDocument).toHaveBeenCalledWith(2, "learner-a");
+    expect(port.setTaskCompleted).toHaveBeenCalledWith(3, true, "learner-a");
+    expect(port.resolveWeakness).toHaveBeenCalledWith(4, "learner-a");
     expect(port.saveAttempt).toHaveBeenCalledWith({
       action: "saveAttempt",
       module: "QCM",
       subject: "Pharmacologie",
       score: 75,
       minutes: 20,
-    });
+    }, "learner-a");
     expect(port.addFlashcard).toHaveBeenCalledWith({
       action: "addFlashcard",
       front: "Question",
       back: "Réponse",
       subject: "Pharmacologie",
-    });
+    }, "learner-a");
     expect(port.addTask).toHaveBeenCalledWith({
       action: "addTask",
       title: "Réviser",
       subject: "Pharmacologie",
       date: "2026-08-07",
       minutes: 30,
-    });
+    }, "learner-a");
   });
 
   it("raises a stable not-found error when a target does not exist", async () => {
@@ -111,7 +111,7 @@ describe("MentorActionsService", () => {
     const service = new MentorActionsService(port);
 
     await expect(
-      service.execute({ action: "deleteDocument", id: 404 }),
+      service.execute({ action: "deleteDocument", id: 404 }, "learner-a"),
     ).rejects.toMatchObject({
       code: "NOT_FOUND",
       userMessage: "Ressource introuvable.",

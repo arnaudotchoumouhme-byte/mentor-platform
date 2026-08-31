@@ -15,11 +15,11 @@ LEFT JOIN source_versions sv ON sv.source_id=s.source_id AND sv.version=s.versio
 export class SqliteLibrarySources implements LibrarySourcePort {
   constructor(private readonly database: SqliteExecutor) {}
 
-  list(): readonly LibraryDocument[] {
-    return this.database.all<LibraryDocument>(`${SELECT_LIBRARY_DOCUMENTS} ORDER BY d.archived,d.created_at DESC`);
+  list(learnerId: string): readonly LibraryDocument[] {
+    return this.database.all<LibraryDocument>(`${SELECT_LIBRARY_DOCUMENTS} JOIN learner_document_ownership o ON o.document_id=d.id WHERE o.learner_id=? ORDER BY d.archived,d.created_at DESC`, learnerId);
   }
 
-  getByDocumentId(id: number): LibraryDocument | null {
-    return this.database.all<LibraryDocument>(`${SELECT_LIBRARY_DOCUMENTS} WHERE d.id=? LIMIT 1`, id)[0] ?? null;
+  getByDocumentId(id: number, learnerId: string): LibraryDocument | null {
+    return this.database.all<LibraryDocument>(`${SELECT_LIBRARY_DOCUMENTS} JOIN learner_document_ownership o ON o.document_id=d.id WHERE d.id=? AND o.learner_id=? LIMIT 1`, id, learnerId)[0] ?? null;
   }
 }

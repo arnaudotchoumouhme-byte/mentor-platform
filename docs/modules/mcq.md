@@ -11,9 +11,28 @@ Le MCQ Core fournit un domaine indépendant de React, Next.js et SQLite pour les
 
 ## API
 
+- `GET /api/mcq/sessions` liste les blueprints publiés ayant des items jouables.
 - `POST /api/mcq/sessions` crée une session `STUDY` ou `QUIZ` avec seed et contraintes.
 - `GET /api/mcq/sessions/{sessionId}` lit session, historique et score éventuel.
 - `POST /api/mcq/sessions/{sessionId}/answers` corrige et persiste une réponse.
+
+Avant la soumission, la projection jouable ne contient que l'énoncé, les choix et la difficulté. La bonne réponse et l'explication ne sont retournées qu'après l'enregistrement de la réponse.
+
+## Corpus versionné
+
+Le contrat d'échange est `docs/schemas/mcq-corpus-v1.schema.json`. L'import valide strictement le document, exige une `source_version` existante, écrit toutes les versions dans une transaction et refuse toute réécriture d'une version existante. Réimporter un contenu strictement identique est idempotent.
+
+MIG-0014 ajoute uniquement les métadonnées éditoriales, la version de source et la référence documentaire structurée. Seuls les items `PUBLISHED` peuvent être sélectionnés. Aucun import, seed ou changement éditorial n'est exécuté au démarrage.
+
+La décision de publication distingue trois contrôles : `DOCUMENTARY_CLINICAL_VALIDATION` obligatoire, `EDITORIAL_REVIEW` obligatoire et `INDEPENDENT_PHARMACIST_REVIEW` facultative/recommandée. Une publication sans revue pharmacien conserve explicitement `INDEPENDENT_PHARMACIST_REVIEW: NOT_PERFORMED`. Les conclusions documentaires `CONTRADICTED`, `OUTDATED` ou `INSUFFICIENT_EVIDENCE`, ainsi que tout problème de sécurité non résolu, bloquent `PUBLISHED`. Ces décisions restent dans le dossier éditorial versionné tant que le contrat d'import et la persistance ne les prennent pas explicitement en charge.
+
+La commande d'exploitation est volontairement explicite :
+
+```powershell
+pnpm.cmd run mcq:import -- --database=C:\chemin\absolu\mentor.db --corpus=C:\chemin\absolu\corpus.json
+```
+
+Sans `--apply`, elle valide uniquement le corpus et n'ouvre pas SQLite. L'écriture exige `--apply` et une base déjà migrée en version 14. L'activation de MIG-0014 et l'import d'un corpus réel sont deux opérations séparées soumises à autorisation.
 - `POST /api/mcq/sessions/{sessionId}/complete` clôture et persiste le score.
 
 Toutes les entrées HTTP sont validées par Zod. Les routes ne contiennent ni SQL ni calcul métier. Les événements `mcq.*` propagent le `traceId` et n'enregistrent pas le texte intégral des réponses.

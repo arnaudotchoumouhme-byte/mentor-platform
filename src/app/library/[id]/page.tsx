@@ -2,12 +2,14 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { SqliteLibrarySources } from "@/infrastructure/database/sqlite/sqlite-library-sources";
 import { sqliteExecutor } from "@/infrastructure/database/sqlite/server-sqlite-executor";
+import { requirePilotIdentity } from "@/infrastructure/pilot/server-pilot";
 
 export const dynamic = "force-dynamic";
 
 export default async function LibraryDocumentPage({ params }: { params: Promise<{ id: string }> }) {
   const id = Number((await params).id);
-  const document = Number.isSafeInteger(id) ? new SqliteLibrarySources(sqliteExecutor).getByDocumentId(id) : null;
+  const caller = await requirePilotIdentity();
+  const document = Number.isSafeInteger(id) ? new SqliteLibrarySources(sqliteExecutor).getByDocumentId(id, caller.learnerId) : null;
   if (!document) notFound();
   const preview = document.content.slice(0, 4_000);
   return <div className="mx-auto max-w-4xl space-y-5">

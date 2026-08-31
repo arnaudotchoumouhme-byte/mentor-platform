@@ -1,0 +1,83 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:mentor-pebc:mcq-corpus:1",
+  "title": "Mentor PEBC MCQ Corpus v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schemaVersion", "corpusId", "corpusVersion", "blueprintVersionId", "items"],
+  "properties": {
+    "schemaVersion": { "const": "MCQ_CORPUS/1" },
+    "corpusId": { "$ref": "#/$defs/identifier" },
+    "corpusVersion": { "type": "integer", "minimum": 1 },
+    "blueprintVersionId": { "$ref": "#/$defs/identifier" },
+    "items": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 10000,
+      "items": { "$ref": "#/$defs/item" }
+    }
+  },
+  "$defs": {
+    "identifier": { "type": "string", "minLength": 1, "maxLength": 200 },
+    "choice": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "text"],
+      "properties": {
+        "id": { "$ref": "#/$defs/identifier" },
+        "text": { "type": "string", "minLength": 1, "maxLength": 2000 }
+      }
+    },
+    "mapping": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["domainId", "competencyId", "topicId", "objectiveIds"],
+      "properties": {
+        "domainId": { "$ref": "#/$defs/identifier" },
+        "competencyId": { "$ref": "#/$defs/identifier" },
+        "topicId": { "$ref": "#/$defs/identifier" },
+        "objectiveIds": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 100,
+          "items": { "$ref": "#/$defs/identifier" }
+        }
+      }
+    },
+    "reference": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["type", "locator", "label"],
+      "properties": {
+        "type": { "enum": ["PAGE", "SECTION", "URL", "DOCUMENT"] },
+        "locator": { "type": "string", "minLength": 1, "maxLength": 500 },
+        "label": { "type": "string", "minLength": 1, "maxLength": 500 }
+      }
+    },
+    "item": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["itemId", "version", "status", "stem", "choices", "correctChoiceId", "explanation", "difficulty", "source", "mappings"],
+      "properties": {
+        "itemId": { "$ref": "#/$defs/identifier" },
+        "version": { "type": "integer", "minimum": 1 },
+        "status": { "enum": ["DRAFT", "IN_REVIEW", "PUBLISHED", "RETIRED"] },
+        "stem": { "type": "string", "minLength": 1, "maxLength": 20000 },
+        "choices": { "type": "array", "minItems": 4, "maxItems": 4, "items": { "$ref": "#/$defs/choice" } },
+        "correctChoiceId": { "$ref": "#/$defs/identifier" },
+        "explanation": { "type": "string", "minLength": 1, "maxLength": 20000 },
+        "difficulty": { "enum": ["FOUNDATION", "INTERMEDIATE", "ADVANCED"] },
+        "source": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["sourceVersionId", "reference"],
+          "properties": {
+            "sourceVersionId": { "$ref": "#/$defs/identifier" },
+            "reference": { "$ref": "#/$defs/reference" }
+          }
+        },
+        "mappings": { "type": "array", "minItems": 1, "maxItems": 100, "items": { "$ref": "#/$defs/mapping" } }
+      }
+    }
+  }
+}

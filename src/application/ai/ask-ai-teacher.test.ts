@@ -13,7 +13,7 @@ describe("AskAiTeacher evidence-first", () => {
     const port = conversations();
     const citation = { citationId: "citation-c1", sourceId: "s1", documentId: 1, sourceVersionId: "v1", chunkId: "c1", displayName: "Guide.pdf", pageStart: 1, pageEnd: 1, sectionTitle: null, excerpt: candidate.chunk.text, retrievalScore: 0.94, rank: 1, provenance: "USER_UPLOAD" };
     const useCase = new AskAiTeacher(port, { execute: () => 1 }, { retrieve: () => [candidate] }, { evaluate: () => ({ status: "SUFFICIENT", reason: "EVIDENCE_FOUND", evidence: [candidate] }) }, { build: () => [citation] }, () => 1);
-    const result = await useCase.execute({ question: "Explique la pharmacocinétique", mode: "Explication" });
+    const result = await useCase.execute({ question: "Explique la pharmacocinétique", mode: "Explication", learnerId: "learner-a" });
     expect(result).toMatchObject({ support: "Documentaire", evidenceStatus: "SUFFICIENT" });
     expect(result.answer).toContain(candidate.chunk.text);
     expect(result.citations[0]).toMatchObject({ chunkId: "c1", pageStart: 1, document: "Guide.pdf" });
@@ -23,7 +23,7 @@ describe("AskAiTeacher evidence-first", () => {
   it("refuses without evidence and emits no citation or claim", async () => {
     const port = conversations();
     const useCase = new AskAiTeacher(port, { execute: () => 0 }, { retrieve: () => [] }, { evaluate: () => ({ status: "NONE", reason: "NO_INDEXED_DOCUMENTS", evidence: [] }) }, { build: () => [] }, () => 0);
-    const result = await useCase.execute({ question: "Question inconnue", mode: "Explication" });
+    const result = await useCase.execute({ question: "Question inconnue", mode: "Explication", learnerId: "learner-a" });
     expect(result).toMatchObject({ support: "Insuffisant", citations: [], claims: [] });
     expect(result.answer).toContain("Appui documentaire insuffisant");
   });
