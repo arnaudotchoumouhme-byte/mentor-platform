@@ -28,13 +28,14 @@ export function Notice({ children, success = false }: { children: React.ReactNod
 
 export function Loading() {
   const diagnostic = useSyncExternalStore(subscribeAppStateDiagnostic, getAppStateDiagnostic, getAppStateDiagnostic);
+  const retry = <button className="btn btn-primary" onClick={() => window.location.reload()}>Réessayer</button>;
   if (diagnostic.status === "loading") return <div className="grid min-h-64 place-items-center"><Loader2 className="animate-spin text-[var(--primary)]"/><span className="sr-only">Chargement</span></div>;
   if (diagnostic.status === "unauthenticated") return <DiagnosticState title="Authentification requise" detail={diagnostic.message ?? "Connectez-vous pour continuer."} traceId={diagnostic.traceId} action={<Link className="btn btn-primary" href="/auth/login">Se connecter</Link>}/>;
-  if (diagnostic.status === "access-denied") return <DiagnosticState title="Accès refusé" detail={diagnostic.message ?? "Votre compte n’est pas autorisé."} traceId={diagnostic.traceId}/>;
-  if (diagnostic.status === "conflict") return <DiagnosticState title="Conflit détecté" detail={diagnostic.message ?? "L’état de la ressource ne permet pas cette opération."} traceId={diagnostic.traceId}/>;
+  if (diagnostic.status === "access-denied") return <DiagnosticState title="Accès refusé" detail={diagnostic.message ?? "Votre compte n’est pas autorisé."} traceId={diagnostic.traceId} action={<Link className="btn btn-secondary" href="/auth/logout">Se déconnecter</Link>}/>;
+  if (diagnostic.status === "conflict") return <DiagnosticState title="Conflit détecté" detail={diagnostic.message ?? "L’état de la ressource ne permet pas cette opération."} traceId={diagnostic.traceId} action={retry}/>;
   if (diagnostic.status === "quota-exceeded") return <DiagnosticState title="Quota atteint" detail={diagnostic.message ?? "Le quota du pilote est épuisé."} traceId={diagnostic.traceId}/>;
-  if (diagnostic.status === "network-error") return <DiagnosticState title="Serveur injoignable" detail={diagnostic.message ?? "Vérifiez la connexion puis réessayez."} traceId={diagnostic.traceId}/>;
-  if (diagnostic.status === "server-error") return <DiagnosticState title="Service indisponible" detail={diagnostic.message ?? "Une erreur serveur empêche le chargement."} traceId={diagnostic.traceId}/>;
+  if (diagnostic.status === "network-error") return <DiagnosticState title="Serveur injoignable" detail={diagnostic.message ?? "Vérifiez la connexion puis réessayez."} traceId={diagnostic.traceId} action={retry}/>;
+  if (diagnostic.status === "server-error") return <DiagnosticState title="Service indisponible" detail={diagnostic.message ?? "Une erreur serveur empêche le chargement."} traceId={diagnostic.traceId} action={retry}/>;
   return <DiagnosticState title="Données indisponibles" detail="Les données attendues ne sont pas disponibles." traceId={diagnostic.traceId}/>;
 }
 
