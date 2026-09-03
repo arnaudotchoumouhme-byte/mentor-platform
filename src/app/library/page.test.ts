@@ -73,4 +73,29 @@ describe("LibraryPage", () => {
     expect(refresh).toHaveBeenCalledTimes(2);
     expect(clientFetch).toHaveBeenCalledTimes(1);
   });
+
+  it("blocks a new upload while a refresh retry is pending", async () => {
+    let finishRetry: () => void = () => undefined;
+    vi.mocked(clientFetch)
+      .mockResolvedValueOnce(response({ imported: ["first"], documents: [], rejected: [] }, 201))
+      .mockResolvedValueOnce(response({ imported: ["second"], documents: [], rejected: [] }, 201));
+    refresh
+      .mockRejectedValueOnce(new Error("initial refresh failed"))
+      .mockImplementationOnce(() => new Promise<void>((resolve) => { finishRetry = resolve; }))
+      .mockResolvedValueOnce(undefined);
+    render(React.createElement(LibraryPage));
+    fireEvent.change(fileInput(), { target: { files: [new File(["first"], "first.txt")] } });
+    await screen.findByRole("alert");
+    fireEvent.click(screen.getByRole("button", { name: "Rafraîchir la bibliothèque" }));
+    expect((screen.getByRole("button", { name: "Importer après actualisation…" }) as HTMLButtonElement).disabled).toBe(true);
+    const input = fileInput();
+    input.disabled = false;
+    fireEvent.change(input, { target: { files: [new File(["second"], "second.txt")] } });
+    expect(clientFetch).toHaveBeenCalledTimes(1);
+    finishRetry();
+    await waitFor(() => expect(screen.queryByRole("alert")).toBeNull());
+    expect((screen.getByRole("button", { name: "Importer" }) as HTMLButtonElement).disabled).toBe(false);
+    fireEvent.change(fileInput(), { target: { files: [new File(["second"], "second.txt")] } });
+    await waitFor(() => expect(clientFetch).toHaveBeenCalledTimes(2));
+  });
 });

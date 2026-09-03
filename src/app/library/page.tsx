@@ -25,7 +25,7 @@ export default function LibraryPage() {
     (subject === "Toutes" || doc.subject === subject) && doc.name.toLowerCase().includes(query.toLowerCase()));
 
   async function upload(files: FileList | null) {
-    if (!files?.length || uploadInFlight.current) return;
+    if (!files?.length || uploadInFlight.current || refreshInFlight.current) return;
     uploadInFlight.current = true;
     setUploading(true);
     setFeedback(null);
@@ -81,7 +81,7 @@ export default function LibraryPage() {
 
   return <div className="mx-auto max-w-7xl">
     <PageHeader eyebrow="FEAT-001 · Local et privé" title="Bibliothèque" description="Importez, extrayez et consultez vos ressources personnelles."
-      action={<><input ref={input} className="hidden" type="file" multiple accept=".pdf,.docx,.txt,.md" onChange={(event) => void upload(event.target.files)} disabled={uploading} /><button className="btn btn-primary" onClick={() => input.current?.click()} disabled={uploading}><Upload size={17} />{uploading ? "Import en cours…" : "Importer"}</button></>} />
+      action={<><input ref={input} className="hidden" type="file" multiple accept=".pdf,.docx,.txt,.md" onChange={(event) => void upload(event.target.files)} disabled={uploading || refreshing} /><button className="btn btn-primary" onClick={() => input.current?.click()} disabled={uploading || refreshing}><Upload size={17} />{uploading ? "Import en cours…" : refreshing ? "Importer après actualisation…" : "Importer"}</button></>} />
     {feedback && <div className="mb-5" role={feedback.kind === "error" ? "alert" : "status"}><Notice success={feedback.kind === "success"}>{feedback.message}{feedback.traceId && <span className="mt-2 block text-xs">Référence : {feedback.traceId}</span>}</Notice></div>}
     {refreshFailed && <div className="mb-5" role="alert"><Notice>L’import a réussi, mais la liste n’a pas pu être actualisée. <button type="button" className="btn btn-ghost mt-3" onClick={() => void retryRefresh()} disabled={refreshing}>{refreshing ? "Actualisation…" : "Rafraîchir la bibliothèque"}</button></Notice></div>}
     <div className="card mb-5 grid gap-3 p-4 md:grid-cols-[1fr_240px_auto]">
