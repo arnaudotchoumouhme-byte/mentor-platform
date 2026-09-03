@@ -35,4 +35,28 @@ describe("SettingsForm", () => {
     finish();
     await waitFor(() => expect(screen.getByRole("status")).toBeTruthy());
   });
+
+  it("locks editing during a pending save so stale success cannot be shown", async () => {
+    let finish: () => void = () => undefined;
+    const act = vi.fn(() => new Promise<void>((resolve) => { finish = resolve; }));
+    render(React.createElement(SettingsForm, { initial: { displayName: "Mentor" }, act }));
+    fireEvent.click(screen.getByRole("button", { name: "Enregistrer les paramètres" }));
+    const input = screen.getByLabelText("Nom affiché") as HTMLInputElement;
+    expect(input.disabled).toBe(true);
+    finish();
+    await screen.findByRole("status");
+    expect(input.disabled).toBe(false);
+  });
+
+  it("confirms a new save only after a post-success edit is submitted", async () => {
+    const act = vi.fn().mockResolvedValue(undefined);
+    render(React.createElement(SettingsForm, { initial: { displayName: "Mentor" }, act }));
+    fireEvent.click(screen.getByRole("button", { name: "Enregistrer les paramètres" }));
+    await screen.findByRole("status");
+    fireEvent.change(screen.getByLabelText("Nom affiché"), { target: { value: "Nouveau nom" } });
+    expect(screen.queryByRole("status")).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "Enregistrer les paramètres" }));
+    expect(await screen.findByRole("status")).toBeTruthy();
+    expect(act).toHaveBeenCalledTimes(2);
+  });
 });

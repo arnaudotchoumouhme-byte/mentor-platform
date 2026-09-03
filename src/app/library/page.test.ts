@@ -28,9 +28,12 @@ describe("LibraryPage", () => {
   it("reports a successful import and refreshes state", async () => {
     vi.mocked(clientFetch).mockResolvedValueOnce(response({ imported: ["document"], documents: [], rejected: [] }, 201));
     render(React.createElement(LibraryPage));
-    fireEvent.change(fileInput(), { target: { files: [new File(["texte"], "cours.txt", { type: "text/plain" })] } });
+    const input = fileInput();
+    Object.defineProperty(input, "value", { value: "C:\\fakepath\\cours.txt", writable: true });
+    fireEvent.change(input, { target: { files: [new File(["texte"], "cours.txt", { type: "text/plain" })] } });
     expect((await screen.findByRole("status")).textContent).toContain("1 document(s) importé(s)");
     expect(refresh).toHaveBeenCalledTimes(1);
+    expect(input.value).toBe("");
   });
 
   it("shows a traceable server error without a false success", async () => {
@@ -54,5 +57,20 @@ describe("LibraryPage", () => {
     rejectRequest(new ClientRequestError("NET_REQUEST_FAILED", "trace-network"));
     await waitFor(() => expect(screen.getByRole("alert").textContent).toContain("trace-network"));
     expect(screen.getByRole("button", { name: "Importer" })).toBeTruthy();
+  });
+
+  it("preserves upload success when refresh fails and retries only the refresh", async () => {
+    vi.mocked(clientFetch).mockResolvedValueOnce(response({ imported: ["document"], documents: [], rejected: [] }, 201));
+    refresh.mockRejectedValueOnce(new Error("refresh failed")).mockResolvedValueOnce(undefined);
+    render(React.createElement(LibraryPage));
+    fireEvent.change(fileInput(), { target: { files: [new File(["texte"], "cours.txt")] } });
+    expect((await screen.findByRole("status")).textContent).toContain("1 document(s) importé(s)");
+    const alert = await screen.findByRole("alert");
+    expect(alert.textContent).toContain("L’import a réussi");
+    expect(alert.textContent).not.toContain("Import impossible");
+    fireEvent.click(screen.getByRole("button", { name: "Rafraîchir la bibliothèque" }));
+    await waitFor(() => expect(screen.queryByRole("alert")).toBeNull());
+    expect(refresh).toHaveBeenCalledTimes(2);
+    expect(clientFetch).toHaveBeenCalledTimes(1);
   });
 });

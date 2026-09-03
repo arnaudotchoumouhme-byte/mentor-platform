@@ -144,7 +144,7 @@ Le recours direct aux exécutables verrouillés de `node_modules/.bin` contourne
 
 ## Statut Git et verdict
 
-Le commit fonctionnel `d98f2a7` contient six fichiers. Le présent rapport reste à committer séparément. Les sept groupes protégés préexistants restent non suivis et hors périmètre.
+Le commit fonctionnel `d98f2a7` contient six fichiers et le rapport a été commité séparément dans `60a735b`. Les sept groupes protégés préexistants restent non suivis et hors périmètre.
 
 Verdict : **VALIDABLE**.
 
