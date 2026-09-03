@@ -37,7 +37,8 @@
 - Tests ciblés : 3 fichiers, 8/8 réussis.
 - TypeScript : réussi.
 - ESLint : réussi.
-- Suite globale : 133/134 fichiers et 622/623 tests réussis ; unique timeout environnemental de 5 s dans `database-migration-preflight.test.ts`, hors périmètre. Relance ciblée du fichier : 12/12 réussis.
+- Suite globale, première passe : 133/134 fichiers et 622/623 tests réussis ; timeout de 5 s dans `database-migration-preflight.test.ts`, hors périmètre. Relance ciblée du fichier : 12/12 réussis.
+- Suite globale de confirmation : 132/134 fichiers et 621/623 tests réussis ; le même timeout de preflight et un timeout de 5 s dans `sqlite-backup-service.test.ts`. Ce second test avait réussi pendant la première passe. Ces échecs sous charge globale n'affectent aucun fichier modifié par ce lot.
 - Build production simulé Render : réussi, 22/22 pages.
 - Accès DB pendant le build : aucun ; le chemin temporaire inexistant avant build est resté inexistant après build.
 - `git diff --check` : réussi.
@@ -63,6 +64,6 @@
 
 - Examiner ultérieurement d'autres états learner-facing uniquement sur preuve concrète et faible risque.
 - La convergence Examen blanc/MCQ Core reste exclue jusqu'à décision produit.
-- Le timeout global de preflight est classé environnemental sur cette passe ; aucune modification du test historique n'est justifiée par les changements actuels.
+- Les timeouts SQLite sous charge globale sont classés comme réserve d'environnement ; aucune modification de ces tests historiques n'est justifiée par les changements actuels.
 
-Verdict : travail fonctionnel local validé ; campagne globale affectée uniquement par un timeout transitoire non reproductible en isolation.
+Verdict : travail fonctionnel local validé ; statut global partiel à cause de timeouts SQLite sous charge, hors périmètre et non liés aux changements learner-facing.
