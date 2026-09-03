@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import React from "react";
-import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { useAppState } from "@/hooks/use-state";
 import { ClientRequestError, clientFetch } from "@/shared/api/client-fetch";
@@ -97,5 +97,27 @@ describe("LibraryPage", () => {
     expect((screen.getByRole("button", { name: "Importer" }) as HTMLButtonElement).disabled).toBe(false);
     fireEvent.change(fileInput(), { target: { files: [new File(["second"], "second.txt")] } });
     await waitFor(() => expect(clientFetch).toHaveBeenCalledTimes(2));
+  });
+
+  it("blocks a refresh retry in the synchronous window after an upload starts", async () => {
+    let finishUpload: (response: Response) => void = () => undefined;
+    vi.mocked(clientFetch)
+      .mockResolvedValueOnce(response({ imported: ["first"], documents: [], rejected: [] }, 201))
+      .mockImplementationOnce(() => new Promise<Response>((resolve) => { finishUpload = resolve; }));
+    refresh.mockRejectedValueOnce(new Error("initial refresh failed")).mockResolvedValueOnce(undefined);
+    render(React.createElement(LibraryPage));
+    fireEvent.change(fileInput(), { target: { files: [new File(["first"], "first.txt")] } });
+    const retryButton = await screen.findByRole("button", { name: "Rafraîchir la bibliothèque" });
+    const input = fileInput();
+    Object.defineProperty(input, "files", { value: [new File(["second"], "second.txt")], configurable: true });
+    act(() => {
+      input.dispatchEvent(new Event("change", { bubbles: true }));
+      retryButton.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    });
+    expect(clientFetch).toHaveBeenCalledTimes(2);
+    expect(refresh).toHaveBeenCalledTimes(1);
+    finishUpload(response({ imported: ["second"], documents: [], rejected: [] }, 201));
+    await waitFor(() => expect(refresh).toHaveBeenCalledTimes(2));
+    expect(screen.getByRole("button", { name: "Importer" })).toBeTruthy();
   });
 });

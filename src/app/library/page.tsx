@@ -65,7 +65,7 @@ export default function LibraryPage() {
   }
 
   async function retryRefresh() {
-    if (refreshInFlight.current) return;
+    if (uploadInFlight.current || refreshInFlight.current) return;
     refreshInFlight.current = true;
     setRefreshing(true);
     try {
@@ -83,7 +83,7 @@ export default function LibraryPage() {
     <PageHeader eyebrow="FEAT-001 · Local et privé" title="Bibliothèque" description="Importez, extrayez et consultez vos ressources personnelles."
       action={<><input ref={input} className="hidden" type="file" multiple accept=".pdf,.docx,.txt,.md" onChange={(event) => void upload(event.target.files)} disabled={uploading || refreshing} /><button className="btn btn-primary" onClick={() => input.current?.click()} disabled={uploading || refreshing}><Upload size={17} />{uploading ? "Import en cours…" : refreshing ? "Importer après actualisation…" : "Importer"}</button></>} />
     {feedback && <div className="mb-5" role={feedback.kind === "error" ? "alert" : "status"}><Notice success={feedback.kind === "success"}>{feedback.message}{feedback.traceId && <span className="mt-2 block text-xs">Référence : {feedback.traceId}</span>}</Notice></div>}
-    {refreshFailed && <div className="mb-5" role="alert"><Notice>L’import a réussi, mais la liste n’a pas pu être actualisée. <button type="button" className="btn btn-ghost mt-3" onClick={() => void retryRefresh()} disabled={refreshing}>{refreshing ? "Actualisation…" : "Rafraîchir la bibliothèque"}</button></Notice></div>}
+    {refreshFailed && <div className="mb-5" role="alert"><Notice>L’import a réussi, mais la liste n’a pas pu être actualisée. <button type="button" className="btn btn-ghost mt-3" onClick={() => void retryRefresh()} disabled={uploading || refreshing}>{refreshing ? "Actualisation…" : "Rafraîchir la bibliothèque"}</button></Notice></div>}
     <div className="card mb-5 grid gap-3 p-4 md:grid-cols-[1fr_240px_auto]">
       <label><span className="sr-only">Rechercher</span><span className="relative block"><Search className="absolute left-3 top-3 text-[var(--muted-foreground)]" size={17} /><input className="field pl-10" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Rechercher un document..." /></span></label>
       <label><span className="sr-only">Matière</span><select className="field" value={subject} onChange={(event) => setSubject(event.target.value)}><option>Toutes</option>{data.subjects.map((item) => <option key={item.id}>{item.name}</option>)}</select></label>
