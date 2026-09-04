@@ -39,6 +39,9 @@
 - ESLint : réussi.
 - Suite globale, première passe : 133/134 fichiers et 622/623 tests réussis ; timeout de 5 s dans `database-migration-preflight.test.ts`, hors périmètre. Relance ciblée du fichier : 12/12 réussis.
 - Suite globale de confirmation : 132/134 fichiers et 621/623 tests réussis ; le même timeout de preflight et un timeout de 5 s dans `sqlite-backup-service.test.ts`. Ce second test avait réussi pendant la première passe. Ces échecs sous charge globale n'affectent aucun fichier modifié par ce lot.
+- Investigation ciblée : aucune collision de chemin temporaire, fuite de connexion, dépendance d'ordre ou contention SQLite démontrée. Trois mesures isolées placent le preflight complet entre 4,294 s et 5,417 s et la restauration vérifiée entre 4,417 s et 5,385 s. Le seuil générique de 5 s était objectivement trop court pour ces deux scénarios d'intégration v16.
+- Correction : timeout local de 10 s sur ces deux tests uniquement ; aucune configuration Vitest globale ni configuration SQLite applicative modifiée.
+- Validation après correction : deux fichiers ciblés 22/22, sous-ensemble SQLite 200/200, suite globale 623/623.
 - Build production simulé Render : réussi, 22/22 pages.
 - Accès DB pendant le build : aucun ; le chemin temporaire inexistant avant build est resté inexistant après build.
 - `git diff --check` : réussi.
@@ -64,6 +67,6 @@
 
 - Examiner ultérieurement d'autres états learner-facing uniquement sur preuve concrète et faible risque.
 - La convergence Examen blanc/MCQ Core reste exclue jusqu'à décision produit.
-- Les timeouts SQLite sous charge globale sont classés comme réserve d'environnement ; aucune modification de ces tests historiques n'est justifiée par les changements actuels.
+- Les deux scénarios d'intégration SQLite disposent désormais d'un plafond local cohérent avec leur durée légitime mesurée.
 
-Verdict : travail fonctionnel local validé ; statut global partiel à cause de timeouts SQLite sous charge, hors périmètre et non liés aux changements learner-facing.
+Verdict : travail fonctionnel local validé ; suite globale entièrement verte après stabilisation ciblée des deux tests SQLite.
