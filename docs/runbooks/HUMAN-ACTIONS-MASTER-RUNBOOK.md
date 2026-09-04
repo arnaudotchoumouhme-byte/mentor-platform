@@ -8,8 +8,8 @@ Ce document prépare les décisions et opérations humaines restantes pour Mento
 
 - Dépôt : `arnaudotchoumouhme-byte/mentor-platform`.
 - P1 : branche distante `codex/p1-autonomous`, HEAD attendu `a33877487e332bf8c2cbc326323487fead2f72f9`, revue automatisée approuvée, poussée, non fusionnée, non déployée.
-- Post-P1 : branche locale `codex/post-p1-autonomous`, HEAD `eeec9b11bd0c145020e942d9ce4e85674b03f939`, non poussée, non fusionnée, non déployée.
-- Post-P1 : dernière campagne globale 628/629 ; timeout de `server-database-startup.test.ts` sous charge à 10 s, puis 3/3 en 4,24 s isolément. Statut : `PENDING_DIAGNOSIS`.
+- Post-P1 : branche locale `codex/post-p1-autonomous`, HEAD avant clôture technique `eeec9b11bd0c145020e942d9ce4e85674b03f939`, non poussée, non fusionnée, non déployée. Le HEAD final doit être relevé au début de H6A.
+- Post-P1 : campagne globale finale 629/629. Le scénario `server-database-startup.test.ts` effectue un bootstrap v16 puis un preflight complet ; sa contention sous charge a été fermée par un timeout local mesuré de 15 s, sans changement SQLite production.
 - SNC : l’ingestion officielle Render reste à effectuer. Une tentative V1 antérieure a échoué proprement avec `MCQ_SOURCE_VERSION_NOT_FOUND`, sans écriture partielle.
 - Production : compte pilote fonctionnel. Aucun accès production n’a été effectué pour créer ce runbook.
 
@@ -39,7 +39,7 @@ Ce document prépare les décisions et opérations humaines restantes pour Mento
 | H3F | Import réel SNC V2 | DATABASE / Render | Élevé | WAITING_H3E | V1 validée | pilote QCM | Restore contrôlé | Oui vérifié | Oui |
 | H4 | Choisir la reprise MCQ P1-05 | DECISION / produit | Moyen | READY | — | futur développement | Oui avant code | Non | Oui |
 | H5 | Choisir la convergence Mock/MCQ | DECISION / architecture | Élevé | READY | — | futur développement | Oui avant code | Non | Oui |
-| H6A | Revue finale post-P1 | REVIEW / local puis GitHub | Moyen | WAITING_TECHNICAL | diagnostic SQLite | H6B | Oui | Non | Non |
+| H6A | Revue finale post-P1 | REVIEW / local puis GitHub | Moyen | READY | clôture technique validée | H6B | Oui | Non | Non |
 | H6B | Autoriser le push post-P1 | DECISION / GitHub | Faible à moyen | WAITING_H6A | H6A | H6C | Oui avant push | Non | Oui |
 | H6C | Pousser la branche post-P1 | GIT / GitHub | Moyen | WAITING_H6B | H6B | H6D | Branche supprimable séparément | Non | Oui |
 | H6D | Revue PR post-P1 | REVIEW / GitHub | Moyen | WAITING_H6C | H6C | futur merge | Oui | Non | Non |
@@ -51,7 +51,7 @@ Ce document prépare les décisions et opérations humaines restantes pour Mento
 
 Flux Git P1 : `H1 → H2 → H2B → contrôle de l’auto-deploy → D1/D2/D3 si autorisés`.
 
-Flux post-P1 : `diagnostic technique SQLite par Codex → H6A → H6B → H6C → H6D`.
+Flux post-P1 : `H6A → H6B → H6C → H6D`. Le diagnostic SQLite préalable est clos.
 
 Flux SNC : `H3 → H3B → H3C → H3D → H3E → validation V1 → H3F`.
 
@@ -237,7 +237,7 @@ Arrêtez-vous ici et envoyez la décision avant toute implémentation.
 
 ### Objectif et dépendance technique
 
-La branche locale contient les états vides Progress, la robustesse Coach, la stabilisation de timeouts SQLite et le correctif terminal/état vide Examen blanc. Son push doit attendre le diagnostic ciblé du troisième timeout SQLite, puis une revue finale humaine.
+La branche locale contient les états vides Progress, la robustesse Coach, la stabilisation de timeouts SQLite et le correctif terminal/état vide Examen blanc. Sa clôture technique est verte ; son push doit encore attendre la revue finale humaine puis une autorisation explicite.
 
 ### Contrôles futurs H6A
 
@@ -249,10 +249,10 @@ git log --oneline a33877487e332bf8c2cbc326323487fead2f72f9..HEAD
 ```
 
 - Branche attendue : `codex/post-p1-autonomous`.
-- HEAD actuellement attendu : `eeec9b11bd0c145020e942d9ce4e85674b03f939` ; refaire la revue s’il change.
+- Relever le HEAD avec `git rev-parse HEAD`, le consigner comme `<REVIEWED_HEAD>` et refaire la revue s’il change ensuite.
 - Aucun fichier suivi non commité, secret, DB ou groupe protégé indexé.
 - Vérifier les résultats ciblés, typecheck, lint, suite globale et build réellement les plus récents.
-- Ne pas déclarer la branche verte tant que le timeout global reste `PENDING_DIAGNOSIS`.
+- Référence technique actuelle : tests globaux 629/629, typecheck et lint réussis, build précédent 22/22 réutilisable car le dernier changement est exclusivement un timeout de test.
 
 ### STOP
 
@@ -388,8 +388,8 @@ Ces formulations sont des exemples. Elles n’accordent aucune autorisation main
 | `SNC_RENDER_OFFICIAL_INGESTION` | TECHNICALLY_READY_BUT_DEFERRED | Autorisation H3 et session active |
 | `P1_05_RESUME_PERSISTED_MCQ_DECISION` | READY_FOR_DECISION | Choix humain |
 | `MOCK_MCQ_CONVERGENCE_DECISION` | READY_FOR_DECISION | Choix humain |
-| `POST_P1_BRANCH_PUSH_AUTHORIZATION` | WAITING_TECHNICAL | Diagnostic timeout puis H6A PASS |
+| `POST_P1_BRANCH_PUSH_AUTHORIZATION` | WAITING_PREVIOUS_ACTION | H6A PASS sur le HEAD final |
 | Imports SNC | WAITING_PREVIOUS_ACTION | H3, projection, publication, backup |
 | Déploiement | WAITING_PREVIOUS_ACTION | merge/revue et autorisation dédiée |
 
-Première action humaine recommandée lorsque le propriétaire sera prêt : **H1 — revue distante P1**. H4 et H5 peuvent être décidées en parallèle. Le prochain travail autonome Codex recommandé est le diagnostic ciblé de `server-database-startup.test.ts`, sans exécuter d’action humaine.
+Première action humaine recommandée lorsque le propriétaire sera prêt : **H1 — revue distante P1**. H4 et H5 peuvent être décidées en parallèle. Aucun travail autonome supplémentaire n’est requis avant la revue humaine post-P1.
