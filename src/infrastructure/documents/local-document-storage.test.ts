@@ -6,17 +6,13 @@ import { LocalDocumentStorage } from "./local-document-storage";
 
 const id = "123e4567-e89b-42d3-a456-426614174000";
 let directory: string;
-let originalWorkingDirectory: string;
 const storage = () => new LocalDocumentStorage(path.join(directory, "data"));
 
 beforeEach(async () => {
-  originalWorkingDirectory = process.cwd();
   directory = await mkdtemp(path.join(os.tmpdir(), "mentor-upload-test-"));
-  process.chdir(directory);
 });
 
 afterEach(async () => {
-  process.chdir(originalWorkingDirectory);
   await rm(directory, { recursive: true, force: true });
 });
 

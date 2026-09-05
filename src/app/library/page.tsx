@@ -5,35 +5,85 @@ import { useRef, useState } from "react";
 import { Archive, FileText, RotateCcw, Search, Trash2, Upload } from "lucide-react";
 import { useAppState } from "@/hooks/use-state";
 import { EmptyState, Loading, Notice, PageHeader } from "@/components/ui";
-import { clientFetch } from "@/shared/api/client-fetch";
+import { ClientRequestError, clientFetch } from "@/shared/api/client-fetch";
+
+type UploadFeedback = { kind: "success" | "error"; message: string; traceId?: string };
 
 export default function LibraryPage() {
   const { data, refresh, act } = useAppState();
   const input = useRef<HTMLInputElement>(null);
   const [query, setQuery] = useState("");
   const [subject, setSubject] = useState("Toutes");
-  const [message, setMessage] = useState("");
+  const [feedback, setFeedback] = useState<UploadFeedback | null>(null);
+  const [uploading, setUploading] = useState(false);
+  const [refreshFailed, setRefreshFailed] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
+  const uploadInFlight = useRef(false);
+  const refreshInFlight = useRef(false);
   if (!data) return <Loading />;
   const filtered = data.documents.filter((doc) =>
     (subject === "Toutes" || doc.subject === subject) && doc.name.toLowerCase().includes(query.toLowerCase()));
 
   async function upload(files: FileList | null) {
-    if (!files?.length) return;
-    const form = new FormData();
-    Array.from(files).forEach((file) => form.append("files", file));
-    form.set("subject", subject === "Toutes" ? "Non classé" : subject);
-    const response = await clientFetch("/api/documents", { method: "POST", body: form });
-    const result = await response.json();
-    if (!response.ok) { setMessage(result.message ?? result.error?.message ?? "Import impossible."); return; }
-    const ocr = result.documents?.filter((item: { status: string }) => item.status === "REQUIRES_OCR").length ?? 0;
-    setMessage(`${result.imported?.length ?? 0} document(s) importé(s)${ocr ? `, ${ocr} nécessitent un OCR` : ""}${result.rejected?.length ? `, ${result.rejected.length} refusé(s)` : ""}.`);
-    await refresh();
+    if (!files?.length || uploadInFlight.current || refreshInFlight.current) return;
+    uploadInFlight.current = true;
+    setUploading(true);
+    setFeedback(null);
+    setRefreshFailed(false);
+    try {
+      let result;
+      try {
+        const form = new FormData();
+        Array.from(files).forEach((file) => form.append("files", file));
+        form.set("subject", subject === "Toutes" ? "Non classé" : subject);
+        const response = await clientFetch("/api/documents", { method: "POST", body: form });
+        result = await response.json().catch(() => ({}));
+        if (!response.ok) {
+          setFeedback({ kind: "error", message: result.error?.message ?? result.message ?? "Import impossible. Réessayez.", traceId: result.error?.traceId ?? response.headers.get("x-trace-id") ?? undefined });
+          return;
+        }
+      } catch (error) {
+        setFeedback({
+          kind: "error",
+          message: error instanceof ClientRequestError && error.code === "NET_REQUEST_TIMEOUT" ? "L’import a expiré. Réessayez." : "Le serveur est injoignable. Vérifiez votre connexion puis réessayez.",
+          traceId: error instanceof ClientRequestError ? error.traceId : undefined,
+        });
+        return;
+      }
+      const ocr = result.documents?.filter((item: { status: string }) => item.status === "REQUIRES_OCR").length ?? 0;
+      setFeedback({ kind: "success", message: `${result.imported?.length ?? 0} document(s) importé(s)${ocr ? `, ${ocr} nécessitent un OCR` : ""}${result.rejected?.length ? `, ${result.rejected.length} refusé(s)` : ""}.` });
+      try {
+        await refresh();
+      } catch {
+        setRefreshFailed(true);
+      }
+    } finally {
+      uploadInFlight.current = false;
+      setUploading(false);
+      if (input.current) input.current.value = "";
+    }
+  }
+
+  async function retryRefresh() {
+    if (uploadInFlight.current || refreshInFlight.current) return;
+    refreshInFlight.current = true;
+    setRefreshing(true);
+    try {
+      await refresh();
+      setRefreshFailed(false);
+    } catch {
+      setRefreshFailed(true);
+    } finally {
+      refreshInFlight.current = false;
+      setRefreshing(false);
+    }
   }
 
   return <div className="mx-auto max-w-7xl">
     <PageHeader eyebrow="FEAT-001 · Local et privé" title="Bibliothèque" description="Importez, extrayez et consultez vos ressources personnelles."
-      action={<><input ref={input} className="hidden" type="file" multiple accept=".pdf,.docx,.txt,.md" onChange={(event) => void upload(event.target.files)} /><button className="btn btn-primary" onClick={() => input.current?.click()}><Upload size={17} />Importer</button></>} />
-    {message && <div className="mb-5"><Notice success>{message}</Notice></div>}
+      action={<><input ref={input} className="hidden" type="file" multiple accept=".pdf,.docx,.txt,.md" onChange={(event) => void upload(event.target.files)} disabled={uploading || refreshing} /><button className="btn btn-primary" onClick={() => input.current?.click()} disabled={uploading || refreshing}><Upload size={17} />{uploading ? "Import en cours…" : refreshing ? "Importer après actualisation…" : "Importer"}</button></>} />
+    {feedback && <div className="mb-5" role={feedback.kind === "error" ? "alert" : "status"}><Notice success={feedback.kind === "success"}>{feedback.message}{feedback.traceId && <span className="mt-2 block text-xs">Référence : {feedback.traceId}</span>}</Notice></div>}
+    {refreshFailed && <div className="mb-5" role="alert"><Notice>L’import a réussi, mais la liste n’a pas pu être actualisée. <button type="button" className="btn btn-ghost mt-3" onClick={() => void retryRefresh()} disabled={uploading || refreshing}>{refreshing ? "Actualisation…" : "Rafraîchir la bibliothèque"}</button></Notice></div>}
     <div className="card mb-5 grid gap-3 p-4 md:grid-cols-[1fr_240px_auto]">
       <label><span className="sr-only">Rechercher</span><span className="relative block"><Search className="absolute left-3 top-3 text-[var(--muted-foreground)]" size={17} /><input className="field pl-10" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Rechercher un document..." /></span></label>
       <label><span className="sr-only">Matière</span><select className="field" value={subject} onChange={(event) => setSubject(event.target.value)}><option>Toutes</option>{data.subjects.map((item) => <option key={item.id}>{item.name}</option>)}</select></label>
