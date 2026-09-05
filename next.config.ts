@@ -45,6 +45,7 @@ const securityHeaders = [
 
 const nextConfig: NextConfig = {
   poweredByHeader: false,
+  serverExternalPackages: ["pdfjs-dist"],
   experimental: {
     // SQLite et le bootstrap de migrations sont mono-writer. Un worker de build
     // évite que plusieurs évaluations de routes initialisent la même base en parallèle.
