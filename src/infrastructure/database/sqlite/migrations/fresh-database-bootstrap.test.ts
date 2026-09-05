@@ -58,7 +58,7 @@ describe("fresh database bootstrap with isolated SQLite", () => {
     const snapshot = new SqliteSchemaInspector(executor).inspect();
     const history = new SqliteMigrationHistoryStore(executor).list();
 
-    expect(first).toEqual({ currentVersion: 16, appliedMigrationIds: ["MIG-0001", "MIG-0002", "MIG-0003", "MIG-0004", "MIG-0005", "MIG-0006", "MIG-0007", "MIG-0008", "MIG-0009", "MIG-0010", "MIG-0011", "MIG-0012", "MIG-0013", "MIG-0014", "MIG-0015", "MIG-0016"] });
+    expect(first).toEqual({ currentVersion: 17, appliedMigrationIds: ["MIG-0001", "MIG-0002", "MIG-0003", "MIG-0004", "MIG-0005", "MIG-0006", "MIG-0007", "MIG-0008", "MIG-0009", "MIG-0010", "MIG-0011", "MIG-0012", "MIG-0013", "MIG-0014", "MIG-0015", "MIG-0016", "MIG-0017"] });
     expect(
       snapshot.tables
         .filter(({ kind }) => kind === "APPLICATION_TABLE")
@@ -67,7 +67,7 @@ describe("fresh database bootstrap with isolated SQLite", () => {
     expect(snapshot.tables.some(({ name }) => name === "document_import_journal")).toBe(true);
     expect(snapshot.views).toEqual([]);
     expect(snapshot.triggers.map(({ name }) => name)).toEqual([...SOURCE_VERSION_EDITORIAL_ALIAS_TRIGGER_NAMES].sort());
-    expect(history).toHaveLength(16);
+    expect(history).toHaveLength(17);
     expect(history[0]).toMatchObject({
       migrationId: "MIG-0001",
       fromVersion: 0,
@@ -83,9 +83,9 @@ describe("fresh database bootstrap with isolated SQLite", () => {
     bootstrap.run();
     const before = new SqliteSchemaInspector(executor).inspect();
 
-    expect(bootstrap.run()).toEqual({ currentVersion: 16, appliedMigrationIds: [] });
+    expect(bootstrap.run()).toEqual({ currentVersion: 17, appliedMigrationIds: [] });
     expect(new SqliteSchemaInspector(executor).inspect()).toEqual(before);
-    expect(new SqliteMigrationHistoryStore(executor).list()).toHaveLength(16);
+    expect(new SqliteMigrationHistoryStore(executor).list()).toHaveLength(17);
   });
 
   it.each([
@@ -180,7 +180,7 @@ describe("fresh database bootstrap with isolated SQLite", () => {
       expect(error).toBeInstanceOf(MigrationError);
       expect((error as MigrationError).code).toBe("MIGRATION_CHECKSUM_MISMATCH");
     }
-    expect(new SqliteMigrationHistoryStore(executor).list()).toHaveLength(16);
+    expect(new SqliteMigrationHistoryStore(executor).list()).toHaveLength(17);
   });
 
   it("fails closed when stored history is ahead of the registry", () => {
@@ -189,7 +189,7 @@ describe("fresh database bootstrap with isolated SQLite", () => {
       migration_id,from_version,to_version,description,checksum,applied_at,
       duration_ms,application_kind,application_version
     ) VALUES (?,?,?,?,?,?,?,?,?)`).run(
-      "MIG-0017", 16, 17, "Future", "b".repeat(64),
+      "MIG-0018", 17, 18, "Future", "b".repeat(64),
       "2026-08-09T12:00:00.000Z", 1, "executed", null,
     );
 
