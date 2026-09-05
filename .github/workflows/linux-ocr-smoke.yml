@@ -1,0 +1,34 @@
+name: Linux OCR smoke test
+
+on:
+  workflow_dispatch:
+
+jobs:
+  ocr-smoke:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+
+      - name: Enable Corepack
+        run: corepack enable
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Verify native OCR dependencies
+        run: |
+          node -e "require('@napi-rs/canvas'); console.log('canvas: OK')"
+          node -e "require('tesseract.js'); console.log('tesseract: OK')"
+
+      - name: TypeScript check
+        run: pnpm run typecheck
+
+      - name: Targeted OCR tests
+        run: pnpm exec vitest run src/infrastructure/documents/local-pdf-ocr.test.ts src/infrastructure/documents/local-document-extractor.test.ts
