@@ -14,6 +14,7 @@ const before = { sessionId, status: "IN_PROGRESS" as const, items: [{ itemId: "i
 const after = { ...before, items: [{ ...before.items[0], answer: { choiceId: "a", correct: true, correctChoiceId: "a", explanation: "Explication après réponse" } }] };
 
 function catalog() { return response({ blueprints: [{ blueprintVersionId: "bp", itemCount: 1 }] }); }
+function catalogWithResume() { return response({ blueprints: [{ blueprintVersionId: "bp", itemCount: 1 }], resumableSession: { sessionId } }); }
 function sessionPosts() { return vi.mocked(clientFetch).mock.calls.filter(([url, init]) => url === "/api/mcq/sessions" && init?.method === "POST"); }
 function answerPosts() { return vi.mocked(clientFetch).mock.calls.filter(([url]) => String(url).endsWith("/answers")); }
 async function startSession() { fireEvent.click(await screen.findByRole("button", { name: "Commencer" })); expect(await screen.findByText("Question publiée")).toBeTruthy(); }
@@ -94,6 +95,45 @@ describe("McqSessionRunner", () => {
     render(React.createElement(McqSessionRunner)); await startSession();
     const choice = screen.getByRole("button", { name: "A. Choix A" }); fireEvent.click(choice); fireEvent.click(choice);
     await screen.findByText("Explication après réponse"); expect(answerPosts()).toHaveLength(1);
+  });
+
+  it("asks the learner before using an owned in-progress session", async () => {
+    vi.mocked(clientFetch).mockResolvedValueOnce(catalogWithResume());
+    render(React.createElement(McqSessionRunner));
+    expect(await screen.findByRole("button", { name: "Reprendre ma session" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Commencer une nouvelle session" })).toBeTruthy();
+    expect(sessionPosts()).toHaveLength(0);
+  });
+
+  it("resumes once and restores the first unanswered item", async () => {
+    const answered = { ...before.items[0], answer: { choiceId: "a", correct: true, correctChoiceId: "a", explanation: "Déjà répondu" } };
+    const second = { ...before.items[0], itemId: "item-2", position: 1, stem: "Question à reprendre", answer: null };
+    vi.mocked(clientFetch).mockResolvedValueOnce(catalogWithResume()).mockResolvedValueOnce(response({ ...before, items: [answered, second] }));
+    render(React.createElement(McqSessionRunner));
+    const resume = await screen.findByRole("button", { name: "Reprendre ma session" });
+    fireEvent.click(resume); fireEvent.click(resume);
+    expect(await screen.findByText("Question à reprendre")).toBeTruthy();
+    expect(vi.mocked(clientFetch).mock.calls.filter(([url]) => url === `/api/mcq/sessions/${sessionId}`)).toHaveLength(1);
+    expect(sessionPosts()).toHaveLength(0);
+  });
+
+  it("creates only one new session after the explicit choice and preserves the old one", async () => {
+    vi.mocked(clientFetch).mockResolvedValueOnce(catalogWithResume()).mockResolvedValueOnce(response({ sessionId }, 201)).mockResolvedValueOnce(response(before));
+    render(React.createElement(McqSessionRunner));
+    const startNew = await screen.findByRole("button", { name: "Commencer une nouvelle session" });
+    fireEvent.click(startNew); fireEvent.click(startNew);
+    expect(await screen.findByText("Question publiée")).toBeTruthy();
+    expect(sessionPosts()).toHaveLength(1);
+    expect(vi.mocked(clientFetch).mock.calls.some(([, init]) => init?.method === "DELETE")).toBe(false);
+  });
+
+  it("shows a terminal retry state when resume fails over the network", async () => {
+    vi.mocked(clientFetch).mockResolvedValueOnce(catalogWithResume()).mockRejectedValueOnce(new Error("offline"));
+    render(React.createElement(McqSessionRunner));
+    fireEvent.click(await screen.findByRole("button", { name: "Reprendre ma session" }));
+    expect((await screen.findByRole("alert")).textContent).toContain("NET_REQUEST_FAILED");
+    expect(screen.getByRole("button", { name: "Réessayer la reprise" })).toBeTruthy();
+    expect(screen.queryByText(/Reprise en cours/)).toBeNull();
   });
 
   it("leaves loading for an empty catalogue", async () => {
