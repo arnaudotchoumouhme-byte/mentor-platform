@@ -2,4 +2,5 @@ confirmModulesPurge: false
 
 allowBuilds:
   esbuild: true
+  tesseract.js: false
   unrs-resolver: true
