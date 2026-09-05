@@ -15,6 +15,7 @@ const after = { ...before, items: [{ ...before.items[0], answer: { choiceId: "a"
 
 function catalog() { return response({ blueprints: [{ blueprintVersionId: "bp", itemCount: 1 }] }); }
 function catalogWithResume() { return response({ blueprints: [{ blueprintVersionId: "bp", itemCount: 1 }], resumableSession: { sessionId } }); }
+function emptyCatalogWithResume() { return response({ blueprints: [], resumableSession: { sessionId } }); }
 function sessionPosts() { return vi.mocked(clientFetch).mock.calls.filter(([url, init]) => url === "/api/mcq/sessions" && init?.method === "POST"); }
 function answerPosts() { return vi.mocked(clientFetch).mock.calls.filter(([url]) => String(url).endsWith("/answers")); }
 async function startSession() { fireEvent.click(await screen.findByRole("button", { name: "Commencer" })); expect(await screen.findByText("Question publiée")).toBeTruthy(); }
@@ -105,6 +106,16 @@ describe("McqSessionRunner", () => {
     expect(sessionPosts()).toHaveLength(0);
   });
 
+  it("offers and restores a persisted session even when the current catalogue is empty", async () => {
+    vi.mocked(clientFetch).mockResolvedValueOnce(emptyCatalogWithResume()).mockResolvedValueOnce(response(before));
+    render(React.createElement(McqSessionRunner));
+    expect(await screen.findByRole("button", { name: "Reprendre ma session" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Aucun nouveau QCM disponible" }).hasAttribute("disabled")).toBe(true);
+    fireEvent.click(screen.getByRole("button", { name: "Reprendre ma session" }));
+    expect(await screen.findByText("Question publiée")).toBeTruthy();
+    expect(screen.queryByText("Aucune question disponible.")).toBeNull();
+  });
+
   it("resumes once and restores the first unanswered item", async () => {
     const answered = { ...before.items[0], answer: { choiceId: "a", correct: true, correctChoiceId: "a", explanation: "Déjà répondu" } };
     const second = { ...before.items[0], itemId: "item-2", position: 1, stem: "Question à reprendre", answer: null };
@@ -134,6 +145,16 @@ describe("McqSessionRunner", () => {
     expect((await screen.findByRole("alert")).textContent).toContain("NET_REQUEST_FAILED");
     expect(screen.getByRole("button", { name: "Réessayer la reprise" })).toBeTruthy();
     expect(screen.queryByText(/Reprise en cours/)).toBeNull();
+  });
+
+  it("returns to the historical start screen after completion without creating automatically", async () => {
+    vi.mocked(clientFetch).mockResolvedValueOnce(catalog()).mockResolvedValueOnce(response({ sessionId }, 201)).mockResolvedValueOnce(response(before)).mockResolvedValueOnce(response(after)).mockResolvedValueOnce(response({ score: { percentage: 100, correct: 1, total: 1 } }));
+    render(React.createElement(McqSessionRunner)); await startSession();
+    fireEvent.click(screen.getByRole("button", { name: "A. Choix A" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Terminer" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Nouvelle session" }));
+    expect(await screen.findByRole("button", { name: "Commencer" })).toBeTruthy();
+    expect(sessionPosts()).toHaveLength(1);
   });
 
   it("leaves loading for an empty catalogue", async () => {
