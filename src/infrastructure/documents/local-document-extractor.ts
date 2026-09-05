@@ -5,6 +5,7 @@ import {
   type ExtractedDocumentContent,
 } from "@/domain/documents/extracted-content";
 import { AppError } from "@/shared/errors/app-error";
+import { LocalPdfOcr, type PdfOcrPort } from "./local-pdf-ocr";
 
 const EXTRACTION_TIMEOUT_MS = 15_000;
 
@@ -26,7 +27,7 @@ function withTimeout<T>(operation: Promise<T>, code: string): Promise<T> {
   ]);
 }
 
-async function extractPdf(bytes: Uint8Array): Promise<ExtractedDocumentContent> {
+async function extractPdfText(bytes: Uint8Array): Promise<ExtractedDocumentContent> {
   const pdfjs = await import("pdfjs-dist/legacy/build/pdf.mjs");
   const task = pdfjs.getDocument({
     data: bytes.slice(),
@@ -94,10 +95,19 @@ async function extractDocx(bytes: Uint8Array): Promise<ExtractedDocumentContent>
 }
 
 export class LocalDocumentExtractor implements DocumentExtractorPort {
+  constructor(private readonly pdfOcr: PdfOcrPort = new LocalPdfOcr()) {}
+
   async extract(input: Parameters<DocumentExtractorPort["extract"]>[0]): Promise<ExtractedDocumentContent> {
     switch (input.extension) {
-      case "pdf":
-        return withTimeout(extractPdf(input.bytes), "INGEST_PDF_EXTRACTION_TIMEOUT");
+      case "pdf": {
+        const extracted = await withTimeout(
+          extractPdfText(input.bytes),
+          "INGEST_PDF_EXTRACTION_TIMEOUT",
+        );
+        return extracted.status === "REQUIRES_OCR"
+          ? this.pdfOcr.extract(input.bytes, extracted.pageCount)
+          : extracted;
+      }
       case "docx":
         return withTimeout(extractDocx(input.bytes), "INGEST_DOCX_EXTRACTION_TIMEOUT");
       case "txt":
