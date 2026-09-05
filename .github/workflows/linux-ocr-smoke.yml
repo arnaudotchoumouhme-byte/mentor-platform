@@ -31,4 +31,6 @@ jobs:
         run: pnpm run typecheck
 
       - name: Targeted OCR tests
+        env:
+          MENTOR_LOCAL_OCR_FIXTURE: src/test/fixtures/ocr-french-synthetic.pdf
         run: pnpm exec vitest run src/infrastructure/documents/local-pdf-ocr.test.ts src/infrastructure/documents/local-document-extractor.test.ts
