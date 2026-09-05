@@ -5,6 +5,12 @@ const denied = () => new AppError({ code: "PILOT_ACCESS_DENIED", userMessage: "A
 
 export class SqlitePilotOwnership {
   constructor(private readonly database: SqliteExecutor) {}
+  findInProgressMcqSession(learnerId: string): string | null {
+    return this.database.all<{ session_id: string }>(
+      "SELECT session_id FROM mcq_sessions WHERE learner_id=? AND status='IN_PROGRESS' ORDER BY started_at DESC,session_id DESC LIMIT 1",
+      learnerId,
+    )[0]?.session_id ?? null;
+  }
   bindMcqSession(sessionId: string, learnerId: string): void {
     const result = this.database.run("UPDATE mcq_sessions SET learner_id=? WHERE session_id=? AND learner_id IS NULL", learnerId, sessionId);
     if (result.changes !== 1) throw denied();
