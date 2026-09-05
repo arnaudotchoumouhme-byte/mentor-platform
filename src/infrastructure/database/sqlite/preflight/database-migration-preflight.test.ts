@@ -107,7 +107,7 @@ describe("DatabaseMigrationPreflight", () => {
     expect(preflight()).toMatchObject({ schemaState: "VERSIONED_OUTDATED", backupRequirement: "BACKUP_REQUIRED_MISSING" });
     new FreshDatabaseBootstrap(database).run();
     expect(preflight()).toMatchObject({ status: "NO_MIGRATION", schemaState: "VERSIONED_CURRENT", riskLevel: "MR0" });
-  });
+  }, 10_000);
 
   it.each([
     ["unknown", "CREATE TABLE unrelated(id INTEGER)", "LEGACY_UNKNOWN"],

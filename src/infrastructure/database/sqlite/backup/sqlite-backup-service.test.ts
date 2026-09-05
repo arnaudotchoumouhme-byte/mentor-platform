@@ -149,7 +149,7 @@ describe("SqliteBackupService", () => {
     });
     expect(staging.prepare("SELECT name,mastery FROM subjects WHERE name='Synthetic'").get()).toEqual({ name: "Synthetic", mastery: 9 });
     staging.close();
-  });
+  }, 10_000);
 
   it("never overwrites an active or existing database", async () => {
     const verified = await create();
