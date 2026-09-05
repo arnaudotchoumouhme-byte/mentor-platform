@@ -47,12 +47,24 @@ describe("MIG-0017 MCQ session specialization", () => {
     expect(sqlite.prepare(
       "SELECT session_kind,duration_seconds FROM mcq_sessions WHERE session_id='mock'",
     ).get()).toEqual({ session_kind: "MOCK_EXAM", duration_seconds: 2700 });
+    sqlite.prepare(
+      "INSERT INTO mcq_sessions(session_id,mode,status,blueprint_version_id,seed,started_at,session_kind,duration_seconds) VALUES(?,?,?,?,?,?,?,?)",
+    ).run("one-second", "QUIZ", "IN_PROGRESS", "bp", "seed", "now", "MOCK_EXAM", 1);
+    expect(sqlite.prepare(
+      "SELECT duration_seconds FROM mcq_sessions WHERE session_id='one-second'",
+    ).get()).toEqual({ duration_seconds: 1 });
     expect(() => sqlite.prepare(
       "INSERT INTO mcq_sessions(session_id,mode,status,blueprint_version_id,seed,started_at,session_kind) VALUES(?,?,?,?,?,?,?)",
     ).run("invalid-kind", "QUIZ", "IN_PROGRESS", "bp", "seed", "now", "OTHER")).toThrow();
     expect(() => sqlite.prepare(
       "INSERT INTO mcq_sessions(session_id,mode,status,blueprint_version_id,seed,started_at,session_kind,duration_seconds) VALUES(?,?,?,?,?,?,?,?)",
     ).run("invalid-duration", "QUIZ", "IN_PROGRESS", "bp", "seed", "now", "MOCK_EXAM", 0)).toThrow();
+    expect(() => sqlite.prepare(
+      "INSERT INTO mcq_sessions(session_id,mode,status,blueprint_version_id,seed,started_at,session_kind,duration_seconds) VALUES(?,?,?,?,?,?,?,?)",
+    ).run("fractional-duration", "QUIZ", "IN_PROGRESS", "bp", "seed", "now", "MOCK_EXAM", 1.5)).toThrow();
+    expect(() => sqlite.prepare(
+      "INSERT INTO mcq_sessions(session_id,mode,status,blueprint_version_id,seed,started_at,session_kind,duration_seconds) VALUES(?,?,?,?,?,?,?,?)",
+    ).run("negative-duration", "QUIZ", "IN_PROGRESS", "bp", "seed", "now", "MOCK_EXAM", -1)).toThrow();
     expect(sqlite.prepare("PRAGMA integrity_check").get()).toEqual({ integrity_check: "ok" });
     sqlite.close();
   });

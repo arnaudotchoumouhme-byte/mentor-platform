@@ -3,7 +3,7 @@ import { MigrationError } from "../migration-errors";
 
 export const MCQ_SESSION_SPECIALIZATION_STATEMENTS = [
   "ALTER TABLE mcq_sessions ADD COLUMN session_kind TEXT CHECK(session_kind IN ('STANDARD','MOCK_EXAM'))",
-  "ALTER TABLE mcq_sessions ADD COLUMN duration_seconds INTEGER CHECK(duration_seconds IS NULL OR duration_seconds > 0)",
+  "ALTER TABLE mcq_sessions ADD COLUMN duration_seconds INTEGER CHECK(duration_seconds IS NULL OR (typeof(duration_seconds) = 'integer' AND duration_seconds > 0))",
 ] as const;
 
 export function assertMcqSessionSpecializationSchema(database: SqliteExecutor): void {
@@ -24,7 +24,7 @@ export function assertMcqSessionSpecializationSchema(database: SqliteExecutor): 
     durationSeconds?.type !== "INTEGER" ||
     durationSeconds.notnull !== 0 ||
     !tableSql.includes("session_kind IN ('STANDARD','MOCK_EXAM')") ||
-    !tableSql.includes("duration_seconds IS NULL OR duration_seconds > 0")
+    !tableSql.includes("duration_seconds IS NULL OR (typeof(duration_seconds) = 'integer' AND duration_seconds > 0)")
   ) {
     throw new MigrationError(
       "MIGRATION_SCHEMA_POSTCONDITION_FAILED",
