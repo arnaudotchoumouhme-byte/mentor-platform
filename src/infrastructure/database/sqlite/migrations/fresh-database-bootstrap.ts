@@ -18,6 +18,7 @@ import { assertPilotProvisioningAuditSchema, PILOT_PROVISIONING_AUDIT_TABLE_NAME
 import { assertMcqContentSchema, MCQ_CONTENT_TABLE_NAMES } from "./definitions/mig-0014-mcq-content-import";
 import { assertSourceVersionEditorialAliasSchema, SOURCE_VERSION_EDITORIAL_ALIAS_TABLE_NAMES, withoutSourceVersionEditorialAliasTriggers } from "./definitions/mig-0015-source-version-editorial-alias";
 import { assertLearnerDataIsolationSchema, LEARNER_OWNERSHIP_TABLES } from "./definitions/mig-0016-learner-data-isolation";
+import { assertMcqSessionSpecializationSchema } from "./definitions/mig-0017-mcq-session-specialization";
 import { detectDatabaseFreshness } from "./fresh-database-detector";
 import { MigrationError } from "./migration-errors";
 import { validateMigrationHistory } from "./migration-history-validation";
@@ -112,6 +113,7 @@ export class FreshDatabaseBootstrap {
     if (result.currentVersion >= 14) assertMcqContentSchema(this.database);
     if (result.currentVersion >= 15) assertSourceVersionEditorialAliasSchema(this.database);
     if (result.currentVersion >= 16) assertLearnerDataIsolationSchema(this.database);
+    if (result.currentVersion >= 17) assertMcqSessionSpecializationSchema(this.database);
     validateMigrationHistory(this.history.list(), this.registry);
 
     if (result.currentVersion !== this.registry.currentVersion) {

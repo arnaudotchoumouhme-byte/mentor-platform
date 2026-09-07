@@ -10,6 +10,9 @@ import {
   initializeAfterDatabaseReadiness,
   requireExistingDatabaseIsCurrent,
 } from "./server-database-startup";
+import { coreMigrationRegistry } from "./migrations/core-migration-registry";
+import { FreshDatabaseBootstrap } from "./migrations/fresh-database-bootstrap";
+import { MigrationRegistry } from "./migrations/migration-registry";
 
 describe("server database startup boundary", () => {
   let sqlite: DatabaseSync;
@@ -64,4 +67,27 @@ describe("server database startup boundary", () => {
       await rm(root, { recursive: true, force: true });
     }
   }, 15_000);
+
+  it("reports an existing v16 database as outdated without migrating it", async () => {
+    const root = await mkdtemp(path.join(tmpdir(), "mentor-startup-v16-"));
+    const databasePath = path.join(root, "synthetic.sqlite");
+    try {
+      const sqlite = new DatabaseSync(databasePath);
+      const v16 = new MigrationRegistry(coreMigrationRegistry.migrations.filter(migration => migration.id !== "MIG-0017"));
+      const executor: SqliteExecutor = {
+        all: <T>(sql: string, ...params: SQLInputValue[]) => sqlite.prepare(sql).all(...params) as T[],
+        run: (sql: string, ...params: SQLInputValue[]) => sqlite.prepare(sql).run(...params),
+      };
+      new FreshDatabaseBootstrap(executor, v16).run();
+      sqlite.close();
+
+      expect(() => requireExistingDatabaseIsCurrent(databasePath)).toThrow(DatabaseMigrationAuthorizationRequiredError);
+      const unchanged = new DatabaseSync(databasePath, { readOnly: true });
+      expect(unchanged.prepare("SELECT MAX(to_version) AS version FROM schema_migrations").get()).toEqual({ version: 16 });
+      expect(unchanged.prepare("PRAGMA table_info('mcq_sessions')").all().map(column => column.name)).not.toContain("session_kind");
+      unchanged.close();
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  });
 });

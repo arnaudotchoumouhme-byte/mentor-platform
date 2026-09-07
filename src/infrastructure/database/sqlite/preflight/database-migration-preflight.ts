@@ -17,6 +17,7 @@ import { assertPilotProvisioningAuditSchema, PILOT_PROVISIONING_AUDIT_TABLE_NAME
 import { assertMcqContentSchema, MCQ_CONTENT_TABLE_NAMES } from "../migrations/definitions/mig-0014-mcq-content-import";
 import { assertSourceVersionEditorialAliasSchema, SOURCE_VERSION_EDITORIAL_ALIAS_TABLE_NAMES, withoutSourceVersionEditorialAliasTriggers } from "../migrations/definitions/mig-0015-source-version-editorial-alias";
 import { assertLearnerDataIsolationSchema, LEARNER_OWNERSHIP_TABLES } from "../migrations/definitions/mig-0016-learner-data-isolation";
+import { assertMcqSessionSpecializationSchema } from "../migrations/definitions/mig-0017-mcq-session-specialization";
 import { detectDatabaseFreshness } from "../migrations/fresh-database-detector";
 import { LegacySchemaRecognizer } from "../migrations/legacy-schema-recognizer";
 import { MigrationError } from "../migrations/migration-errors";
@@ -115,6 +116,7 @@ export class DatabaseMigrationPreflight {
           assertMcqContentSchema(this.database);
           assertSourceVersionEditorialAliasSchema(this.database);
           assertLearnerDataIsolationSchema(this.database);
+          assertMcqSessionSpecializationSchema(this.database);
           return Object.freeze({
             status: "NO_MIGRATION",
             schemaState: "VERSIONED_CURRENT",
@@ -150,7 +152,7 @@ export class DatabaseMigrationPreflight {
           ? "CHECKSUM_MISMATCH"
           : cause.code === "MIGRATION_HISTORY_AHEAD"
             ? "VERSIONED_AHEAD"
-            : cause.code.includes("IMPORT_JOURNAL")
+            : cause.code.includes("IMPORT_JOURNAL") || cause.code === "MIGRATION_SCHEMA_POSTCONDITION_FAILED"
               ? "SCHEMA_INCOMPATIBLE"
               : "INVALID_HISTORY";
         return blocked(state, this.registry.currentVersion, cause.code);

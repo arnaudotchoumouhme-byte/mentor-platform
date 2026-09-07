@@ -23,6 +23,7 @@
     "verify": "pnpm run check && pnpm run build",
     "tsx": "node scripts/run-tsx.mjs",
     "mcq:import": "node scripts/run-tsx.mjs scripts/import-mcq-corpus.ts",
+    "db:migration": "node scripts/run-tsx.mjs scripts/controlled-migration-activation.ts",
     "source-version-alias": "node scripts/run-tsx.mjs scripts/source-version-editorial-alias.ts"
   },
   "dependencies": {

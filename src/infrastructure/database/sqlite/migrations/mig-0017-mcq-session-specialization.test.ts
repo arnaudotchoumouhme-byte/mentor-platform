@@ -1,6 +1,10 @@
 import { DatabaseSync, type SQLInputValue } from "node:sqlite";
+import { mkdtemp, rm } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import path from "node:path";
 import { describe, expect, it } from "vitest";
 import type { SqliteExecutor } from "../sqlite-executor";
+import { inspectDatabaseFileReadOnly } from "../preflight/database-migration-preflight";
 import { coreMigrationRegistry } from "./core-migration-registry";
 import { FreshDatabaseBootstrap } from "./fresh-database-bootstrap";
 import { migrationChecksum } from "./migration-checksum";
@@ -80,5 +84,48 @@ describe("MIG-0017 MCQ session specialization", () => {
     expect(coreMigrationRegistry.migrations.map(migration => migration.id)).toEqual(
       Array.from({ length: 17 }, (_, index) => `MIG-${String(index + 1).padStart(4, "0")}`),
     );
+  });
+
+  it("declares a structurally valid schema v17 ready", async () => {
+    const root = await mkdtemp(path.join(tmpdir(), "mentor-valid-v17-"));
+    const databasePath = path.join(root, "synthetic.sqlite");
+    try {
+      const sqlite = new DatabaseSync(databasePath);
+      new FreshDatabaseBootstrap(executor(sqlite), coreMigrationRegistry).run();
+      sqlite.close();
+
+      expect(inspectDatabaseFileReadOnly(databasePath)).toMatchObject({
+        status: "NO_MIGRATION",
+        schemaState: "VERSIONED_CURRENT",
+        currentVersion: 17,
+        targetVersion: 17,
+        pendingMigrations: [],
+      });
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  });
+
+  it("fails closed when history claims v17 but the physical specialization schema is absent", async () => {
+    const root = await mkdtemp(path.join(tmpdir(), "mentor-fake-v17-"));
+    const databasePath = path.join(root, "synthetic.sqlite");
+    try {
+      const sqlite = new DatabaseSync(databasePath);
+      const database = executor(sqlite);
+      const v16 = new MigrationRegistry(coreMigrationRegistry.migrations.filter(migration => migration.id !== "MIG-0017"));
+      new FreshDatabaseBootstrap(database, v16).run();
+      sqlite.prepare(
+        "INSERT INTO schema_migrations(migration_id,from_version,to_version,description,checksum,applied_at,duration_ms,application_kind,application_version) VALUES(?,?,?,?,?,?,?,?,?)",
+      ).run("MIG-0017", 16, 17, mcqSessionSpecializationMigration.description, migrationChecksum(mcqSessionSpecializationMigration), "2026-09-07T00:00:00.000Z", 0, "executed", null);
+      sqlite.close();
+
+      expect(inspectDatabaseFileReadOnly(databasePath)).toMatchObject({
+        status: "BLOCKED",
+        schemaState: "SCHEMA_INCOMPATIBLE",
+        blockers: ["MIGRATION_SCHEMA_POSTCONDITION_FAILED"],
+      });
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
   });
 });
