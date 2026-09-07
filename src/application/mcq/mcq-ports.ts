@@ -9,7 +9,7 @@ export interface McqRepository {
   createSession(session: McqSession, learnerId: string): Promise<void>;
   findSession(sessionId: string): Promise<McqSession | null>;
   saveAnswer(sessionId: string, answer: SessionAnswer): Promise<McqSession>;
-  completeSession(session: McqSession, score: McqScore): Promise<void>;
+  completeSession(session: McqSession, score: McqScore): Promise<boolean>;
   findScore(sessionId: string): Promise<McqScore | null>;
 }
 export interface McqIdGenerator { next(): string; }

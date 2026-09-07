@@ -13,7 +13,7 @@ export class MemoryMcqRepository implements McqRepository {
   async createSession(session: McqSession) { this.sessions.set(session.sessionId, session); }
   async findSession(sessionId: string) { return this.sessions.get(sessionId) ?? null; }
   async saveAnswer(sessionId: string, answer: SessionAnswer) { const session = this.sessions.get(sessionId)!; const updated = recordSessionAnswer(session, answer); this.sessions.set(sessionId, updated); return updated; }
-  async completeSession(session: McqSession, score: McqScore) { this.sessions.set(session.sessionId, session); this.scores.set(session.sessionId, score); }
+  async completeSession(session: McqSession, score: McqScore) { const current = this.sessions.get(session.sessionId); if (!current || current.status !== "IN_PROGRESS" || current.answers.length !== session.answers.length) return false; this.sessions.set(session.sessionId, session); this.scores.set(session.sessionId, score); return true; }
   async findScore(sessionId: string) { return this.scores.get(sessionId) ?? null; }
 }
 export function harness() { const repository = new MemoryMcqRepository(); const events: McqEvent[] = []; return { repository, events, ids: { next: () => "session-1" }, clock: { now: () => "2026-01-01T00:00:00.000Z" }, logger: { event: (event: McqEvent) => events.push(event) } }; }

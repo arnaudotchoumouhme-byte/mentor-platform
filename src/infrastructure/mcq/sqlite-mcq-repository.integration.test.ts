@@ -24,4 +24,48 @@ describe("SqliteMcqRepository", () => {
     expect(sqlite.prepare("SELECT learner_id,session_kind,duration_seconds FROM mcq_sessions WHERE session_id=?").get(session.sessionId)).toEqual({ learner_id: "learner-authoritative", session_kind: "MOCK_EXAM", duration_seconds: 2_700 });
     expect((await repository.findSession(session.sessionId))).toMatchObject({ sessionKind: "MOCK_EXAM", durationSeconds: 2_700 });
   });
+  it("re-scores from the persisted answer when an answer wins the expiration race", async () => {
+    const d = deps();
+    const session = await new CreateMcqSession(repository, d.ids, d.clock, d.logger).execute({ learnerId: "learner", sessionKind: "MOCK_EXAM", durationSeconds: 60, mode: "QUIZ", count: 1, seed: "stable", blueprintVersionId: "bp-v1", traceId: "trace_12345678" });
+    const item = session.items[0]!;
+    const submit = new SubmitMcqAnswer(repository, { now: () => "2026-01-01T00:00:59.000Z" }, d.logger);
+    const persistCompletion = repository.completeSession.bind(repository);
+    let answerInjected = false;
+    repository.completeSession = async (completed, score) => {
+      if (!answerInjected) {
+        answerInjected = true;
+        await submit.execute({ sessionId: session.sessionId, itemId: item.itemId, itemVersion: item.itemVersion, choiceId: "a", traceId: "trace_12345678" });
+      }
+      return persistCompletion(completed, score);
+    };
+
+    const result = await new CompleteMcqSession(repository, { now: () => "2026-01-01T00:01:00.000Z" }, d.logger).execute({ sessionId: session.sessionId, traceId: "trace_12345678", reason: "EXPIRATION" });
+    const persistedAnswers = sqlite.prepare("SELECT COUNT(*) AS count FROM mcq_answers WHERE session_id=?").get(session.sessionId) as { count: number };
+
+    expect(persistedAnswers.count).toBe(1);
+    expect(result.score).toMatchObject({ answered: 1, correct: 1, unanswered: 0, percentage: 100 });
+    expect(await repository.findScore(session.sessionId)).toEqual(result.score);
+    expect(persistedAnswers.count === 1 && result.score.answered === 0).toBe(false);
+  });
+  it("rejects the answer without persisting it when expiration wins the race", async () => {
+    const d = deps();
+    const session = await new CreateMcqSession(repository, d.ids, d.clock, d.logger).execute({ learnerId: "learner", sessionKind: "MOCK_EXAM", durationSeconds: 60, mode: "QUIZ", count: 1, seed: "stable", blueprintVersionId: "bp-v1", traceId: "trace_12345678" });
+    const item = session.items[0]!;
+    const persistAnswer = repository.saveAnswer.bind(repository);
+    const expire = new CompleteMcqSession(repository, { now: () => "2026-01-01T00:01:00.000Z" }, d.logger);
+    let expirationInjected = false;
+    repository.saveAnswer = async (sessionId, answer) => {
+      if (!expirationInjected) {
+        expirationInjected = true;
+        await expire.execute({ sessionId, traceId: "trace_12345678", reason: "EXPIRATION" });
+      }
+      return persistAnswer(sessionId, answer);
+    };
+
+    const submit = new SubmitMcqAnswer(repository, { now: () => "2026-01-01T00:00:59.000Z" }, d.logger);
+    await expect(submit.execute({ sessionId: session.sessionId, itemId: item.itemId, itemVersion: item.itemVersion, choiceId: "a", traceId: "trace_12345678" })).rejects.toMatchObject({ code: "MCQ_SESSION_ALREADY_COMPLETED" });
+
+    expect(sqlite.prepare("SELECT COUNT(*) AS count FROM mcq_answers WHERE session_id=?").get(session.sessionId)).toEqual({ count: 0 });
+    expect(await repository.findScore(session.sessionId)).toMatchObject({ answered: 0, unanswered: 1, percentage: 0 });
+  });
 });

@@ -41,9 +41,9 @@ export class SqliteMcqRepository implements McqRepository {
     catch (cause) { this.database.run("ROLLBACK"); if (cause instanceof McqError) throw cause; throw new McqError("MCQ_ANSWER_DUPLICATE", "Cette question a déjà reçu une réponse.", "Answer persistence constraint rejected the answer.", { sessionId, itemId: answer.itemId, cause }); }
     return (await this.findSession(sessionId))!;
   }
-  async completeSession(session: McqSession, score: McqScore): Promise<void> {
+  async completeSession(session: McqSession, score: McqScore): Promise<boolean> {
     this.database.run("BEGIN IMMEDIATE");
-    try { const result = this.database.run("UPDATE mcq_sessions SET status='COMPLETED',completed_at=?,total_count=?,answered_count=?,correct_count=?,incorrect_count=?,unanswered_count=?,percentage=?,score_json=? WHERE session_id=? AND status='IN_PROGRESS'", session.completedAt, score.total, score.answered, score.correct, score.incorrect, score.unanswered, score.percentage, JSON.stringify(score), session.sessionId); if (result.changes !== 1) throw new McqError("MCQ_SESSION_ALREADY_COMPLETED", "Cette session est déjà terminée.", "Session completion update was rejected."); this.database.run("COMMIT"); }
+    try { const result = this.database.run("UPDATE mcq_sessions SET status='COMPLETED',completed_at=?,total_count=?,answered_count=?,correct_count=?,incorrect_count=?,unanswered_count=?,percentage=?,score_json=? WHERE session_id=? AND status='IN_PROGRESS' AND (SELECT COUNT(*) FROM mcq_answers WHERE session_id=?)=?", session.completedAt, score.total, score.answered, score.correct, score.incorrect, score.unanswered, score.percentage, JSON.stringify(score), session.sessionId, session.sessionId, session.answers.length); if (result.changes !== 1) { this.database.run("ROLLBACK"); return false; } this.database.run("COMMIT"); return true; }
     catch (cause) { this.database.run("ROLLBACK"); throw cause; }
   }
   async findScore(sessionId: string): Promise<McqScore | null> { const json = this.database.all<{ score_json: string | null }>("SELECT score_json FROM mcq_sessions WHERE session_id=?", sessionId)[0]?.score_json; return json ? JSON.parse(json) as McqScore : null; }
