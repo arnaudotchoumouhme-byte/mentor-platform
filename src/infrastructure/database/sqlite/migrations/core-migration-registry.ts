@@ -2,6 +2,7 @@ import { coreMigrationRegistry as historicalMigrationRegistry } from "./definiti
 import { mcqContentImportMigration } from "./definitions/mig-0014-mcq-content-import";
 import { sourceVersionEditorialAliasMigration } from "./definitions/mig-0015-source-version-editorial-alias";
 import { learnerDataIsolationMigration } from "./definitions/mig-0016-learner-data-isolation";
+import { mcqSessionSpecializationMigration } from "./definitions/mig-0017-mcq-session-specialization";
 import { MigrationRegistry } from "./migration-registry";
 
 export const coreMigrationRegistry = new MigrationRegistry([
@@ -9,4 +10,5 @@ export const coreMigrationRegistry = new MigrationRegistry([
   mcqContentImportMigration,
   sourceVersionEditorialAliasMigration,
   learnerDataIsolationMigration,
+  mcqSessionSpecializationMigration,
 ]);

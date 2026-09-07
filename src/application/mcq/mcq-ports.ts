@@ -6,10 +6,10 @@ export interface McqRepository {
   listPublishedBlueprints(): Promise<readonly Readonly<{ blueprintVersionId: string; itemCount: number }>[] >;
   listQuestionVersions(blueprintVersionId: string): Promise<readonly QuestionItemVersion[]>;
   findQuestionVersion(itemId: string, version: number): Promise<QuestionItemVersion | null>;
-  createSession(session: McqSession): Promise<void>;
+  createSession(session: McqSession, learnerId: string): Promise<void>;
   findSession(sessionId: string): Promise<McqSession | null>;
   saveAnswer(sessionId: string, answer: SessionAnswer): Promise<McqSession>;
-  completeSession(session: McqSession, score: McqScore): Promise<void>;
+  completeSession(session: McqSession, score: McqScore): Promise<boolean>;
   findScore(sessionId: string): Promise<McqScore | null>;
 }
 export interface McqIdGenerator { next(): string; }

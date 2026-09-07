@@ -16,5 +16,6 @@ const repository = new SqliteMcqRepository(sqliteExecutor);
 const ids = { next: () => randomUUID() }; const clock = { now: () => new Date().toISOString() };
 const logger = { event: (event: McqEvent) => structuredLogger.log({ level: event.status === "failure" ? "error" : event.status === "degraded" ? "warn" : "info", module: "mcq", operation: event.name, status: event.status, message: event.name, traceId: event.traceId, context: { sessionId: event.sessionId, ...event.context } }) };
 const submit = new SubmitMcqAnswer(repository, clock, logger);
-const playable = new GetPlayableMcqSession(repository);
-export const mcqServices = Object.freeze({ create: new CreateMcqSession(repository, ids, clock, logger), submit: new SubmitPlayableMcqAnswer(submit, playable), complete: new CompleteMcqSession(repository, clock, logger), get: playable, getInternal: new GetMcqSession(repository), list: new ListMcqBlueprints(repository) });
+const complete = new CompleteMcqSession(repository, clock, logger);
+const playable = new GetPlayableMcqSession(repository, clock, complete);
+export const mcqServices = Object.freeze({ create: new CreateMcqSession(repository, ids, clock, logger), submit: new SubmitPlayableMcqAnswer(submit, playable), complete, get: playable, getInternal: new GetMcqSession(repository), list: new ListMcqBlueprints(repository) });
