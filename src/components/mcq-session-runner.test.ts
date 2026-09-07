@@ -161,4 +161,20 @@ describe("McqSessionRunner", () => {
     vi.mocked(clientFetch).mockResolvedValueOnce(response({ blueprints: [] })); render(React.createElement(McqSessionRunner));
     expect(await screen.findByText("Aucune question disponible.")).toBeTruthy(); expect(screen.queryByText(/Chargement du corpus/)).toBeNull();
   });
+
+  it("runs Mock Exam through MCQ Core without active correction and displays server time", async () => {
+    const mockBefore = { ...before, sessionKind: "MOCK_EXAM", remainingSeconds: 2_700, deadlineAt: "2026-01-01T00:45:00.000Z" };
+    const mockAfter = { ...mockBefore, items: [{ ...before.items[0], answer: { choiceId: "a" } }] };
+    vi.mocked(clientFetch).mockResolvedValueOnce(catalog()).mockResolvedValueOnce(response({ sessionId }, 201)).mockResolvedValueOnce(response(mockBefore)).mockResolvedValueOnce(response(mockAfter));
+    render(React.createElement(McqSessionRunner, { sessionKind: "MOCK_EXAM" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Démarrer l’examen" }));
+    expect(await screen.findByText("45:00")).toBeTruthy();
+    const post = vi.mocked(clientFetch).mock.calls.find(([url, init]) => url === "/api/mcq/sessions" && init?.method === "POST");
+    expect(JSON.parse(String(post?.[1]?.body))).toMatchObject({ sessionKind: "MOCK_EXAM", mode: "QUIZ" });
+    expect(vi.mocked(clientFetch).mock.calls[0]?.[0]).toBe("/api/mcq/sessions?kind=MOCK_EXAM");
+    fireEvent.click(screen.getByRole("button", { name: "A. Choix A" }));
+    expect(await screen.findByText(/Réponse enregistrée/)).toBeTruthy();
+    expect(screen.queryByText("Explication après réponse")).toBeNull();
+    expect(screen.queryByText("Bonne réponse")).toBeNull();
+  });
 });

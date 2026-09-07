@@ -8,7 +8,7 @@ export type AppState = {
   documents: Array<{ id: number; name: string; type: string; size: number; subject: string; status: string; content: string; archived: number; created_at: string; source_id: string | null; source_version_id: string | null; provenance_type: string; extraction_status: string; media_type: string | null; language: string | null; page_count: number | null }>;
   flashcards: Array<{ id: number; front: string; back: string; subject: string; difficulty: string; due_at: string; interval_days: number; status: string }>;
   questions: Array<{ id: number; prompt: string; options: string; answer: number; explanation: string; subject: string; difficulty: string; source: string }>;
-  attempts: Array<{ id: number; module: string; subject: string; score: number; duration_minutes: number; created_at: string }>;
+  attempts: Array<{ id: number | string; module: string; subject: string; score: number; duration_minutes: number; created_at: string }>;
   weaknesses: Array<{ id: number; subject: string; topic: string; confidence: string; cause: string; action: string; status: string }>;
   tasks: Array<{ id: number; title: string; subject: string; task_date: string; minutes: number; priority: string; status: string }>;
   messages: Array<{ id: number; role: string; content: string; citations: string }>;

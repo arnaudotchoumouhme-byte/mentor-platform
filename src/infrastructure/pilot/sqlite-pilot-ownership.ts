@@ -5,9 +5,11 @@ const denied = () => new AppError({ code: "PILOT_ACCESS_DENIED", userMessage: "A
 
 export class SqlitePilotOwnership {
   constructor(private readonly database: SqliteExecutor) {}
-  findInProgressMcqSession(learnerId: string): string | null {
+  findInProgressMcqSession(learnerId: string, sessionKind: "STANDARD" | "MOCK_EXAM" = "STANDARD"): string | null {
     return this.database.all<{ session_id: string }>(
-      "SELECT session_id FROM mcq_sessions WHERE learner_id=? AND status='IN_PROGRESS' ORDER BY started_at DESC,session_id DESC LIMIT 1",
+      sessionKind === "MOCK_EXAM"
+        ? "SELECT session_id FROM mcq_sessions WHERE learner_id=? AND status='IN_PROGRESS' AND session_kind='MOCK_EXAM' ORDER BY started_at DESC,session_id DESC LIMIT 1"
+        : "SELECT session_id FROM mcq_sessions WHERE learner_id=? AND status='IN_PROGRESS' AND (session_kind IS NULL OR session_kind='STANDARD') ORDER BY started_at DESC,session_id DESC LIMIT 1",
       learnerId,
     )[0]?.session_id ?? null;
   }
