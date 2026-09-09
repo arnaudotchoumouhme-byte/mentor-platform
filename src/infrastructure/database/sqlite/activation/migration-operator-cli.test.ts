@@ -37,7 +37,7 @@ describe("migration operator CLI", { timeout: 30_000 }, () => {
       all: <T>(sql: string, ...params: SQLInputValue[]) => sqlite.prepare(sql).all(...params) as T[],
       run: (sql: string, ...params: SQLInputValue[]) => sqlite.prepare(sql).run(...params),
     };
-    const v16 = new MigrationRegistry(coreMigrationRegistry.migrations.filter(migration => migration.id !== "MIG-0017"));
+    const v16 = new MigrationRegistry(coreMigrationRegistry.migrations.filter(migration => migration.toVersion <= 16));
     new FreshDatabaseBootstrap(database, v16).run();
     sqlite.close();
   });
@@ -71,20 +71,20 @@ describe("migration operator CLI", { timeout: 30_000 }, () => {
     "apply", `--database=${targetDatabase}`, `--request=${targetRequest}`, `--authorization=${targetAuthorization}`,
   ];
 
-  it("requires explicit backup intent and exact authorization before applying v16 to v17", async () => {
+  it("requires explicit backup intent and exact authorization before applying v16 to v18", async () => {
     expect(await runMigrationOperator(prepareArgs(), environment, io())).toBe(2);
     expect(errors.join("\n")).toContain("MIGRATION_OPERATOR_BACKUP_AUTHORIZATION_REQUIRED");
     expect(schemaVersion()).toBe(16);
 
     expect(await runMigrationOperator(prepareArgs(requestPath, [`--backup-intent=${BACKUP_APPROVAL_INTENT}`]), environment, io())).toBe(0);
     const request = JSON.parse(await readFile(requestPath, "utf8")) as MigrationActivationRequest;
-    expect(request).toMatchObject({ currentVersion: 16, targetVersion: 17, pendingMigrationIds: ["MIG-0017"], backup: { status: "VERIFIED" } });
+    expect(request).toMatchObject({ currentVersion: 16, targetVersion: 18, pendingMigrationIds: ["MIG-0017", "MIG-0018"], backup: { status: "VERIFIED" } });
     expect(await runMigrationOperator(applyArgs(databasePath, requestPath, path.join(root, "missing-authorization.json")), environment, io())).toBe(2);
     expect(schemaVersion()).toBe(16);
 
     await writeFile(authorizationPath, JSON.stringify(authorization(request)));
     expect(await runMigrationOperator(applyArgs(), environment, io())).toBe(0);
-    expect(schemaVersion()).toBe(17);
+    expect(schemaVersion()).toBe(18);
     const sqlite = new DatabaseSync(databasePath, { readOnly: true });
     expect(sqlite.prepare("SELECT COUNT(*) AS count FROM schema_migrations WHERE migration_id='MIG-0017'").get()).toEqual({ count: 1 });
     sqlite.close();

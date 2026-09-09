@@ -73,7 +73,7 @@ describe("server database startup boundary", () => {
     const databasePath = path.join(root, "synthetic.sqlite");
     try {
       const sqlite = new DatabaseSync(databasePath);
-      const v16 = new MigrationRegistry(coreMigrationRegistry.migrations.filter(migration => migration.id !== "MIG-0017"));
+      const v16 = new MigrationRegistry(coreMigrationRegistry.migrations.filter(migration => migration.toVersion <= 16));
       const executor: SqliteExecutor = {
         all: <T>(sql: string, ...params: SQLInputValue[]) => sqlite.prepare(sql).all(...params) as T[],
         run: (sql: string, ...params: SQLInputValue[]) => sqlite.prepare(sql).run(...params),

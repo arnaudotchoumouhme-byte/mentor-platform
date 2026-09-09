@@ -19,6 +19,7 @@ import { assertMcqContentSchema, MCQ_CONTENT_TABLE_NAMES } from "./definitions/m
 import { assertSourceVersionEditorialAliasSchema, SOURCE_VERSION_EDITORIAL_ALIAS_TABLE_NAMES, withoutSourceVersionEditorialAliasTriggers } from "./definitions/mig-0015-source-version-editorial-alias";
 import { assertLearnerDataIsolationSchema, LEARNER_OWNERSHIP_TABLES } from "./definitions/mig-0016-learner-data-isolation";
 import { assertMcqSessionSpecializationSchema } from "./definitions/mig-0017-mcq-session-specialization";
+import { assertMleCatalogSchema, MLE_CATALOG_TABLES } from "./definitions/mig-0018-mle-concept-catalog";
 import { detectDatabaseFreshness } from "./fresh-database-detector";
 import { MigrationError } from "./migration-errors";
 import { validateMigrationHistory } from "./migration-history-validation";
@@ -73,7 +74,7 @@ export class FreshDatabaseBootstrap {
     if (result.currentVersion === 1) assertCoreBaselineSchema(this.database);
     if (result.currentVersion >= 2) {
       assertCoreBaselineSchema(result.currentVersion >= 15 ? withoutSourceVersionEditorialAliasTriggers(this.database) : this.database, result.currentVersion >= 15
-        ? ["coach_learner_signals", "coaching_sessions", "document_chunks", "document_chunks_fts", "document_chunks_fts_config", "document_chunks_fts_content", "document_chunks_fts_data", "document_chunks_fts_docsize", "document_chunks_fts_idx", "document_import_journal", ...(result.currentVersion >= 16 ? LEARNER_OWNERSHIP_TABLES : []), ...SOURCE_VERSION_EDITORIAL_ALIAS_TABLE_NAMES, ...MCQ_CONTENT_TABLE_NAMES, ...PILOT_PROVISIONING_AUDIT_TABLE_NAMES, ...PILOT_TABLE_NAMES, ...OSCE_TABLE_NAMES, ...CALCULATIONS_LAB_TABLE_NAMES, ...CANADIAN_PRACTICE_TABLE_NAMES, ...FOUNDATION_CORE_TABLE_NAMES, ...MCQ_CORE_TABLE_NAMES, "source_versions", "sources"].sort()
+        ? ["coach_learner_signals", "coaching_sessions", "document_chunks", "document_chunks_fts", "document_chunks_fts_config", "document_chunks_fts_content", "document_chunks_fts_data", "document_chunks_fts_docsize", "document_chunks_fts_idx", "document_import_journal", ...(result.currentVersion >= 18 ? MLE_CATALOG_TABLES : []), ...(result.currentVersion >= 16 ? LEARNER_OWNERSHIP_TABLES : []), ...SOURCE_VERSION_EDITORIAL_ALIAS_TABLE_NAMES, ...MCQ_CONTENT_TABLE_NAMES, ...PILOT_PROVISIONING_AUDIT_TABLE_NAMES, ...PILOT_TABLE_NAMES, ...OSCE_TABLE_NAMES, ...CALCULATIONS_LAB_TABLE_NAMES, ...CANADIAN_PRACTICE_TABLE_NAMES, ...FOUNDATION_CORE_TABLE_NAMES, ...MCQ_CORE_TABLE_NAMES, "source_versions", "sources"].sort()
         : result.currentVersion >= 14
         ? ["coach_learner_signals", "coaching_sessions", "document_chunks", "document_chunks_fts", "document_chunks_fts_config", "document_chunks_fts_content", "document_chunks_fts_data", "document_chunks_fts_docsize", "document_chunks_fts_idx", "document_import_journal", ...MCQ_CONTENT_TABLE_NAMES, ...PILOT_PROVISIONING_AUDIT_TABLE_NAMES, ...PILOT_TABLE_NAMES, ...OSCE_TABLE_NAMES, ...CALCULATIONS_LAB_TABLE_NAMES, ...CANADIAN_PRACTICE_TABLE_NAMES, ...FOUNDATION_CORE_TABLE_NAMES, ...MCQ_CORE_TABLE_NAMES, "source_versions", "sources"].sort()
         : result.currentVersion >= 13
@@ -114,6 +115,7 @@ export class FreshDatabaseBootstrap {
     if (result.currentVersion >= 15) assertSourceVersionEditorialAliasSchema(this.database);
     if (result.currentVersion >= 16) assertLearnerDataIsolationSchema(this.database);
     if (result.currentVersion >= 17) assertMcqSessionSpecializationSchema(this.database);
+    if (result.currentVersion >= 18) assertMleCatalogSchema(this.database);
     validateMigrationHistory(this.history.list(), this.registry);
 
     if (result.currentVersion !== this.registry.currentVersion) {

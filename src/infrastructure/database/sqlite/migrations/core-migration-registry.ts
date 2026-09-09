@@ -4,6 +4,7 @@ import { sourceVersionEditorialAliasMigration } from "./definitions/mig-0015-sou
 import { learnerDataIsolationMigration } from "./definitions/mig-0016-learner-data-isolation";
 import { mcqSessionSpecializationMigration } from "./definitions/mig-0017-mcq-session-specialization";
 import { MigrationRegistry } from "./migration-registry";
+import { mleConceptCatalogMigration } from "./definitions/mig-0018-mle-concept-catalog";
 
 export const coreMigrationRegistry = new MigrationRegistry([
   ...historicalMigrationRegistry.migrations,
@@ -11,4 +12,5 @@ export const coreMigrationRegistry = new MigrationRegistry([
   sourceVersionEditorialAliasMigration,
   learnerDataIsolationMigration,
   mcqSessionSpecializationMigration,
+  mleConceptCatalogMigration,
 ]);

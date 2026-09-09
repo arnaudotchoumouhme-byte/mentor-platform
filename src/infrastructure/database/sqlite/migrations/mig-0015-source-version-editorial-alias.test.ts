@@ -13,8 +13,8 @@ describe("MIG-0015 source version editorial alias", () => {
   it("migrates a synthetic v14 database additively and preserves data", () => {
     const sqlite = new DatabaseSync(":memory:");
     const database = executor(sqlite);
-    const v14 = new MigrationRegistry(coreMigrationRegistry.migrations.filter(migration => !["MIG-0015", "MIG-0016", "MIG-0017"].includes(migration.id)));
-    const v15 = new MigrationRegistry(coreMigrationRegistry.migrations.filter(migration => !["MIG-0016", "MIG-0017"].includes(migration.id)));
+    const v14 = new MigrationRegistry(coreMigrationRegistry.migrations.filter(migration => migration.toVersion <= 14));
+    const v15 = new MigrationRegistry(coreMigrationRegistry.migrations.filter(migration => migration.toVersion <= 15));
     new FreshDatabaseBootstrap(database, v14).run();
     sqlite.prepare("INSERT INTO questions(prompt,options,answer,explanation,subject,difficulty,source) VALUES('legacy','[]',0,'legacy','legacy','legacy','legacy')").run();
     expect(new FreshDatabaseBootstrap(database, v15).run()).toEqual({ currentVersion: 15, appliedMigrationIds: ["MIG-0015"] });

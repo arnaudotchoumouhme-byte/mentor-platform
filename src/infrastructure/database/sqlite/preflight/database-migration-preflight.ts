@@ -18,6 +18,7 @@ import { assertMcqContentSchema, MCQ_CONTENT_TABLE_NAMES } from "../migrations/d
 import { assertSourceVersionEditorialAliasSchema, SOURCE_VERSION_EDITORIAL_ALIAS_TABLE_NAMES, withoutSourceVersionEditorialAliasTriggers } from "../migrations/definitions/mig-0015-source-version-editorial-alias";
 import { assertLearnerDataIsolationSchema, LEARNER_OWNERSHIP_TABLES } from "../migrations/definitions/mig-0016-learner-data-isolation";
 import { assertMcqSessionSpecializationSchema } from "../migrations/definitions/mig-0017-mcq-session-specialization";
+import { assertMleCatalogSchema, MLE_CATALOG_TABLES } from "../migrations/definitions/mig-0018-mle-concept-catalog";
 import { detectDatabaseFreshness } from "../migrations/fresh-database-detector";
 import { LegacySchemaRecognizer } from "../migrations/legacy-schema-recognizer";
 import { MigrationError } from "../migrations/migration-errors";
@@ -99,8 +100,8 @@ export class DatabaseMigrationPreflight {
         const history = new SqliteMigrationHistoryStore(this.database).list();
         validateMigrationHistory(history, this.registry);
         const version = history.at(-1)?.toVersion ?? 0;
-        if (version === this.registry.currentVersion) {
-          assertCoreBaselineSchema(withoutSourceVersionEditorialAliasTriggers(this.database), ["coach_learner_signals", "coaching_sessions", "document_chunks", "document_chunks_fts", "document_chunks_fts_config", "document_chunks_fts_content", "document_chunks_fts_data", "document_chunks_fts_docsize", "document_chunks_fts_idx", "document_import_journal", ...LEARNER_OWNERSHIP_TABLES, ...SOURCE_VERSION_EDITORIAL_ALIAS_TABLE_NAMES, ...MCQ_CONTENT_TABLE_NAMES, ...PILOT_PROVISIONING_AUDIT_TABLE_NAMES, ...PILOT_TABLE_NAMES, ...OSCE_TABLE_NAMES, ...CALCULATIONS_LAB_TABLE_NAMES, ...CANADIAN_PRACTICE_TABLE_NAMES, ...FOUNDATION_CORE_TABLE_NAMES, ...MCQ_CORE_TABLE_NAMES, "source_versions", "sources"].sort());
+        if (version === this.registry.currentVersion || version === 17) {
+          assertCoreBaselineSchema(withoutSourceVersionEditorialAliasTriggers(this.database), ["coach_learner_signals", "coaching_sessions", "document_chunks", "document_chunks_fts", "document_chunks_fts_config", "document_chunks_fts_content", "document_chunks_fts_data", "document_chunks_fts_docsize", "document_chunks_fts_idx", "document_import_journal", ...(version >= 18 ? MLE_CATALOG_TABLES : []), ...LEARNER_OWNERSHIP_TABLES, ...SOURCE_VERSION_EDITORIAL_ALIAS_TABLE_NAMES, ...MCQ_CONTENT_TABLE_NAMES, ...PILOT_PROVISIONING_AUDIT_TABLE_NAMES, ...PILOT_TABLE_NAMES, ...OSCE_TABLE_NAMES, ...CALCULATIONS_LAB_TABLE_NAMES, ...CANADIAN_PRACTICE_TABLE_NAMES, ...FOUNDATION_CORE_TABLE_NAMES, ...MCQ_CORE_TABLE_NAMES, "source_versions", "sources"].sort());
           assertImportJournalSchema(this.database);
           assertSourceModelSchema(this.database);
           assertRagIndexSchema(this.database);
@@ -117,6 +118,8 @@ export class DatabaseMigrationPreflight {
           assertSourceVersionEditorialAliasSchema(this.database);
           assertLearnerDataIsolationSchema(this.database);
           assertMcqSessionSpecializationSchema(this.database);
+          if (version >= 18) assertMleCatalogSchema(this.database);
+          if (version < this.registry.currentVersion) return this.actionable("VERSIONED_OUTDATED", version, "MR3", true, backupEvidence);
           return Object.freeze({
             status: "NO_MIGRATION",
             schemaState: "VERSIONED_CURRENT",
