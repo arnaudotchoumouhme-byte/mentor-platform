@@ -36,6 +36,7 @@ Le domaine ne dépend jamais de SQLite, Next.js, React, OpenAI ou de l'infrastru
 ## E. Migrations
 
 - Les migrations historiques sont immuables.
+- Une migration devient historique dès qu'elle est mergée dans l'historique canonique de `main`, appliquée à une base persistante ou partagée non éphémère, ou qu'une migration ultérieure canonique dépend de sa définition/checksum. Un push sur une branche de développement ou une exécution sur une base synthétique jetable ne suffit pas. Avant ce seuil, une correction autorisée peut modifier la définition et son checksum ; les anciennes bases synthétiques sont recréées, jamais régularisées en réécrivant leur historique.
 - Préférer les nouvelles migrations additives et exiger des tests synthétiques.
 - Aucune activation automatique sur une base utilisateur.
 - Ne jamais inventer une migration pour contourner un problème.

@@ -64,7 +64,7 @@ describe("MLE-01 SQLite catalog", () => {
       INSERT INTO source_versions(source_version_id,source_id,version,checksum,extracted_content,extraction_status)
       VALUES('source-v1','source',1,'checksum','Synthetic source authority','COMPLETED');
     `);
-    const link = {kind:'SOURCE' as const,targetId:'source-v1',targetVersion:'source-v1',label:'Synthetic',provenance:'test'};
+    const link = {kind:'SOURCE' as const,targetId:'source',targetVersion:'source-v1',label:'Synthetic',provenance:'test'};
     const resolver = new SqliteNativeCatalogResources(database);
     expect(resolver.isResolvable(link)).toBe(true);
     expect(resolver.isResolvable({...link,targetVersion:'source-v2'})).toBe(false);
