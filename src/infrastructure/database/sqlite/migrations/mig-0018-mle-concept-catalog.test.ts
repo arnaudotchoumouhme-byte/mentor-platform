@@ -9,6 +9,7 @@ import { DatabaseMigrationPreflight } from "../preflight/database-migration-pref
 import { migrationChecksum } from "./migration-checksum";
 
 const executor = (sqlite: DatabaseSync): SqliteExecutor => ({ all: <T>(sql: string, ...params: SQLInputValue[]) => sqlite.prepare(sql).all(...params) as T[], run: (sql, ...params) => sqlite.prepare(sql).run(...params) });
+const v18 = new MigrationRegistry(coreMigrationRegistry.migrations.filter(m => m.toVersion <= 18));
 const v17 = new MigrationRegistry(coreMigrationRegistry.migrations.filter(m => m.toVersion <= 17));
 describe("MIG-0018 additive MLE catalog", () => {
   let sqlite: DatabaseSync;
@@ -23,17 +24,17 @@ describe("MIG-0018 additive MLE catalog", () => {
 
     sqlite.exec("INSERT INTO subjects(name,mastery) VALUES('legacy',72)");
     const history = sqlite.prepare("SELECT * FROM schema_migrations ORDER BY to_version").all();
-    expect(new DatabaseMigrationPreflight(db).inspect()).toMatchObject({ status: "BLOCKED", currentVersion: 17, targetVersion: 18, backupRequirement: "BACKUP_REQUIRED_MISSING", migrationAllowed: false });
-    expect(new FreshDatabaseBootstrap(db).run()).toEqual({ currentVersion: 18, appliedMigrationIds: ["MIG-0018"] });
+    expect(new DatabaseMigrationPreflight(db, v18).inspect()).toMatchObject({ status: "BLOCKED", currentVersion: 17, targetVersion: 18, backupRequirement: "BACKUP_REQUIRED_MISSING", migrationAllowed: false });
+    expect(new FreshDatabaseBootstrap(db, v18).run()).toEqual({ currentVersion: 18, appliedMigrationIds: ["MIG-0018"] });
     expect(sqlite.prepare("SELECT * FROM schema_migrations WHERE to_version<=17 ORDER BY to_version").all()).toEqual(history);
     expect(sqlite.prepare("SELECT name,mastery FROM subjects").get()).toEqual({ name: "legacy", mastery: 72 });
     expect(sqlite.prepare("SELECT checksum FROM schema_migrations WHERE migration_id='MIG-0018'").get()).toEqual({ checksum: migrationChecksum(mleConceptCatalogMigration) });
-    expect(new DatabaseMigrationPreflight(db).inspect()).toMatchObject({ status: "NO_MIGRATION", currentVersion: 18 });
+    expect(new DatabaseMigrationPreflight(db, v18).inspect()).toMatchObject({ status: "NO_MIGRATION", currentVersion: 18 });
     expect(sqlite.prepare("PRAGMA integrity_check").get()).toEqual({ integrity_check: "ok" });
   });
   it("is idempotent and detects a missing dependency index", () => {
-    new FreshDatabaseBootstrap(db).run();
-    expect(new FreshDatabaseBootstrap(db).run().appliedMigrationIds).toEqual([]);
+    new FreshDatabaseBootstrap(db, v18).run();
+    expect(new FreshDatabaseBootstrap(db, v18).run().appliedMigrationIds).toEqual([]);
     sqlite.exec("DROP INDEX mle_dependencies_target");
     expect(() => assertMleCatalogSchema(db)).toThrow();
   });
@@ -45,15 +46,16 @@ describe("MIG-0018 additive MLE catalog", () => {
     expect(sqlite.prepare("SELECT name FROM sqlite_schema WHERE name='mle_source_versions_identity'").get()).toBeUndefined();
     expect(sqlite.prepare("SELECT MAX(to_version) AS version FROM schema_migrations").get()).toEqual({ version: 17 });
   });
-  it("rejects the obsolete synthetic checksum and detects a missing source identity index", () => {
-    new FreshDatabaseBootstrap(db).run();
-    // Checksum of the development-only definition at 4cafa63; never accepted as an alias.
-    const obsolete = "b4ce8d19a3f5cf6e8c148c4b62243e4b077898bf19b353451e1af16e41708d0b";
+  it("preserves the historical checksum and rejects the withdrawn rewritten definition", () => {
+    new FreshDatabaseBootstrap(db, v18).run();
+    // The withdrawn local correction must never be accepted as an alias.
+    const obsolete = "32f72dae65c3d010e34bd95f9622e37084327c2239401692941b8346785b331f";
+    expect(migrationChecksum(mleConceptCatalogMigration)).toBe("b4ce8d19a3f5cf6e8c148c4b62243e4b077898bf19b353451e1af16e41708d0b");
     expect(migrationChecksum(mleConceptCatalogMigration)).not.toBe(obsolete);
     sqlite.prepare("UPDATE schema_migrations SET checksum=? WHERE migration_id='MIG-0018'").run(obsolete);
-    expect(new DatabaseMigrationPreflight(db).inspect()).toMatchObject({ status: "BLOCKED", schemaState: "CHECKSUM_MISMATCH", blockers: ["MIGRATION_CHECKSUM_MISMATCH"] });
+    expect(new DatabaseMigrationPreflight(db, v18).inspect()).toMatchObject({ status: "BLOCKED", schemaState: "CHECKSUM_MISMATCH", blockers: ["MIGRATION_CHECKSUM_MISMATCH"] });
     sqlite.prepare("UPDATE schema_migrations SET checksum=? WHERE migration_id='MIG-0018'").run(migrationChecksum(mleConceptCatalogMigration));
-    sqlite.exec("DROP INDEX mle_source_versions_identity");
+    sqlite.exec("DROP INDEX mle_dependencies_target");
     expect(() => assertMleCatalogSchema(db)).toThrow();
   });
 });

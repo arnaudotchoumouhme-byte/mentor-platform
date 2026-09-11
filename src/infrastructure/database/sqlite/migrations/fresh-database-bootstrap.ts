@@ -20,6 +20,7 @@ import { assertSourceVersionEditorialAliasSchema, SOURCE_VERSION_EDITORIAL_ALIAS
 import { assertLearnerDataIsolationSchema, LEARNER_OWNERSHIP_TABLES } from "./definitions/mig-0016-learner-data-isolation";
 import { assertMcqSessionSpecializationSchema } from "./definitions/mig-0017-mcq-session-specialization";
 import { assertMleCatalogSchema, MLE_CATALOG_TABLES } from "./definitions/mig-0018-mle-concept-catalog";
+import { assertMleSourceIdentitySchema } from "./definitions/mig-0019-mle-source-identity";
 import { detectDatabaseFreshness } from "./fresh-database-detector";
 import { MigrationError } from "./migration-errors";
 import { validateMigrationHistory } from "./migration-history-validation";
@@ -115,7 +116,8 @@ export class FreshDatabaseBootstrap {
     if (result.currentVersion >= 15) assertSourceVersionEditorialAliasSchema(this.database);
     if (result.currentVersion >= 16) assertLearnerDataIsolationSchema(this.database);
     if (result.currentVersion >= 17) assertMcqSessionSpecializationSchema(this.database);
-    if (result.currentVersion >= 18) assertMleCatalogSchema(this.database);
+    if (result.currentVersion >= 19) assertMleSourceIdentitySchema(this.database);
+    else if (result.currentVersion === 18) assertMleCatalogSchema(this.database);
     validateMigrationHistory(this.history.list(), this.registry);
 
     if (result.currentVersion !== this.registry.currentVersion) {

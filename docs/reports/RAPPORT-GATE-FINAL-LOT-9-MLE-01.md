@@ -2,9 +2,9 @@
 
 Date : 9 septembre 2026.
 
-**Verdict global : NOT READY FOR LOT 10.** Les rattachements éditoriaux restent à qualifier. La décision humaine autorise désormais le contrat SOURCE canonique et la correction directe de MIG-0018 : voir **section 8**, état courant de la correction. Aucun concept n'est publié, aucun rattachement éditorial n'est appliqué et LOT 10 n'est pas commencé.
+**Verdict global : NOT READY FOR LOT 10.** Les rattachements éditoriaux restent à qualifier. **MIGRATION_DECISION = MIG-0018 IMMUTABLE / CORRECTION ADDITIVE PAR MIG-0019.** La correction directe précédente est retirée suivant la dernière décision humaine ; voir **section 9** pour l'état courant. Aucun concept n'est publié, aucun rattachement éditorial n'est appliqué et LOT 10 n'est pas commencé.
 
-Les sections 1 à 7 conservent la revue initiale du commit `4cafa638fae1781c3515974235ebd1cb665cb114`. Leurs constats « code inchangé », blocage A1 et options de migration décrivent cet état antérieur ; la section 8 les remplace pour le contrat SOURCE et la décision de migration. Les dix propositions de rattachement restent inchangées.
+Les sections 1 à 7 conservent la revue initiale du commit `4cafa638fae1781c3515974235ebd1cb665cb114`. La section 8 conserve la trace de la correction locale `21286202d42579e31bfb1d26f47429d8193fd5b3`, refusée au gate et non poussée. **La section 9 remplace les décisions de migration et les résultats techniques antérieurs.** Les dix propositions de rattachement restent inchangées.
 
 ## 1. Périmètre, preuves et limites de l'inventaire
 
@@ -249,7 +249,9 @@ Les quality gates techniques du LOT 9 ne sont pas relancés : aucun fichier de c
 
 **STOP. Attendre exactement l'autorisation : « VALIDÉ — COMMENCE LOT 10 / MLE-02 ».** Aucune suite n'est démarrée.
 
-## 8. Correction autorisée du contrat SOURCE — état courant (10 septembre 2026)
+## 8. Historique de la correction SOURCE retirée au gate (10 septembre 2026)
+
+**Section historique uniquement : stratégie MIG-0018 modifiée annulée par la décision suivante. Ne pas appliquer les instructions de migration ci-dessous ; se référer à la section 9.**
 
 ### Décision humaine et vérifications préalables
 
@@ -355,3 +357,107 @@ La dernière suite complète terminée a validé les quatre tests MIG-0018 et le
 | SAFE_FOR_FINAL_REVIEW | NON pour une acceptation finale sans réserve : une suite complète verte reste nécessaire. Le diff est disponible pour revue de la correction. |
 
 Aucune augmentation de timeout, suppression de test, nouvelle exclusion ou modification de code hors périmètre n'a été utilisée pour obtenir un résultat vert. La mission s'arrête avec ce résultat exact. **Verdict de gate conservé : NOT READY FOR LOT 10.** Aucun push ou merge n'est effectué.
+
+## 9. Correction additive suivant la dernière décision de gate — 10 septembre 2026
+
+### Décision courante et état restauré
+
+**MIGRATION_DECISION = MIG-0018 IMMUTABLE / CORRECTION ADDITIVE PAR MIG-0019**
+
+La dernière décision humaine remplace la stratégie de la section 8. MIG-0018 est restaurée exactement depuis `4cafa638fae1781c3515974235ebd1cb665cb114` : définition, postcondition, description et matériau de checksum. La comparaison Git de ce fichier avec ce commit ne présente aucune différence. MIG-0001 à MIG-0017 ne sont pas modifiées. Le registre réel a été inspecté avant modification : il se terminait à MIG-0018 ; MIG-0019 était disponible.
+
+| Migration | Transition | Checksum canonique |
+|---|---|---|
+| MIG-0018 historique restaurée | 17 → 18 | `b4ce8d19a3f5cf6e8c148c4b62243e4b077898bf19b353451e1af16e41708d0b` |
+| MIG-0019 ajoutée | 18 → 19 | `0c5d41ae2672763e4c962dbf04e1117186925961329dfd7e37720b2f285129dd` |
+
+Le checksum `32f72dae...` de la correction retirée n'est pas accepté comme alias. Le test MIG-0018 vérifie désormais le checksum historique et le refus de cette définition retirée. Une fixture synthétique créée avec cette dernière doit être recréée ; aucune procédure ne réécrit un checksum enregistré pour la faire accepter. Le commit local `21286202d42579e31bfb1d26f47429d8193fd5b3` n'a pas été poussé ; cette correction le remplace dans l'état de travail courant, sans rebase ni réécriture Git.
+
+### Opérations de MIG-0019 et compatibilité
+
+Le résolveur applicatif corrigé est conservé sans changement : `targetId = source_id`, `targetVersion = source_version_id`, appartenance exacte, source READY et extraction de la version demandée COMPLETED. Il n'impose ni n'utilise la version courante. Ces états techniques ne constituent aucune approbation clinique.
+
+La colonne générée historique ne permet pas de changer sa définition directement. MIG-0019 est une nouvelle migration dans le journal et utilise une **reconstruction transactionnelle** de la seule table `mle_resource_links` : création d'un index UNIQUE natif, création d'une table intermédiaire avec la nouvelle FK composite, copie de toutes les lignes, remplacement de l'ancienne table, puis validation. Le DDL contient donc un `DROP TABLE` interne à la transaction ; il ne s'agit pas d'une suppression de liens ni d'une suppression d'historique. Aucune table intermédiaire ne subsiste après succès ou rollback.
+
+Pour un ancien lien SOURCE renseigné, `target_id` et `target_version` doivent tous deux désigner la même version native existante. MIG-0019 retrouve son parent par `source_versions.source_version_id = ancien target_id`, écrit ce `source_id` dans le nouveau `target_id` et conserve exactement `target_version`. Aucune résolution clinique, recherche approximative, version maximale ou publication n'intervient. Les liens non renseignés et les autres ResourceKind conservent tous leurs champs ; les identités de concepts, positions, labels et provenances sont préservés.
+
+Une paire ancienne ambiguë est refusée avant tout remplacement, avec rollback et sans entrée MIG-0019 ajoutée. Les contraintes de clé étrangère restent actives. La migration n'exécute aucun UPDATE/DELETE sur `schema_migrations` ni sur les contenus natifs : le runner existant ajoute uniquement la nouvelle entrée MIG-0019 après validation. Les tests de corruption volontaire du journal restent exclusivement synthétiques et ne constituent pas des opérations de migration.
+
+Le bootstrap valide le schéma historique à la version 18 et le schéma corrigé à la version 19. Le preflight reconnaît explicitement une base v18, exige toujours un backup et une autorisation séparée pour une activation réelle, et valide le schéma v19. La version opérationnelle maximale passe à 19 via le registre existant. Aucun chemin d'activation automatique sur une base réelle n'est ajouté.
+
+### Contrôles et preuves
+
+| Contrôle | Preuve | Résultat |
+|---|---|---|
+| MIG-0018 restaurée exactement | Comparaison Git au commit 4cafa63 et assertion du checksum historique | PASS |
+| Fresh DB → MIG-0001…MIG-0019 | Base en mémoire ; liste ordonnée des 19 migrations ; checksums 18 et 19 | PASS |
+| Ancienne MIG-0018 déjà appliquée → MIG-0019 | Base en mémoire v18 contenant le pilote et un lien SOURCE ancien | PASS |
+| Historique préexistant intact | Comparaison intégrale des 18 entrées avant/après, pas seulement des checksums | PASS |
+| Liens et contenus préservés | Comparaison de toutes les lignes de liens, concepts et source_versions ; seule identité SOURCE convertie | PASS |
+| Version exacte conservée | Version V1 référencée alors que la source est courante en V2 | PASS |
+| Paires ambiguës refusées | Ancien target_id V1 / target_version V2 ; aucun changement de données/historique | PASS |
+| Rollback pendant reconstruction | Échec injecté juste après DROP ; ancienne table, lignes et journal restaurés ; index/intermédiaire absents | PASS |
+| Idempotence et preflight | Deuxième exécution sans migration ; état v19 reconnu ; v18 bloquée sans backup | PASS |
+| FK et index | Mauvais parent refusé ; index absent détecté ; intégrité et foreign_key_check | PASS |
+| Régressions SOURCE et autres familles | Tests applicatifs conservés ; toutes les nouvelles contraintes exécutées sur v19 | PASS en ciblé |
+| Concepts et rattachements éditoriaux | Sept concepts DRAFT, reviewers nuls ; dix propositions documentaires inchangées | PASS |
+
+### Fichiers concernés
+
+- `docs/CODEX-GUARDRAILS.md` : décision explicite de gel de MIG-0018, prioritaire sur les critères généraux.
+- `src/infrastructure/database/sqlite/migrations/definitions/mig-0018-mle-concept-catalog.ts` : restauration historique exacte.
+- `src/infrastructure/database/sqlite/migrations/definitions/mig-0019-mle-source-identity.ts` : nouvelle migration et validateur v19.
+- `src/infrastructure/database/sqlite/migrations/core-migration-registry.ts` : enregistrement MIG-0019.
+- `src/infrastructure/database/sqlite/migrations/fresh-database-bootstrap.ts` et `src/infrastructure/database/sqlite/preflight/database-migration-preflight.ts` : validation du schéma selon sa version.
+- `src/infrastructure/database/sqlite/migrations/mig-0019-mle-source-identity.test.ts` : sept tests nouveaux de migration.
+- `src/infrastructure/database/sqlite/migrations/mig-0018-mle-concept-catalog.test.ts` : périmètre historique v18 et checksum attendu restauré ; vérification d'index SOURCE portée par les tests v19.
+- Tests existants dont les attentes de version courante sont actualisées, sans suppression d'assertion : `activation/controlled-migration-activation.test.ts`, `activation/migration-operator-cli.test.ts`, `backup/sqlite-backup-service.test.ts`, `migrations/database-readiness-orchestrator.test.ts`, `migrations/fresh-database-bootstrap.test.ts`, `migrations/legacy-baseline-adopter.test.ts`, `migrations/mig-0003-source-model.test.ts`, `migrations/mig-0010-calculations-lab-core.test.ts`, `migrations/mig-0011-osce-text-core.test.ts`, `migrations/mig-0012-closed-web-pilot.test.ts`, `migrations/mig-0017-mcq-session-specialization.test.ts`, `operational-schema-support.test.ts`, `preflight/database-migration-preflight.test.ts` (tous sous `src/infrastructure/database/sqlite/`). Les scénarios de version future utilisent désormais MIG-0020 ; cette migration fictive existe uniquement dans les tests.
+- `docs/reports/RAPPORT-GATE-FINAL-LOT-9-MLE-01.md` : présent rapport et indication explicite de la stratégie retirée.
+
+### Gates rejoués
+
+| Gate | Commande / résultat |
+|---|---|
+| TARGETED_TESTS | `vitest run` sur MIG-0018, MIG-0019 et infrastructure MLE, `--maxWorkers=1` : **32/32 PASS**, quatre fichiers, 45,11 s |
+| FULL_TESTS | PASS : **147 fichiers, 703 tests réussis, 1 test ignoré (704)**, 575,86 s, code 0 ; un worker, aucun autre gate lourd concurrent |
+| TYPECHECK | `node node_modules/typescript/bin/tsc --noEmit` : PASS, code 0 |
+| LINT | `node node_modules/eslint/bin/eslint.js .` : PASS, code 0 |
+| BUILD | `node node_modules/next/dist/bin/next build` : PASS, compilation 36,4 s, TypeScript 12 s, 22/22 pages générées ; données dirigées vers un répertoire temporaire unique |
+| DIFF_CHECK | `git diff --check` : PASS |
+
+### Timeout global, traité séparément
+
+Le timeout du gate précédent reste documenté dans la section 8 ; il n'est pas utilisé pour conclure sur la nouvelle migration. Aucun timeout n'est augmenté, aucun test n'est supprimé ou nouvellement ignoré. La nouvelle suite complète termine avec le code 0 : 703 tests réussis, un test OCR conditionnel préexistant ignoré, aucun timeout et aucun échec. Le dépassement précédent ne se reproduit pas dans cette exécution ; cela ne constitue pas une garantie de durée sur tout environnement.
+
+### Limites, rollback et arrêt
+
+Les anciennes lignes SOURCE peuvent désormais être converties, mais aucune base réelle n'est inspectée ou migrée dans cette mission. Une base portant la définition retirée de MIG-0018 échoue au contrôle d'historique, sans réécriture automatique. Une référence ancienne ambiguë nécessite une décision distincte ; elle n'est ni éliminée ni rapprochée approximativement.
+
+En cas d'échec de MIG-0019, le runner restaure transactionnellement la table v18, ses données et son historique ; ce scénario est testé après le DROP interne. Après une éventuelle activation réelle future, revenir à v18 exigerait un plan de restauration autorisé depuis un backup vérifié, et non un effacement de l'entrée MIG-0019. Aucun downgrade automatique n'est fourni.
+
+La conservation et l'approbation clinique des versions natives restent sous l'autorité des mécanismes existants. Les points éditoriaux A2/A3/A4 restent ouverts ; les dix rattachements restent PROPOSÉS et les sept concepts DRAFT. Ni contenu clinique ni données apprenant ne sont copiés ou modifiés.
+
+**SAFE_FOR_FINAL_REVIEW = OUI pour la correction de migration LOT 9.** Les deux chemins sont vérifiés et les gates sont rejoués avec succès. Cette conclusion ne valide ni les rattachements éditoriaux ni le démarrage de LOT 10.
+
+**REAL_DB_TOUCHED = NON ; DEPLOY = NON ; PUSH = NON ; MERGE = NON ; LOT_10_STARTED = NON.** Aucune opération Render. Arrêt après cette correction. Le verdict éditorial demeure **NOT READY FOR LOT 10**.
+### Résumé final de la correction additive
+
+| Champ | Résultat |
+|---|---|
+| STATUS | CORRECTION ADDITIVE TERMINÉE — PRÊTE POUR REVUE |
+| FILES_CHANGED | 22 fichiers : liste détaillée ci-dessus ; aucun fichier de données réelles |
+| SOURCE_CONTRACT | targetId = source_id ; targetVersion = source_version_id |
+| MIGRATION_DECISION | MIG-0018 IMMUTABLE / CORRECTION ADDITIVE PAR MIG-0019 |
+| TARGETED_TESTS | PASS — 32/32 |
+| FULL_TESTS | PASS — 703 réussis, 1 ignoré, 147 fichiers, code 0 |
+| TYPECHECK | PASS |
+| LINT | PASS |
+| BUILD | PASS |
+| DIFF_CHECK | PASS |
+| REAL_DB_TOUCHED | NON |
+| DEPLOY | NON |
+| LOT_10_STARTED | NON |
+| FINDINGS | Stratégie retirée remplacée ; aucun timeout reproduit ; conditions éditoriales A2/A3/A4 toujours ouvertes |
+| SAFE_FOR_FINAL_REVIEW | OUI — correction seulement ; aucune autorisation de push, merge, déploiement ou LOT 10 |
+
+**STOP après la correction.** Les dix propositions restent PROPOSÉES et les concepts DRAFT.

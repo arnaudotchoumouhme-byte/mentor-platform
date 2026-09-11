@@ -48,10 +48,10 @@ describe("DatabaseReadinessOrchestrator", () => {
     expect(result).toMatchObject({
       status: "READY",
       initialState: "FRESH",
-      finalVersion: 18,
-      appliedMigrationIds: ["MIG-0001", "MIG-0002", "MIG-0003", "MIG-0004", "MIG-0005", "MIG-0006", "MIG-0007", "MIG-0008", "MIG-0009", "MIG-0010", "MIG-0011", "MIG-0012", "MIG-0013", "MIG-0014", "MIG-0015", "MIG-0016", "MIG-0017", "MIG-0018"],
+      finalVersion: 19,
+      appliedMigrationIds: ["MIG-0001", "MIG-0002", "MIG-0003", "MIG-0004", "MIG-0005", "MIG-0006", "MIG-0007", "MIG-0008", "MIG-0009", "MIG-0010", "MIG-0011", "MIG-0012", "MIG-0013", "MIG-0014", "MIG-0015", "MIG-0016", "MIG-0017", "MIG-0018", "MIG-0019"],
     });
-    expect(history()).toHaveLength(18);
+    expect(history()).toHaveLength(19);
   });
 
   it("adopts a recognized legacy core and preserves business data", () => {
@@ -80,6 +80,7 @@ describe("DatabaseReadinessOrchestrator", () => {
       { migration_id: "MIG-0016", application_kind: "executed" },
       { migration_id: "MIG-0017", application_kind: "executed" },
       { migration_id: "MIG-0018", application_kind: "executed" },
+      { migration_id: "MIG-0019", application_kind: "executed" },
     ]);
   });
 
@@ -105,9 +106,9 @@ describe("DatabaseReadinessOrchestrator", () => {
     expect(result).toMatchObject({
       status: "READY",
       initialState: "VERSIONED_OUTDATED",
-      appliedMigrationIds: ["MIG-0002", "MIG-0003", "MIG-0004", "MIG-0005", "MIG-0006", "MIG-0007", "MIG-0008", "MIG-0009", "MIG-0010", "MIG-0011", "MIG-0012", "MIG-0013", "MIG-0014", "MIG-0015", "MIG-0016", "MIG-0017", "MIG-0018"],
+      appliedMigrationIds: ["MIG-0002", "MIG-0003", "MIG-0004", "MIG-0005", "MIG-0006", "MIG-0007", "MIG-0008", "MIG-0009", "MIG-0010", "MIG-0011", "MIG-0012", "MIG-0013", "MIG-0014", "MIG-0015", "MIG-0016", "MIG-0017", "MIG-0018", "MIG-0019"],
     });
-    expect(history()).toHaveLength(18);
+    expect(history()).toHaveLength(19);
   });
 
   it("is a mutation-free no-op for a current database and remains idempotent", () => {
@@ -127,7 +128,7 @@ describe("DatabaseReadinessOrchestrator", () => {
   it("fails closed when migration history is ahead", () => {
     readiness();
     sqlite.prepare(`INSERT INTO schema_migrations VALUES(?,?,?,?,?,?,?,?,?)`).run(
-      "MIG-0019", 18, 19, "Future", "0".repeat(64), new Date(0).toISOString(), 0, "executed", null,
+      "MIG-0020", 19, 20, "Future", "0".repeat(64), new Date(0).toISOString(), 0, "executed", null,
     );
     const before = history();
     expect(readiness()).toMatchObject({ status: "BLOCKED", initialState: "VERSIONED_AHEAD", reason: "MIGRATION_HISTORY_AHEAD" });

@@ -36,6 +36,7 @@ Le domaine ne dépend jamais de SQLite, Next.js, React, OpenAI ou de l'infrastru
 ## E. Migrations
 
 - Les migrations historiques sont immuables.
+- Une décision humaine explicite de gel prévaut sur les critères généraux ci-dessous. MIG-0018 est déclarée historique et immuable par la dernière décision de gate : conserver sa définition et son checksum d'origine ; la correction SOURCE relève exclusivement de MIG-0019.
 - Une migration devient historique dès qu'elle est mergée dans l'historique canonique de `main`, appliquée à une base persistante ou partagée non éphémère, ou qu'une migration ultérieure canonique dépend de sa définition/checksum. Un push sur une branche de développement ou une exécution sur une base synthétique jetable ne suffit pas. Avant ce seuil, une correction autorisée peut modifier la définition et son checksum ; les anciennes bases synthétiques sont recréées, jamais régularisées en réécrivant leur historique.
 - Préférer les nouvelles migrations additives et exiger des tests synthétiques.
 - Aucune activation automatique sur une base utilisateur.
