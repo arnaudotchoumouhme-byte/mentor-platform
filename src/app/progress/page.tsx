@@ -28,7 +28,7 @@ export default function Progress() {
         <h2 className="mt-0">Maîtrise par matière</h2>
         {data.subjects.length === 0
           ? <EmptyState title="Pas encore évalué" detail="Les matières apparaîtront ici après vos premières activités évaluées." />
-          : <div className="space-y-5">{data.subjects.map((subject) => <div key={subject.id}>
+          : <div className="space-y-5">{data.subjects.map((subject) => <div id={`subject-${subject.id}`} className="scroll-mt-6" key={subject.id}>
               <div className="mb-2 flex justify-between text-sm"><strong>{subject.name}</strong><span>{subject.mastery}% · {masteryLabel(subject.mastery)}</span></div>
               <div className="progress"><span style={{ width: `${subject.mastery}%`, background: subject.color }} /></div>
             </div>)}</div>}
