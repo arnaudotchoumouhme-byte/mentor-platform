@@ -11,8 +11,8 @@ const executor = (sqlite: DatabaseSync): SqliteExecutor => ({ all: <T>(sql: stri
 describe("MIG-0016 learner data isolation", () => {
   it("migrates v15 additively while leaving legacy rows unowned", () => {
     const sqlite = new DatabaseSync(":memory:"); const database = executor(sqlite);
-    const v15 = new MigrationRegistry(coreMigrationRegistry.migrations.filter(migration => !["MIG-0016", "MIG-0017"].includes(migration.id)));
-    const v16 = new MigrationRegistry(coreMigrationRegistry.migrations.filter(migration => migration.id !== "MIG-0017"));
+    const v15 = new MigrationRegistry(coreMigrationRegistry.migrations.filter(migration => migration.toVersion <= 15));
+    const v16 = new MigrationRegistry(coreMigrationRegistry.migrations.filter(migration => migration.toVersion <= 16));
     new FreshDatabaseBootstrap(database, v15).run();
     sqlite.exec("INSERT INTO flashcards(front,back,subject) VALUES('legacy','legacy','legacy'); INSERT INTO attempts(module,subject,score) VALUES('legacy','legacy',50)");
     expect(new FreshDatabaseBootstrap(database, v16).run()).toEqual({ currentVersion: 16, appliedMigrationIds: ["MIG-0016"] });

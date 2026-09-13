@@ -21,14 +21,14 @@ describe("MIG-0017 MCQ session specialization", () => {
     const sqlite = new DatabaseSync(":memory:");
     const database = executor(sqlite);
     const v16 = new MigrationRegistry(
-      coreMigrationRegistry.migrations.filter(migration => migration.id !== "MIG-0017"),
+      coreMigrationRegistry.migrations.filter(migration => migration.toVersion <= 16),
     );
     new FreshDatabaseBootstrap(database, v16).run();
     sqlite.prepare(
       "INSERT INTO mcq_sessions(session_id,mode,status,blueprint_version_id,seed,started_at) VALUES(?,?,?,?,?,?)",
     ).run("legacy-quiz", "QUIZ", "IN_PROGRESS", "bp", "seed", "2026-09-05T12:00:00.000Z");
 
-    expect(new FreshDatabaseBootstrap(database, coreMigrationRegistry).run()).toEqual({
+    expect(new FreshDatabaseBootstrap(database, new MigrationRegistry(coreMigrationRegistry.migrations.filter(m => m.toVersion <= 17))).run()).toEqual({
       currentVersion: 17,
       appliedMigrationIds: ["MIG-0017"],
     });
@@ -74,7 +74,7 @@ describe("MIG-0017 MCQ session specialization", () => {
   });
 
   it("extends the canonical registry contiguously without changing prior migration identities", () => {
-    expect(coreMigrationRegistry.currentVersion).toBe(17);
+    expect(coreMigrationRegistry.currentVersion).toBe(19);
     expect(coreMigrationRegistry.findById("MIG-0017")).toEqual(mcqSessionSpecializationMigration);
     expect(mcqSessionSpecializationMigration).toMatchObject({
       fromVersion: 16,
@@ -82,23 +82,25 @@ describe("MIG-0017 MCQ session specialization", () => {
     });
     expect(migrationChecksum(mcqSessionSpecializationMigration)).toMatch(/^[a-f0-9]{64}$/);
     expect(coreMigrationRegistry.migrations.map(migration => migration.id)).toEqual(
-      Array.from({ length: 17 }, (_, index) => `MIG-${String(index + 1).padStart(4, "0")}`),
+      Array.from({ length: 19 }, (_, index) => `MIG-${String(index + 1).padStart(4, "0")}`),
     );
   });
 
-  it("declares a structurally valid schema v17 ready", async () => {
+  it("declares a structurally valid current schema ready", async () => {
     const root = await mkdtemp(path.join(tmpdir(), "mentor-valid-v17-"));
     const databasePath = path.join(root, "synthetic.sqlite");
     try {
       const sqlite = new DatabaseSync(databasePath);
+      // Synthetic fixture only: durability is not under test; keep file/read-only assertions.
+      sqlite.exec("PRAGMA synchronous=OFF");
       new FreshDatabaseBootstrap(executor(sqlite), coreMigrationRegistry).run();
       sqlite.close();
 
       expect(inspectDatabaseFileReadOnly(databasePath)).toMatchObject({
         status: "NO_MIGRATION",
         schemaState: "VERSIONED_CURRENT",
-        currentVersion: 17,
-        targetVersion: 17,
+        currentVersion: 19,
+        targetVersion: 19,
         pendingMigrations: [],
       });
     } finally {
@@ -111,8 +113,10 @@ describe("MIG-0017 MCQ session specialization", () => {
     const databasePath = path.join(root, "synthetic.sqlite");
     try {
       const sqlite = new DatabaseSync(databasePath);
+      // Synthetic fixture only: durability is not under test; keep file/read-only assertions.
+      sqlite.exec("PRAGMA synchronous=OFF");
       const database = executor(sqlite);
-      const v16 = new MigrationRegistry(coreMigrationRegistry.migrations.filter(migration => migration.id !== "MIG-0017"));
+      const v16 = new MigrationRegistry(coreMigrationRegistry.migrations.filter(migration => migration.toVersion <= 16));
       new FreshDatabaseBootstrap(database, v16).run();
       sqlite.prepare(
         "INSERT INTO schema_migrations(migration_id,from_version,to_version,description,checksum,applied_at,duration_ms,application_kind,application_version) VALUES(?,?,?,?,?,?,?,?,?)",
