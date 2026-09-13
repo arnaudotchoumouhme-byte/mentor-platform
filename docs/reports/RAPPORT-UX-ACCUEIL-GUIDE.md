@@ -56,7 +56,7 @@ Les captures pleine page proviennent du serveur de développement : elles inclue
 | Contrôle | Résultat |
 | --- | --- |
 | Tests ciblés | PASS : 29/29, 2 fichiers, 49,65 s |
-| Suite complète | PASS : 724 réussis, 1 ignoré, 147 fichiers ; 491,18 s ; code 0 ; aucun timeout |
+| Suite complète | PASS : 724 réussis, 1 ignoré, 0 échoué, 147 fichiers ; 491,18 s ; code 0 ; 0 timeout |
 | Typecheck | PASS : `tsc --noEmit`, code 0 |
 | Lint | PASS : `eslint .`, code 0 |
 | Build production | PASS : contrôle Node puis `next build`, code 0 ; compilation, TypeScript et génération des routes réussis |
@@ -82,6 +82,24 @@ Aucune modification de données, API de mutation, fournisseur IA, flags, schéma
 
 Le retour arrière consiste à annuler le commit UX local dédié ; aucune migration ni restauration de données n’est nécessaire.
 
+## Clôture des gates
+
+Commit fonctionnel revu : `b9563cb01992a7164e201b0af58d00a2808bb026`, comparé à la base `8ac9f5ff83138c63c863971d99d60c6454658e36`. Les statuts définitifs étaient déjà versionnés dans ce commit ; cette clôture complète les confirmations sans changer de fonctionnalité.
+
+La suite globale a terminé le 13 septembre 2026 après un démarrage à 10:47:58 : **724 réussis, 1 ignoré, 0 échoué, 0 timeout**, code 0. Aucun code testé n’a changé depuis cette exécution ; elle n’est pas relancée. Typecheck, lint, tests ciblés et vérification navigateur restent ceux effectivement exécutés avant le commit UX.
+
+Contrôle du diff du commit et de l’arbre local :
+
+- Uniquement les sept fichiers applicatifs/de tests listés, le rapport et six captures synthétiques dans le commit UX.
+- Aucune migration modifiée : MIG-0018 et MIG-0019 inchangées.
+- Aucun schéma DB modifié, aucune API de mutation ajoutée ou modifiée ; seules des ancres sont ajoutées aux trois pages de destination.
+- Aucun secret ajouté, aucun fichier de configuration de déploiement modifié.
+- Aucun changement des concepts MLE DRAFT ni des dix rattachements PROPOSÉS.
+- Aucune base réelle touchée, aucune publication clinique, aucun LOT 10.
+- `git diff HEAD^ HEAD --check` et `git diff HEAD --check` : code 0.
+
+Build officiel de clôture : **PASS**, `pnpm run build` terminé avec **code 0**, incluant `prebuild → pnpm run check:node` puis `next build`. Compilation en 42 s, vérification TypeScript et génération des routes terminées. Aucune modification de configuration ni contournement d’erreur.
+
 ## Résultat final
 
 ```text
@@ -89,8 +107,9 @@ UX_NEXT_BEST_ACTION = PASS
 COGNITIVE_LOAD_REDUCED = PASS
 PEBC_PATH_CLARITY = PASS
 FIRST_TIME_USER_FLOW = PASS
+BROWSER_VERIFICATION = PASS
 TARGETED_TESTS = PASS (29/29)
-FULL_TESTS = PASS (724 réussis, 1 ignoré)
+FULL_TESTS = PASS (724 réussis, 1 ignoré, 0 échoué, 0 timeout)
 TYPECHECK = PASS
 LINT = PASS
 BUILD = PASS
