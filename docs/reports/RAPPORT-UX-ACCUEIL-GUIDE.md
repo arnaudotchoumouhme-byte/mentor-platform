@@ -102,6 +102,8 @@ Build officiel de clôture : **PASS**, `pnpm run build` terminé avec **code 0**
 
 ## Résultat final
 
+Les résultats ci-dessous décrivent la validation initiale. La revalidation après intégration de LOT 9 est consignée dans la section suivante avant tout push.
+
 ```text
 UX_NEXT_BEST_ACTION = PASS
 COGNITIVE_LOAD_REDUCED = PASS
@@ -119,3 +121,27 @@ DEPLOY = NON
 LOT_10_STARTED = NON
 SAFE_FOR_HUMAN_REVIEW = OUI
 ```
+
+## Intégration sur main après LOT 9 — 13 septembre 2026
+
+Rebase local explicite des deux commits UX uniquement (`git rebase --onto edaef772b8655130215e3f94e21ad79dad98b150 8ac9f5ff83138c63c863971d99d60c6454658e36 codex/home-guided-next-action`). Les conventions interdisent le rebase de main ; ici seule la branche UX locale, encore absente de GitHub, est rebasée conformément à la mission.
+
+- Nouveau main : `edaef772b8655130215e3f94e21ad79dad98b150`, merge de LOT 9 ; arbre identique au SHA LOT 9 validé.
+- Commits UX rebasés : `4c2410a` et `cce84e3`.
+- Aucun conflit ; diff d’arbre entre l’ancien `2f339a2` et la tête rebasée vide.
+- Diff relatif au nouveau main limité aux 14 fichiers UX déjà listés. MIG-0018, MIG-0019, concepts MLE et rattachements éditoriaux inchangés ; aucune fonctionnalité LOT 9 perdue.
+- Aucune base réelle ouverte, aucun changement de configuration ni de workflow.
+
+| Gate rejoué | Résultat |
+| --- | --- |
+| Tests ciblés dashboard | PASS : 29/29, 2 fichiers, 45,19 s, code 0 |
+| Suite complète | PASS : 724 réussis, 1 ignoré, 0 échoué, 0 timeout ; 147 fichiers ; 281,74 s ; code 0 |
+| Typecheck | PASS : `tsc --noEmit`, code 0 |
+| Lint | PASS : `eslint .`, code 0 |
+| Build officiel | PASS : `pnpm run build`, contrôle Node, compilation Next.js en 2,0 min, TypeScript et génération des routes ; code 0 |
+| Navigateur critique | PASS : quatre scénarios (1440 × 1000 et 320 × 740, vide/alimenté), CTA et motif cohérents, QCM, ECOS, compétence prioritaire, mode libre, aucune erreur console ni overflow horizontal |
+| Diff final | PASS : `git diff --check`, code 0 ; seul le rapport est complété après rebase |
+
+La vérification navigateur utilise la compilation de production servie uniquement en local, un répertoire temporaire et des réponses synthétiques interceptées pour l’état et le catalogue QCM. Les autres API et origines externes sont bloquées. Le bouton principal reste au-dessus de la navigation mobile (bord inférieur : 511,75 px vide / 597,75 px alimenté). Les captures initiales restent représentatives ; aucun CSS/layout n’a changé et aucune nouvelle série de captures n’est ajoutée.
+
+Tous les gates préalables au push sont PASS. Le push contrôlé, le contrôle des previews puis la création éventuelle de PR sont autorisés par la mission ; leurs résultats distants seront fournis dans le compte rendu final. Aucune autorisation de merge, de déploiement manuel en production ou de migration réelle. LOT 10 non commencé.
