@@ -7,6 +7,21 @@ import { SettingsForm } from "./page";
 describe("SettingsForm", () => {
   afterEach(cleanup);
 
+  it("lists extensible providers honestly and preserves local saving", async () => {
+    const act = vi.fn().mockResolvedValue(undefined);
+    render(React.createElement(SettingsForm, { initial: { aiProvider: "Mode local" }, act }));
+    const select = screen.getByLabelText("Fournisseur IA") as HTMLSelectElement;
+    expect(Array.from(select.options).map(o => [o.value, o.disabled])).toEqual([
+      ["Mode local", false], ["OpenAI", true], ["Anthropic", true], ["Gemini", true],
+    ]);
+    expect(screen.getByRole("option", { name: "Anthropic — Claude (à configurer — connecteur non intégré)" })).toBeTruthy();
+    expect(screen.getByRole("option", { name: /Google — Gemini/ })).toBeTruthy();
+    expect(document.querySelector('input[type="password"]')).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "Enregistrer les paramètres" }));
+    await screen.findByRole("status");
+    expect(act).toHaveBeenCalledWith({ action: "saveSettings", settings: { aiProvider: "Mode local" } });
+  });
+
   it("confirms a successful save and clears stale confirmation after editing", async () => {
     const act = vi.fn().mockResolvedValue(undefined);
     render(React.createElement(SettingsForm, { initial: { displayName: "Mentor" }, act }));
