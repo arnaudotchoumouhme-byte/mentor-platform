@@ -32,7 +32,26 @@ describe("Progress", () => {
     render(React.createElement(Progress));
     expect(screen.getAllByText("80%")).toHaveLength(2);
     expect(screen.getByText("12 min")).toBeTruthy();
-    expect(screen.getByText(/75%/)).toBeTruthy();
+    expect(screen.getByText("80% · Résultat observé")).toBeTruthy();
+    expect(screen.queryByText(/75%/)).toBeNull();
     expect(screen.queryByText("Aucun résultat enregistré")).toBeNull();
+  });
+});
+
+afterEach(cleanup);
+describe("factual progress", () => {
+  it("does not present global subject mastery as the learner's result", () => {
+    vi.mocked(useAppState).mockReturnValue({data:{attempts:[], flashcards:[], subjects:[{id:1, name:"Calculs", mastery:99, color:"red"}]}} as unknown as ReturnType<typeof useAppState>);
+    render(React.createElement(Progress));
+    expect(screen.getByText("Non évalué")).toBeTruthy();
+    expect(document.body.textContent).not.toContain("99%");
+    expect(document.body.textContent).not.toContain("Maîtrisé");
+  });
+  it("shows only observed owned results and a neutral first-use state", () => {
+    vi.mocked(useAppState).mockReturnValue({data:{attempts:[{id:1,module:"QCM",subject:"Calculs",score:60,duration_minutes:4,created_at:"2026-09-15"}],flashcards:[],subjects:[{id:1,name:"Calculs",mastery:99,color:"red"},{id:2,name:"Autre",mastery:95,color:"red"}]}} as unknown as ReturnType<typeof useAppState>);
+    render(React.createElement(Progress));
+    expect(screen.getByText("60% · Résultat observé")).toBeTruthy();
+    expect(screen.getByText("Non évalué")).toBeTruthy();
+    expect(document.body.textContent).not.toContain("99%");
   });
 });

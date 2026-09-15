@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { masteryLabel } from "@/domain/learning";
+import { observedSubjectResult } from "@/presentation/dashboard/pebc-dashboard";
 import { useAppState } from "@/hooks/use-state";
 import { EmptyState, Loading, Metric, PageHeader } from "@/components/ui";
 
@@ -25,13 +25,13 @@ export default function Progress() {
     </div>
     <div className="grid gap-6 lg:grid-cols-[1fr_.9fr]">
       <section className="card p-6">
-        <h2 className="mt-0">Maîtrise par matière</h2>
+        <h2 className="mt-0">Résultats observés par matière</h2>
         {data.subjects.length === 0
           ? <EmptyState title="Pas encore évalué" detail="Les matières apparaîtront ici après vos premières activités évaluées." />
-          : <div className="space-y-5">{data.subjects.map((subject) => <div key={subject.id}>
-              <div className="mb-2 flex justify-between text-sm"><strong>{subject.name}</strong><span>{subject.mastery}% · {masteryLabel(subject.mastery)}</span></div>
-              <div className="progress"><span style={{ width: `${subject.mastery}%`, background: subject.color }} /></div>
-            </div>)}</div>}
+          : <div className="space-y-5">{data.subjects.map((subject) => { const result = observedSubjectResult(data, subject.name); return <div id={`subject-${subject.id}`} className="scroll-mt-6" key={subject.id}>
+              <div className="mb-2 flex justify-between text-sm"><strong>{subject.name}</strong><span>{result === null ? "Non évalué" : `${result}% · Résultat observé`}</span></div>
+              {result !== null && <div className="progress"><span style={{ width: `${result}%`, background: subject.color }} /></div>}
+            </div>; })}</div>}
       </section>
       <section className="card p-6">
         <h2 className="mt-0">Historique récent</h2>

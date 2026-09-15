@@ -178,3 +178,63 @@ describe("McqSessionRunner", () => {
     expect(screen.queryByText("Bonne réponse")).toBeNull();
   });
 });
+
+
+describe("completed session correction", () => {
+  afterEach(cleanup);
+  it("loads the existing correction after completion without resolving a weakness", async () => {
+    const completed = {...after, status: "COMPLETED", score: {percentage: 100, correct: 1, total: 1}};
+    vi.mocked(clientFetch).mockReset().mockResolvedValueOnce(catalogWithResume()).mockResolvedValueOnce(response(completed)).mockResolvedValueOnce(response(completed));
+    render(React.createElement(McqSessionRunner));
+    fireEvent.click(await screen.findByRole("button", {name: "Reprendre ma session"}));
+    await screen.findByText("Session terminée");
+    expect(screen.getByText("100%")).toBeTruthy();
+    expect(screen.queryByText("Explication après réponse")).toBeNull();
+    fireEvent.click(screen.getByRole("button", {name: "Voir la correction"}));
+    expect(await screen.findByText("Explication après réponse")).toBeTruthy();
+    expect(screen.getByRole("link", {name: "Voir ma progression"}).getAttribute("href")).toBe("/progress");
+    expect(screen.getByRole("link", {name: "Retour à l’accueil"}).getAttribute("href")).toBe("/");
+    expect(vi.mocked(clientFetch).mock.calls.every(([, init]) => !init?.method || init.method === "GET")).toBe(true);
+  });
+  it("never invents zero when the result is unavailable", async () => {
+    vi.mocked(clientFetch).mockReset().mockResolvedValueOnce(catalogWithResume()).mockResolvedValueOnce(response({...before,status:"COMPLETED"}));
+    render(React.createElement(McqSessionRunner));
+    fireEvent.click(await screen.findByRole("button", {name: "Reprendre ma session"}));
+    expect(await screen.findByText("Résultat indisponible")).toBeTruthy();
+    expect(screen.queryByText("0%")).toBeNull();
+  });
+});
+
+
+it("reveals mock-exam corrections only by reading the completed owned session", async () => {
+  const active = {...before, sessionKind: "MOCK_EXAM", remainingSeconds: 2700};
+  const answered = {...active, items: [{...before.items[0], answer: {choiceId: "a"}}]};
+  const completed = {...after, sessionKind: "MOCK_EXAM", status: "COMPLETED", score: {percentage: 100, correct: 1, total: 1}};
+  vi.mocked(clientFetch).mockReset().mockResolvedValueOnce(catalog()).mockResolvedValueOnce(response({sessionId},201)).mockResolvedValueOnce(response(active)).mockResolvedValueOnce(response(answered)).mockResolvedValueOnce(response({score:completed.score})).mockResolvedValueOnce(response(completed));
+  const view = render(React.createElement(McqSessionRunner, {sessionKind: "MOCK_EXAM"}));
+  fireEvent.click(await screen.findByRole("button", {name: "Démarrer l’examen"}));
+  fireEvent.click(await screen.findByRole("button", {name: "A. Choix A"}));
+  await screen.findByText(/Réponse enregistrée/);
+  expect(screen.queryByRole("button", {name: "Voir la correction"})).toBeNull();
+  expect(screen.queryByText("Explication après réponse")).toBeNull();
+  fireEvent.click(screen.getByRole("button", {name: "Terminer"}));
+  fireEvent.click(await screen.findByRole("button", {name: "Voir la correction"}));
+  expect(await screen.findByText("Explication après réponse")).toBeTruthy();
+  expect(vi.mocked(clientFetch).mock.calls.some(([url]) => url === "/api/actions")).toBe(false);
+  view.unmount();
+});
+
+
+it("cannot start a new session while a previous correction is loading", async () => {
+  const completed = {...after, status: "COMPLETED", score: {percentage: 100, correct: 1, total: 1}};
+  let release!: (response: Response) => void;
+  const pending = new Promise<Response>(resolve => { release = resolve; });
+  vi.mocked(clientFetch).mockReset().mockResolvedValueOnce(catalogWithResume()).mockResolvedValueOnce(response(completed)).mockReturnValueOnce(pending);
+  const view = render(React.createElement(McqSessionRunner));
+  fireEvent.click(await screen.findByRole("button", {name: "Reprendre ma session"}));
+  fireEvent.click(await screen.findByRole("button", {name: "Voir la correction"}));
+  expect((screen.getByRole("button", {name: "Nouvelle session"}) as HTMLButtonElement).disabled).toBe(true);
+  release(response(completed)); await screen.findByText("Explication après réponse");
+  expect((screen.getByRole("button", {name: "Nouvelle session"}) as HTMLButtonElement).disabled).toBe(false);
+  view.unmount();
+});
