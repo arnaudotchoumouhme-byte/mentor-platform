@@ -5,6 +5,10 @@ export type FlashcardRating =
   | "Difficile"
   | "À revoir";
 
+export function isActiveCardDue(card: { status: string; due_at: string }, now: Date): boolean {
+  return card.status === "active" && Date.parse(card.due_at) <= now.getTime();
+}
+
 const intervalFactors: Readonly<Record<FlashcardRating, number>> = {
   "Très facile": 2.8,
   Facile: 2.1,

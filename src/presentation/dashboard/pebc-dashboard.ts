@@ -1,3 +1,4 @@
+import { isActiveCardDue } from "@/domain/flashcards/scheduling";
 import type { AppState } from "@/hooks/use-state";
 
 export type DashboardActivity = Readonly<{
@@ -61,14 +62,18 @@ function actionCandidates(state: AppState, now: Date): NextBestAction[] {
     durationLabel: Number.isFinite(task.minutes) && task.minutes > 0 ? `${task.minutes} min` : undefined,
     priority: taskPriority(task.priority),
   });
-  const due = state.flashcards.filter(card => card.status === "active" && new Date(card.due_at).getTime() <= now.getTime());
+  const due = state.flashcards.filter(card => isActiveCardDue(card, now));
   if (due.length) actions.push({
     id: "flashcards", title: "Flashcards à revoir", subtitle: `${due.length} carte${due.length > 1 ? "s" : ""} arrivée${due.length > 1 ? "s" : ""} à échéance`,
     reason: "Ces cartes sont arrivées à leur date de révision. Les revoir maintenant vous aide à entretenir vos acquis.",
     href: "/flashcards", activityType: "Mémorisation", cta: "Revoir mes flashcards", statusLabel: "Révision due",
   });
-  if (state.questions.length) actions.push({
-    id: "questions", title: "QCM disponibles", subtitle: `${state.questions.length} question${state.questions.length > 1 ? "s" : ""} dans votre espace`,
+  if (state.mcq?.resumableSessionId) actions.push({
+    id: "resume-mcq", title: "Reprendre mon QCM", reason: "Une session QCM non terminée est enregistrée dans votre espace.",
+    href: "/quizzes", activityType: "Pratique QCM", cta: "Reprendre ma session",
+  });
+  if (state.mcq?.available) actions.push({
+    id: "questions", title: "QCM disponibles", subtitle: "Corpus versionné disponible",
     reason: "Des questions sont disponibles pour pratiquer et repérer les points à retravailler.",
     href: "/quizzes", activityType: "Pratique QCM", cta: "Commencer mes QCM",
   });
@@ -102,7 +107,7 @@ function average(values: readonly number[]): number | null {
 }
 
 function attemptAverage(state: AppState, pattern: RegExp): number | null {
-  return average(state.attempts.filter((attempt) => pattern.test(attempt.module)).map((attempt) => attempt.score));
+  return average(state.attempts.filter((attempt) => pattern.test(attempt.module) && Number.isFinite(attempt.score) && attempt.score >= 0 && attempt.score <= 100).map((attempt) => attempt.score));
 }
 
 export function buildDailyMission(state: AppState, now = new Date()): Readonly<{
@@ -129,13 +134,11 @@ export function buildPebcStages(state: AppState): readonly DashboardStage[] {
 export function buildCompetencies(state: AppState): readonly DashboardCompetency[] {
   return state.subjects.map((subject) => {
     const activePriority = state.weaknesses.find((weakness) => weakness.status === "active" && weakness.subject === subject.name);
-    const hasAttempt = state.attempts.some((attempt) => attempt.subject === subject.name);
-    const measuredProgress = Number.isFinite(subject.mastery) ? Math.max(0, Math.min(100, subject.mastery)) : null;
-    const progress = measuredProgress === 0 && !hasAttempt && !activePriority ? null : measuredProgress;
+    const progress = observedSubjectResult(state, subject.name);
     const confidence = activePriority?.confidence.toLocaleLowerCase("fr");
     const status = activePriority
       ? confidence === "élevée" || confidence === "elevee" || confidence === "haute" ? "Prioritaire" : "À consolider"
-      : progress === null ? "Pas encore évalué" : progress >= 75 ? "Maîtrisé" : progress >= 55 ? "À consolider" : "Fragile";
+      : progress === null ? "Non évalué" : "Résultat observé";
     return {
       id: subject.id,
       name: subject.name,
@@ -144,9 +147,14 @@ export function buildCompetencies(state: AppState): readonly DashboardCompetency
       color: subject.color,
       href: activePriority ? `/weaknesses#weakness-${activePriority.id}` : `/progress#subject-${subject.id}`,
     };
-  }).sort((a, b) => ["Prioritaire", "Fragile", "À consolider", "Pas encore évalué", "Maîtrisé"].indexOf(a.status) - ["Prioritaire", "Fragile", "À consolider", "Pas encore évalué", "Maîtrisé"].indexOf(b.status));
+  }).sort((a, b) => ["Prioritaire", "À consolider", "Non évalué", "Résultat observé"].indexOf(a.status) - ["Prioritaire", "À consolider", "Non évalué", "Résultat observé"].indexOf(b.status));
 }
 
 export function completedActivityCount(state: AppState): number {
   return state.tasks.filter((task) => task.status === "done").length + state.attempts.length;
+}
+
+/** Descriptive mean of owned attempts, never a mastery estimate. */
+export function observedSubjectResult(state: AppState, subject: string): number | null {
+  return average(state.attempts.filter(attempt => attempt.subject === subject && Number.isFinite(attempt.score) && attempt.score >= 0 && attempt.score <= 100).map(attempt => attempt.score));
 }

@@ -4,6 +4,7 @@ import type { CanadianPracticeQueries } from "@/application/canadian-practice/ca
 import { apiErrorResponse } from "@/infrastructure/observability/api-boundary";
 import { apiSuccess } from "@/shared/api/contracts";
 import { resolveTraceId } from "@/shared/observability/trace-id";
+import type { PilotIdentity } from "@/application/pilot/pilot-core";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -17,12 +18,13 @@ const query = z.discriminatedUnion("resource", [
 ]);
 const invalid = (traceId: string) => NextResponse.json({ success: false, error: { code: "CANADIAN_PRACTICE_RULE_INVALID", message: "Requête de pratique canadienne invalide.", traceId, retriable: false } }, { status: 400, headers: { "x-trace-id": traceId, "cache-control": "no-store" } });
 
-export function createCanadianPracticeGet(load: () => Promise<CanadianPracticeQueries>) {
+export function createCanadianPracticeGet(load: () => Promise<CanadianPracticeQueries>, identity: () => Promise<PilotIdentity>) {
   return async (request: Request) => {
     const traceId = resolveTraceId(request.headers.get("x-trace-id"));
-    const parsed = query.safeParse(Object.fromEntries(new URL(request.url).searchParams));
-    if (!parsed.success || (parsed.data.resource === "active" && ((parsed.data.jurisdiction === "FEDERAL" && parsed.data.province !== null) || (parsed.data.jurisdiction === "PROVINCIAL" && parsed.data.province !== "ON" && parsed.data.province !== "QC")))) return invalid(traceId);
     try {
+      await identity();
+      const parsed = query.safeParse(Object.fromEntries(new URL(request.url).searchParams));
+      if (!parsed.success || (parsed.data.resource === "active" && ((parsed.data.jurisdiction === "FEDERAL" && parsed.data.province !== null) || (parsed.data.jurisdiction === "PROVINCIAL" && parsed.data.province !== "ON" && parsed.data.province !== "QC")))) return invalid(traceId);
       const service = await load(); const input = parsed.data;
       const data = input.resource === "rule" ? await service.readRule(input.practiceRuleId)
         : input.resource === "version" ? await service.readVersion(input.practiceRuleId, input.ruleVersion, traceId)
@@ -33,4 +35,4 @@ export function createCanadianPracticeGet(load: () => Promise<CanadianPracticeQu
   };
 }
 
-export const GET = createCanadianPracticeGet(async () => (await import("@/infrastructure/canadian-practice/server-canadian-practice")).canadianPracticeQueries);
+export const GET = createCanadianPracticeGet(async () => (await import("@/infrastructure/canadian-practice/server-canadian-practice")).canadianPracticeQueries, async () => (await import("@/infrastructure/pilot/server-pilot")).requirePilotIdentity());

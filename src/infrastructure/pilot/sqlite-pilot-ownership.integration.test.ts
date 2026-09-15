@@ -23,6 +23,9 @@ describe("SqlitePilotOwnership MCQ resume", () => {
     expect(ownership.findInProgressMcqSession("learner-a")).toBe("session-a-new");
     expect(ownership.findInProgressMcqSession("learner-b")).toBe("session-b");
     expect(() => ownership.assertMcqSession("session-a-new", "learner-b")).toThrow();
+    sqlite.prepare("UPDATE mcq_sessions SET status='COMPLETED', completed_at='2026-05-01' WHERE learner_id='learner-a'").run();
+    expect(ownership.findInProgressMcqSession("learner-a")).toBeNull();
+    expect(ownership.findInProgressMcqSession("learner-without-sessions")).toBeNull();
     sqlite.close();
   });
 

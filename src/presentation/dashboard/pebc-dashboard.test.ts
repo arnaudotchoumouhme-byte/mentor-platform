@@ -17,7 +17,8 @@ describe("PEBC dashboard projections", () => {
       ...empty,
       tasks: [{ id: 1, title: "Révision planifiée", subject: "Calculs", task_date: "2026-08-18", minutes: 20, priority: "high", status: "todo" }],
       flashcards: [{ id: 2, front: "F", back: "B", subject: "Calculs", difficulty: "Moyen", due_at: "2026-08-17T00:00:00Z", interval_days: 1, status: "active" }],
-      questions: [{ id: 3, prompt: "Question issue de la base", options: "[]", answer: 0, explanation: "", subject: "Calculs", difficulty: "Moyen", source: "Source" }],
+      mcq: { available: true, resumableSessionId: null },
+    questions: [{ id: 3, prompt: "Question issue de la base", options: "[]", answer: 0, explanation: "", subject: "Calculs", difficulty: "Moyen", source: "Source" }],
       weaknesses: [{ id: 4, subject: "Calculs", topic: "Unités", confidence: "Moyenne", cause: "Observation enregistrée", action: "Réviser", status: "active" }],
     };
     const mission = buildDailyMission(state, new Date("2026-08-18T12:00:00Z"));
@@ -39,12 +40,12 @@ describe("PEBC dashboard projections", () => {
     };
     expect(buildPebcStages(state)[1].progress).toBe(70);
     expect(buildPebcStages(state)[2].progress).toBeNull();
-    expect(buildCompetencies(state)[0]).toMatchObject({ progress: 62, status: "À consolider" });
-    expect(buildCompetencies(state)[1]).toMatchObject({ progress: null, status: "Pas encore évalué" });
+    expect(buildCompetencies(state)[0]).toMatchObject({ progress: 70, status: "À consolider" });
+    expect(buildCompetencies(state)[1]).toMatchObject({ progress: null, status: "Non évalué" });
     expect(completedActivityCount(state)).toBe(3);
   });
 
-  it("distinguishes the five requested competency states from real evidence", () => {
+  it("distinguishes observed results from unmeasured mastery", () => {
     const subjects = [
       { id: 1, name: "Maîtrise", mastery: 82, color: "#177a63" },
       { id: 2, name: "Consolidation", mastery: 63, color: "#177a63" },
@@ -58,8 +59,8 @@ describe("PEBC dashboard projections", () => {
       attempts: subjects.slice(0, 4).map((subject, index) => ({ id: index, module: "QCM", subject: subject.name, score: subject.mastery, duration_minutes: 5, created_at: "2026-08-18" })),
       weaknesses: [{ id: 1, subject: "Priorité", topic: "Observation", confidence: "Élevée", cause: "Observation", action: "Réviser", status: "active" }],
     };
-    expect(buildCompetencies(state).map((item) => item.status)).toEqual(["Prioritaire", "Fragile", "À consolider", "Pas encore évalué", "Maîtrisé"]);
-    expect(buildCompetencies(state).map(item => [item.id, item.progress])).toEqual([[4, 50], [3, 41], [2, 63], [5, null], [1, 82]]);
+    expect(buildCompetencies(state).map((item) => item.status)).toEqual(["Prioritaire", "Non évalué", "Résultat observé", "Résultat observé", "Résultat observé"]);
+    expect(buildCompetencies(state).map(item => [item.id, item.progress])).toEqual([[4, 50], [5, null], [1, 82], [2, 63], [3, 41]]);
   });
 });
 
@@ -70,6 +71,7 @@ describe("next best action priority", () => {
     weaknesses: [{ id: 1, subject: "Calculs", topic: "Conversions", confidence: "Élevée", cause: "Observations", action: "Réviser les unités", status: "active" }],
     tasks: [{ id: 2, title: "Révision planifiée", subject: "Calculs", task_date: "2026-08-18", minutes: 20, priority: "high", status: "todo" }],
     flashcards: [{ id: 3, front: "Question", back: "Réponse", subject: "Calculs", difficulty: "Moyen", due_at: "2026-08-17T00:00:00Z", interval_days: 1, status: "active" }],
+    mcq: { available: true, resumableSessionId: null },
     questions: [{ id: 4, prompt: "Question", options: "[]", answer: 0, explanation: "", subject: "Calculs", difficulty: "Moyen", source: "Source" }],
     attempts: [{ id: 5, module: "QCM", subject: "Calculs", score: 62, duration_minutes: 35, created_at: "2026-08-17" }],
   };
@@ -81,7 +83,7 @@ describe("next best action priority", () => {
     [["weaknesses", "tasks", "flashcards", "questions"], "resume", "/progress"],
     [["weaknesses", "tasks", "flashcards", "questions", "attempts"], "first-step", "/study-plan"],
   ])("selects %s → %s ahead of all remaining choices", (removed, id, href) => {
-    const input = { ...state, ...Object.fromEntries(removed.map(key => [key, []])) };
+    const input = { ...state, ...Object.fromEntries(removed.map(key => key === "questions" ? ["mcq", { available: false, resumableSessionId: null }] : [key, []])) };
     const before = JSON.stringify(input);
     const action = buildNextBestAction(input, now);
     expect(action).toMatchObject({ id, href });
@@ -120,5 +122,24 @@ describe("next best action priority", () => {
     expect(buildPebcStages(empty)[0]).toMatchObject({ href: "/study-plan", cta: "Planifier mes prérequis" });
     expect(buildCompetencies({ ...state, subjects: [{ id: 9, name: "Calculs", mastery: 62, color: "#177a63" }] })[0].href).toBe("/weaknesses#weakness-1");
     expect(buildCompetencies({ ...empty, subjects: [{ id: 9, name: "Calculs", mastery: 62, color: "#177a63" }] })[0].href).toBe("/progress#subject-9");
+  });
+});
+
+
+describe("versioned QCM dashboard signals", () => {
+  const now = new Date("2026-09-15T12:00:00Z");
+  it("offers versioned questions without any legacy questions", () => {
+    expect(buildNextBestAction({...empty, mcq: {available: true, resumableSessionId: null}}, now).id).toBe("questions");
+  });
+  it("does not infer availability from the legacy bank", () => {
+    expect(buildNextBestAction({...empty, questions: [{id: 1, prompt: "legacy", options: "[]", answer: 0, explanation: "", subject: "", difficulty: "", source: ""}]}, now).id).toBe("first-step");
+  });
+  it("uses the server-owned resumable signal without inventing a duration", () => {
+    const action = buildNextBestAction({...empty, mcq: {available: false, resumableSessionId: "owned-session"}}, now);
+    expect(action).toMatchObject({id: "resume-mcq", href: "/quizzes"});
+    expect(action.durationLabel).toBeUndefined();
+  });
+  it("ignores global mastery even when it is nonzero", () => {
+    expect(buildCompetencies({...empty, subjects: [{id: 1, name: "Calculs", mastery: 99, color: "red"}]})).toMatchObject([{progress: null, status: "Non évalué"}]);
   });
 });

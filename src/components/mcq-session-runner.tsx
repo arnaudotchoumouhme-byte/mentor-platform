@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { CheckCircle2, RotateCcw } from "lucide-react";
+import Link from "next/link";
 import { clientFetch } from "@/shared/api/client-fetch";
 import { DEFAULT_MOCK_EXAM_QUESTION_COUNT } from "@/domain/mcq/mock-exam-policy";
 
@@ -25,6 +26,8 @@ export function McqSessionRunner({ sessionKind = "STANDARD" }: Readonly<{ sessio
   const [index, setIndex] = useState(0);
   const [error, setError] = useState<RunnerError | null>(null);
   const [busy, setBusy] = useState(false);
+  const [correction, setCorrection] = useState<PlayableSession | null>(null);
+  const [correctionError, setCorrectionError] = useState(false);
   const [pendingAction, setPendingAction] = useState<"RESUME" | "START_NEW" | null>(null);
   const [reconciling, setReconciling] = useState(false);
   const [remainingSeconds, setRemainingSeconds] = useState<number | null>(null);
@@ -199,6 +202,19 @@ export function McqSessionRunner({ sessionKind = "STANDARD" }: Readonly<{ sessio
     finally { operationInFlight.current = false; setBusy(false); }
   }
 
+  async function loadCorrection() {
+    if (!session || session.status !== "COMPLETED" || operationInFlight.current) return;
+    operationInFlight.current = true; setBusy(true); setCorrectionError(false);
+    try {
+      const response = await readOwnedSession(session.sessionId);
+      if (!response.ok) { if (response.status === 401 || response.status === 403) await deterministicFailure(response); else setCorrectionError(true); return; }
+      const completed = await body<PlayableSession>(response);
+      if (completed.status !== "COMPLETED") { setCorrectionError(true); return; }
+      setCorrection(completed);
+    } catch { setCorrectionError(true); }
+    finally { operationInFlight.current = false; setBusy(false); }
+  }
+
   function errorAction(current: RunnerError) {
     if (current.action === "CATALOG_RETRY") return <button className="btn btn-primary" onClick={() => void loadCatalog()}>Réessayer le chargement</button>;
     if (current.action === "RETRY_RESUME") return <button className="btn btn-primary" onClick={() => void resume(current.sessionId)}>Réessayer la reprise</button>;
@@ -214,7 +230,12 @@ export function McqSessionRunner({ sessionKind = "STANDARD" }: Readonly<{ sessio
   if (!session && resumableSessionId) return <div className="card p-8" role="region" aria-labelledby="mcq-resume-title"><h3 id="mcq-resume-title" className="mt-0">{isMockExam ? "Examen non terminé" : "Session non terminée"}</h3><p>Choisissez explicitement de reprendre votre progression ou de commencer une nouvelle session. Votre ancienne session restera conservée.</p><div className="flex flex-wrap gap-3"><button className="btn btn-primary" disabled={busy} onClick={() => void resume()}>{pendingAction === "RESUME" ? "Reprise en cours…" : isMockExam ? "Reprendre mon examen" : "Reprendre ma session"}</button><button className="btn btn-secondary" disabled={busy || !blueprints.length} onClick={() => void start()}>{blueprints.length ? pendingAction === "START_NEW" ? "Création en cours…" : isMockExam ? "Commencer un nouvel examen" : "Commencer une nouvelle session" : "Aucun nouveau QCM disponible"}</button></div></div>;
   if (!blueprints.length && !session) return <div className="card p-8">Aucune question disponible.</div>;
   if (!session) return <div className="card p-8"><h3 className="mt-0">{isMockExam ? "Examen blanc chronométré" : "Corpus QCM versionné"}</h3><p>{blueprints.reduce((sum, value) => sum + value.itemCount, 0)} question(s) publiée(s) disponible(s).</p>{isMockExam && <p>Le temps est conservé par le serveur et ne redémarre pas lors d’une actualisation.</p>}<button className="btn btn-primary" disabled={busy} onClick={() => void start()}>{pendingAction === "START_NEW" ? "Création en cours…" : isMockExam ? "Démarrer l’examen" : "Commencer"}</button></div>;
-  if (session.status === "COMPLETED") return <div className="card p-8 text-center"><CheckCircle2 size={46} className="mx-auto text-[var(--primary)]"/><div className="mt-4 text-5xl font-black text-[var(--primary)]">{session.score?.percentage ?? 0}%</div><h2>Session terminée</h2><p>{session.score?.correct ?? 0} bonne(s) réponse(s) sur {session.score?.total ?? session.items.length}.</p><button className="btn btn-primary" onClick={() => { setSession(null); setIndex(0); setResumableSessionId(null); }}><RotateCcw size={16}/>Nouvelle session</button></div>;
+  if (session.status === "COMPLETED") return <div className="card p-8">
+    <div className="text-center"><CheckCircle2 size={46} className="mx-auto text-[var(--primary)]"/><div className="mt-4 text-5xl font-black text-[var(--primary)]">{session.score ? `${session.score.percentage}%` : "Résultat indisponible"}</div><h2>Session terminée</h2>{session.score && <p>{session.score.correct} bonne(s) réponse(s) sur {session.score.total}.</p>}<p>Vous pouvez arrêter ici, cette séance est terminée.</p></div>
+    <div className="flex flex-wrap justify-center gap-3"><button disabled={busy} className="btn btn-primary" onClick={() => void loadCorrection()}>Voir la correction</button><Link href="/progress" className="btn btn-secondary">Voir ma progression</Link><Link href="/" className="btn btn-secondary">Retour à l’accueil</Link><button disabled={busy} className="btn btn-secondary" onClick={() => { setSession(null); setIndex(0); setResumableSessionId(null); setCorrection(null); setCorrectionError(false); }}><RotateCcw size={16}/>Nouvelle session</button></div>
+    {correctionError && <p role="alert">La correction n’a pas pu être chargée. Vous pouvez réessayer.</p>}
+    {correction && <section aria-label="Correction de la séance" className="mt-6 space-y-4">{correction.items.map(item => <article className="rounded-xl bg-[var(--muted)] p-4" key={`${item.itemId}:${item.itemVersion}`}><h3>{item.stem}</h3><p>{item.answer ? `Votre réponse : ${item.choices.find(choice => choice.id === item.answer?.choiceId)?.text ?? item.answer.choiceId}` : "Question non répondue"}</p>{item.answer?.correctChoiceId && <p>Bonne réponse : {item.choices.find(choice => choice.id === item.answer?.correctChoiceId)?.text ?? item.answer.correctChoiceId}</p>}<p>{item.answer?.explanation ?? "Aucune correction disponible pour cette réponse."}</p></article>)}</section>}
+  </div>;
   const current = session.items[index]!;
   return <div className="card p-6 md:p-8"><div className="mb-6 flex justify-between"><span className="badge">Question {index + 1}/{session.items.length}</span>{isMockExam && remainingSeconds !== null ? <span className="badge" aria-label="Temps restant">{String(Math.floor(remainingSeconds / 60)).padStart(2, "0")}:{String(remainingSeconds % 60).padStart(2, "0")}</span> : <span className="badge">{current.difficulty}</span>}</div><div className="progress mb-7" role="progressbar" aria-label="Progression dans la session" aria-valuemin={1} aria-valuemax={session.items.length} aria-valuenow={index + 1}><span style={{ width: `${((index + 1) / session.items.length) * 100}%` }}/></div><h2 className="text-xl leading-8">{current.stem}</h2><div className="my-6 grid gap-3">{current.choices.map(choice => <button key={choice.id} disabled={busy || current.answer !== null} onClick={() => void answer(choice.id)} aria-label={`${choice.id.toUpperCase()}. ${choice.text}`} className={`rounded-xl border p-4 text-left font-bold ${current.answer?.choiceId === choice.id ? "border-[var(--primary)] bg-[var(--accent)]" : "border-[var(--border)] bg-white hover:bg-[var(--muted)]"}`}>{choice.text}</button>)}</div>{current.answer && !isMockExam && <div ref={feedbackRef} tabIndex={-1} role="status" aria-live="polite" className="mb-5 rounded-xl bg-[var(--accent)] p-4"><strong>{current.answer.correct ? "Bonne réponse" : "À revoir"}</strong><p className="mb-0 text-sm leading-6">{current.answer.explanation}</p></div>}{current.answer && isMockExam && <p role="status" className="text-sm text-[var(--muted-foreground)]">Réponse enregistrée. La correction sera disponible après la fin de l’examen.</p>}<div className="flex justify-end">{current.answer && (index < session.items.length - 1 ? <button className="btn btn-primary" onClick={() => setIndex(index + 1)}>Question suivante</button> : <button className="btn btn-primary" disabled={busy} onClick={() => void complete()}>Terminer</button>)}</div></div>;
 }

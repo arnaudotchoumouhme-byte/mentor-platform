@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import { clientFetch, ClientRequestError } from "@/shared/api/client-fetch";
 
 export type AppState = {
+  mcq?: { available: boolean; resumableSessionId: string | null };
   subjects: Array<{ id: number; name: string; mastery: number; color: string }>;
   documents: Array<{ id: number; name: string; type: string; size: number; subject: string; status: string; content: string; archived: number; created_at: string; source_id: string | null; source_version_id: string | null; provenance_type: string; extraction_status: string; media_type: string | null; language: string | null; page_count: number | null }>;
   flashcards: Array<{ id: number; front: string; back: string; subject: string; difficulty: string; due_at: string; interval_days: number; status: string }>;
@@ -26,7 +27,7 @@ export function getAppStateDiagnostic() { return diagnosticSnapshot; }
 function publishDiagnostic(next: AppStateDiagnostic) { diagnosticSnapshot = next; for (const listener of diagnosticListeners) listener(); }
 
 function isEmptyState(data: AppState): boolean {
-  return data.subjects.length === 0 && data.documents.length === 0 && data.flashcards.length === 0 && data.questions.length === 0 && data.attempts.length === 0 && data.weaknesses.length === 0 && data.tasks.length === 0 && data.messages.length === 0 && Object.keys(data.settings).length === 0;
+  return !data.mcq?.available && !data.mcq?.resumableSessionId && data.subjects.length === 0 && data.documents.length === 0 && data.flashcards.length === 0 && data.questions.length === 0 && data.attempts.length === 0 && data.weaknesses.length === 0 && data.tasks.length === 0 && data.messages.length === 0 && Object.keys(data.settings).length === 0;
 }
 function statusForHttp(status: number): AppStateStatus { if (status === 401) return "unauthenticated"; if (status === 403) return "access-denied"; if (status === 409) return "conflict"; if (status === 429) return "quota-exceeded"; return "server-error"; }
 type FailureBody = { error?: { code?: string; message?: string; traceId?: string; retriable?: boolean } };

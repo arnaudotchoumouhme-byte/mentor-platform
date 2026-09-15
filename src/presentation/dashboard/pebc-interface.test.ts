@@ -62,7 +62,9 @@ describe("PEBC learner interface", () => {
     render(React.createElement(Dashboard));
     expect(screen.getByText("Activité réellement planifiée")).toBeTruthy();
     expect(screen.getAllByText("Conversions", { exact: false }).length).toBe(2);
-    expect(screen.getByText("64%")).toBeTruthy();
+    expect(screen.getByText("70%")).toBeTruthy();
+    expect(screen.queryByText("64%")).toBeNull();
+    expect(document.body.textContent).not.toContain("Maîtrisé");
     expect(screen.getByText("70% · score moyen enregistré")).toBeTruthy();
     expect(screen.getByRole("link", { name: "Voir mon action prioritaire" }).getAttribute("href")).toBe("/weaknesses#weakness-1");
     expect(within(screen.getByRole("region", { name: "Votre prochaine meilleure action" })).queryByText("Priorité élevée")).toBeNull();
