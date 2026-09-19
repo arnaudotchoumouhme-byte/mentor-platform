@@ -21,6 +21,7 @@ describe("document ingestion integration", () => {
       run: (sql: string, ...params: SQLInputValue[]) => sqlite.prepare(sql).run(...params),
     };
     new FreshDatabaseBootstrap(database).run();
+    sqlite.prepare("INSERT INTO accounts VALUES(?,?,?,?,?,?)").run("account-a", "auth0|a", "learner-a", "ACTIVE", "now", "now");
     const pending = new Set<string>();
     const final = new Set<string>();
     const key = (input: { id: string; extension: string }) => `${input.id}.${input.extension}`;
@@ -46,7 +47,7 @@ describe("document ingestion integration", () => {
       new LocalDocumentExtractor(),
       new NodeDocumentChecksum(),
     );
-    const result = await useCase.execute({ subject: "Pharmacologie", files: [{ name, browserMediaType, size: bytes.length, bytes }] });
+    const result = await useCase.execute({ learnerId: "learner-a", subject: "Pharmacologie", files: [{ name, browserMediaType, size: bytes.length, bytes }] });
     expect(result.documents[0]).toMatchObject({ status: "READY" });
     expect(sqlite.prepare("SELECT provenance_type,status,extraction_status FROM sources").get()).toEqual({
       provenance_type: "USER_UPLOAD", status: "READY", extraction_status: "COMPLETED",
@@ -54,7 +55,7 @@ describe("document ingestion integration", () => {
     expect(sqlite.prepare("SELECT extracted_content FROM source_versions").get()).toMatchObject({
       extracted_content: expect.stringContaining(expectedText),
     });
-    await expect(useCase.execute({ subject: "Pharmacologie", files: [{ name, browserMediaType, size: bytes.length, bytes }] }))
+    await expect(useCase.execute({ learnerId: "learner-a", subject: "Pharmacologie", files: [{ name, browserMediaType, size: bytes.length, bytes }] }))
       .rejects.toMatchObject({ code: "FILE_DUPLICATE" });
   }, 20_000);
 });

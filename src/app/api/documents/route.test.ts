@@ -10,6 +10,17 @@ vi.mock("@/infrastructure/documents/server-document-import", () => ({
 }));
 
 import { createDocumentsPost } from "./route";
+import { AppError } from "@/shared/errors/app-error";
+
+it("returns a generic conflict without exposing internal duplicate details", async () => {
+  const form=new FormData();
+  form.append("files",new File(["cours"],"cours.txt",{type:"text/plain"}));
+  const response=await createDocumentsPost({execute:vi.fn().mockRejectedValue(new AppError({code:"FILE_DUPLICATE",userMessage:"Ce document existe déjà dans cet espace.",category:"validation",internalMessage:"SQL checksum /server/path"}))})(request(form));
+  expect(response.status).toBe(409);
+  const body=await response.text();
+  expect(body).toContain("Ce document existe déjà dans cet espace.");
+  expect(body).not.toMatch(/SQL|checksum|\/server\/path|stack/);
+});
 
 function request(form: FormData) {
   return new Request("http://localhost/api/documents", { method: "POST", headers: { "x-trace-id": "trace_test_12345" }, body: form });
