@@ -98,7 +98,6 @@ export class ImportDocuments implements UseCase<ImportDocumentsInput, ImportDocu
           category: "validation",
           severity: "warn",
           userMessage: "Ce fichier existe déjà dans la bibliothèque.",
-          context: { checksumPrefix: checksum.slice(0, 12) },
         });
       }
       this.logger?.event({ name: "document.extraction.started", status: "success", traceId: input.traceId, context: { extension: validation.document.extension } });
