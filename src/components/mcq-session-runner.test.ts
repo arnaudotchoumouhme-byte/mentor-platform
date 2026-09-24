@@ -238,3 +238,36 @@ it("cannot start a new session while a previous correction is loading", async ()
   expect((screen.getByRole("button", {name: "Nouvelle session"}) as HTMLButtonElement).disabled).toBe(false);
   view.unmount();
 });
+
+
+describe("detailed pedagogical feedback", () => {
+  afterEach(cleanup);
+  it.each([true, false])("shows full recorded feedback and preserves navigation (correct=%s)", async correct => {
+    const explanation = "Pourquoi cette réponse est correcte\nJustification enregistrée\nMécanisme / concept à comprendre\nConcept enregistré\nPourquoi les autres options sont fausses\nB : justification B\nC : justification C\nD : justification D\nRaisonnement du pharmacien\nIndices enregistrés\nPoint PEBC à retenir\nRègle enregistrée\nPiège classique\nPiège enregistré\nApplication clinique\nApplication enregistrée\nSource\nCitation p. 2";
+    const second = {...before.items[0], itemId: "second", position: 1, stem: "Question suivante réelle"};
+    const answered = {...after.items[0], answer: {choiceId: correct ? "a" : "b", correct, correctChoiceId: "a", explanation, provenance: "SOURCE_VERSION:synthetic"}};
+    vi.mocked(clientFetch).mockReset().mockResolvedValueOnce(catalog()).mockResolvedValueOnce(response({sessionId},201)).mockResolvedValueOnce(response({...before, items:[before.items[0], second]})).mockResolvedValueOnce(response({...after, items:[answered,second]}));
+    render(React.createElement(McqSessionRunner)); await startSession();
+    expect(screen.queryByText("Justification enregistrée")).toBeNull();
+    fireEvent.click(screen.getByRole("button", {name: correct ? "A. Choix A" : "B. Choix B"}));
+    expect(await screen.findByText(correct ? "Bonne réponse." : "À revoir.")).toBeTruthy();
+    expect(screen.getByText("Bonne réponse : A. Choix A")).toBeTruthy();
+    for (const value of ["Justification enregistrée", "Concept enregistré", "Indices enregistrés", "Règle enregistrée", "Piège enregistré", "Application enregistrée", "Citation p. 2", "SOURCE_VERSION:synthetic"]) expect(screen.getByText(value)).toBeTruthy();
+    expect(screen.getByText(/B : justification B/).textContent).toContain("D : justification D");
+    if (!correct) expect(screen.getByText("Votre réponse : B. Choix B")).toBeTruthy();
+    expect(answerPosts()).toHaveLength(1);
+    expect(JSON.parse(String(answerPosts()[0][1]?.body))).toEqual({itemId:"item",itemVersion:1,choiceId:correct ? "a" : "b"});
+    fireEvent.click(screen.getByRole("button", {name:"Question suivante"}));
+    expect(screen.getByText("Question suivante réelle")).toBeTruthy();
+    expect(screen.queryByText("Justification enregistrée")).toBeNull();
+  });
+  it("preserves legacy prose without inventing distractor explanations or rendering HTML", async () => {
+    const explanation = "Texte historique <script>test</script>";
+    vi.mocked(clientFetch).mockReset().mockResolvedValueOnce(catalogWithResume()).mockResolvedValueOnce(response({...after,items:[{...after.items[0],answer:{...after.items[0].answer,explanation}}]}));
+    render(React.createElement(McqSessionRunner));
+    fireEvent.click(await screen.findByRole("button", {name:"Reprendre ma session"}));
+    expect(await screen.findByText(explanation)).toBeTruthy();
+    expect(screen.queryByText("Pourquoi les autres options sont fausses")).toBeNull();
+    expect(document.querySelector("script")).toBeNull();
+  });
+});

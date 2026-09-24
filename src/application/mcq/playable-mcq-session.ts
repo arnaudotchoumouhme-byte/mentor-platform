@@ -23,7 +23,7 @@ export type PlayableMcqSession = Readonly<{
     stem: string;
     choices: readonly Readonly<{ id: string; text: string }>[];
     difficulty: "FOUNDATION" | "INTERMEDIATE" | "ADVANCED";
-    answer: null | Readonly<{ choiceId: string; correct?: boolean; correctChoiceId?: string; explanation?: string }>;
+    answer: null | Readonly<{ choiceId: string; correct?: boolean; correctChoiceId?: string; explanation?: string; provenance?: string | null }>;
   }>[];
   score: McqScore | null;
 }>;
@@ -49,7 +49,7 @@ export class GetPlayableMcqSession {
         stem: item.stem,
         choices: item.choices,
         difficulty: item.difficulty,
-        answer: submitted ? hideMockExamCorrection ? { choiceId: submitted.choiceId } : { choiceId: submitted.choiceId, correct: submitted.correct, correctChoiceId: item.correctChoiceId, explanation: item.explanation } : null,
+        answer: submitted ? hideMockExamCorrection ? { choiceId: submitted.choiceId } : { choiceId: submitted.choiceId, correct: submitted.correct, correctChoiceId: item.correctChoiceId, explanation: item.explanation, provenance: item.provenance } : null,
       };
     }));
     return { sessionId: session.sessionId, mode: session.mode, sessionKind: session.sessionKind, status: session.status, blueprintVersionId: session.blueprintVersionId, startedAt: session.startedAt, completedAt: session.completedAt, durationSeconds: session.durationSeconds, deadlineAt: mockExamDeadline(session), remainingSeconds: session.status === "IN_PROGRESS" ? mockExamRemainingSeconds(session, serverNow) : 0, serverNow, items, score: hideMockExamCorrection ? null : await this.repository.findScore(sessionId) };
