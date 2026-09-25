@@ -4,7 +4,7 @@ import type { SqliteExecutor } from "./sqlite-executor";
 
 const SELECT_LIBRARY_DOCUMENTS = `SELECT
   d.id,d.name,d.type,d.size,d.subject,d.status,d.content,d.archived,d.created_at,
-  s.source_id,sv.source_version_id,
+  s.source_id,s.status AS source_status,sv.source_version_id,
   COALESCE(s.provenance_type,CASE WHEN d.name LIKE '[DÉMO]%' THEN 'DEMO' ELSE 'LEGACY_UNCLASSIFIED' END) AS provenance_type,
   COALESCE(s.extraction_status,'LEGACY') AS extraction_status,
   s.media_type,s.language,s.page_count
