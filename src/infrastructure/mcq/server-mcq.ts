@@ -4,6 +4,7 @@ import { CreateMcqSession } from "@/application/mcq/create-mcq-session";
 import { SubmitMcqAnswer } from "@/application/mcq/submit-mcq-answer";
 import { CompleteMcqSession } from "@/application/mcq/complete-mcq-session";
 import { GetMcqSession } from "@/application/mcq/get-mcq-session";
+import { GetCompletedMcqSession } from "@/application/mcq/get-completed-mcq-session";
 import { GetPlayableMcqSession } from "@/application/mcq/playable-mcq-session";
 import { SubmitPlayableMcqAnswer } from "@/application/mcq/submit-playable-mcq-answer";
 import { ListMcqBlueprints } from "@/application/mcq/list-mcq-blueprints";
@@ -18,4 +19,4 @@ const logger = { event: (event: McqEvent) => structuredLogger.log({ level: event
 const submit = new SubmitMcqAnswer(repository, clock, logger);
 const complete = new CompleteMcqSession(repository, clock, logger);
 const playable = new GetPlayableMcqSession(repository, clock, complete);
-export const mcqServices = Object.freeze({ create: new CreateMcqSession(repository, ids, clock, logger), submit: new SubmitPlayableMcqAnswer(submit, playable), complete, get: playable, getInternal: new GetMcqSession(repository), list: new ListMcqBlueprints(repository) });
+export const mcqServices = Object.freeze({ create: new CreateMcqSession(repository, ids, clock, logger), submit: new SubmitPlayableMcqAnswer(submit, playable), complete, get: playable, history: new GetCompletedMcqSession(repository), getInternal: new GetMcqSession(repository), list: new ListMcqBlueprints(repository) });

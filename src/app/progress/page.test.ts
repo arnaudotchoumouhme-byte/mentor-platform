@@ -14,6 +14,20 @@ const emptyData = {
 describe("Progress", () => {
   afterEach(cleanup);
 
+  it("shows STANDARD history, observed progress and linked errors without subjects", () => {
+    vi.mocked(useAppState).mockReturnValue({ data: { ...emptyData,
+      attempts: [{ id: "mcq:s", session_id: "s", module: "QCM Partie I", subject: "renal", score: 50, question_count: 2, duration_minutes: 4, created_at: "2026-09-25" }],
+      mcqErrors: [{ sessionId: "s", itemId: "item", itemVersion: 1, position: 0, answeredAt: "2026-09-25", question: "Question historique", chosenAnswer: "B. Faux", correctAnswer: "A. Exact", topic: "renal" }],
+    } } as unknown as ReturnType<typeof useAppState>);
+    render(React.createElement(Progress));
+    expect(screen.getByText("50% · Résultat observé")).toBeTruthy();
+    expect(screen.getByText(/2 questions/)).toBeTruthy();
+    expect(screen.getByText("Votre réponse : B. Faux")).toBeTruthy();
+    expect(screen.getByText("Bonne réponse : A. Exact")).toBeTruthy();
+    expect(screen.getByRole("link", { name: "Revoir la session" }).getAttribute("href")).toBe("/progress/sessions/s");
+    expect(screen.getByRole("link", { name: "Revoir" }).getAttribute("href")).toBe("/progress/sessions/s#question-0");
+  });
+
   it("shows honest first-use states without inventing progress", () => {
     vi.mocked(useAppState).mockReturnValue({ data: emptyData } as unknown as ReturnType<typeof useAppState>);
     render(React.createElement(Progress));
