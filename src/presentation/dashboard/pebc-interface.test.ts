@@ -20,7 +20,7 @@ function loaded(data: AppState, status: "loaded" | "loaded-empty" = "loaded") {
   mocks.useAppState.mockReturnValue({ data, error: "", status, refresh: vi.fn(), act: vi.fn() });
 }
 
-afterEach(() => { cleanup(); vi.clearAllMocks(); });
+afterEach(() => { cleanup(); vi.useRealTimers(); vi.clearAllMocks(); });
 
 describe("PEBC learner interface", () => {
   it("exposes the learner-oriented navigation and resource section", () => {
@@ -52,12 +52,15 @@ describe("PEBC learner interface", () => {
   });
 
   it("shows only persisted mission, competency and progression observations", () => {
+    // Task dates follow the local calendar day, not the UTC day (e.g. Toronto evenings).
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(new Date(2026, 8, 24, 22, 30));
     loaded({
       ...empty,
       subjects: [{ id: 1, name: "Calculs", mastery: 64, color: "#177a63" }],
       attempts: [{ id: 1, module: "QCM", subject: "Calculs", score: 70, duration_minutes: 12, created_at: "2026-08-18" }],
       weaknesses: [{ id: 1, subject: "Calculs", topic: "Conversions", confidence: "Moyenne", cause: "Observation", action: "Réviser", status: "active" }],
-      tasks: [{ id: 1, title: "Activité réellement planifiée", subject: "Calculs", task_date: new Date().toISOString().slice(0, 10), minutes: 15, priority: "high", status: "todo" }],
+      tasks: [{ id: 1, title: "Activité réellement planifiée", subject: "Calculs", task_date: "2026-09-24", minutes: 15, priority: "high", status: "todo" }],
     });
     render(React.createElement(Dashboard));
     expect(screen.getByText("Activité réellement planifiée")).toBeTruthy();

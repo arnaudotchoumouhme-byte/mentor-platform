@@ -243,22 +243,23 @@ it("cannot start a new session while a previous correction is loading", async ()
 describe("detailed pedagogical feedback", () => {
   afterEach(cleanup);
   it.each([true, false])("shows full recorded feedback and preserves navigation (correct=%s)", async correct => {
-    const explanation = "Pourquoi cette réponse est correcte\nJustification enregistrée\nMécanisme / concept à comprendre\nConcept enregistré\nPourquoi les autres options sont fausses\nB : justification B\nC : justification C\nD : justification D\nRaisonnement du pharmacien\nIndices enregistrés\nPoint PEBC à retenir\nRègle enregistrée\nPiège classique\nPiège enregistré\nApplication clinique\nApplication enregistrée\nSource\nCitation p. 2";
-    const second = {...before.items[0], itemId: "second", position: 1, stem: "Question suivante réelle"};
-    const answered = {...after.items[0], answer: {choiceId: correct ? "a" : "b", correct, correctChoiceId: "a", explanation, provenance: "SOURCE_VERSION:synthetic"}};
+    const explanation = "Pourquoi cette réponse est correcte\nJustification enregistrée\nMécanisme / concept à comprendre\nConcept enregistré\nPourquoi les autres options sont fausses\nA — FAUX\nJustification A\nB — FAUX\nJustification B\nC — VRAI\nJustification C\nD — FAUX\nJustification D\nRaisonnement du pharmacien\nIndices enregistrés\nPoint PEBC à retenir\nRègle enregistrée\nPiège classique\nPiège enregistré\nApplication clinique\nApplication enregistrée\nSource\nCitation p. 2";
+    const second = {...before.items[0], itemId: "second", position: 1, stem: "Question suivante réelle", choices: choices.map(c => ({...c,text: `Nouvelle ${c.id}`}))};
+    const answered = {...after.items[0], answer: {choiceId: correct ? "c" : "a", correct, correctChoiceId: "c", explanation, provenance: "SOURCE_VERSION:synthetic"}};
     vi.mocked(clientFetch).mockReset().mockResolvedValueOnce(catalog()).mockResolvedValueOnce(response({sessionId},201)).mockResolvedValueOnce(response({...before, items:[before.items[0], second]})).mockResolvedValueOnce(response({...after, items:[answered,second]}));
     render(React.createElement(McqSessionRunner)); await startSession();
     expect(screen.queryByText("Justification enregistrée")).toBeNull();
-    fireEvent.click(screen.getByRole("button", {name: correct ? "A. Choix A" : "B. Choix B"}));
+    fireEvent.click(screen.getByRole("button", {name: correct ? "C. Choix C" : "A. Choix A"}));
     expect(await screen.findByText(correct ? "Bonne réponse." : "À revoir.")).toBeTruthy();
-    expect(screen.getByText("Bonne réponse : A. Choix A")).toBeTruthy();
+    expect(screen.getByText("Bonne réponse : C. Choix C")).toBeTruthy();
     for (const value of ["Justification enregistrée", "Concept enregistré", "Indices enregistrés", "Règle enregistrée", "Piège enregistré", "Application enregistrée", "Citation p. 2", "SOURCE_VERSION:synthetic"]) expect(screen.getByText(value)).toBeTruthy();
-    expect(screen.getByText(/B : justification B/).textContent).toContain("D : justification D");
-    if (!correct) expect(screen.getByText("Votre réponse : B. Choix B")).toBeTruthy();
+    for (const letter of ["A", "B", "C", "D"]) { expect(screen.getByText(`Justification ${letter}`)).toBeTruthy(); expect(screen.getByRole("button", {name: `${letter}. Choix ${letter}`} ).textContent).toBe(`${letter}. Choix ${letter}`); }
+    if (!correct) expect(screen.getByText("Votre réponse : A. Choix A")).toBeTruthy();
     expect(answerPosts()).toHaveLength(1);
-    expect(JSON.parse(String(answerPosts()[0][1]?.body))).toEqual({itemId:"item",itemVersion:1,choiceId:correct ? "a" : "b"});
+    expect(JSON.parse(String(answerPosts()[0][1]?.body))).toEqual({itemId:"item",itemVersion:1,choiceId:correct ? "c" : "a"});
     fireEvent.click(screen.getByRole("button", {name:"Question suivante"}));
     expect(screen.getByText("Question suivante réelle")).toBeTruthy();
+    for (const c of choices) expect(screen.getByRole("button", {name: `${c.id.toUpperCase()}. Nouvelle ${c.id}`}).textContent).toBe(`${c.id.toUpperCase()}. Nouvelle ${c.id}`);
     expect(screen.queryByText("Justification enregistrée")).toBeNull();
   });
   it("preserves legacy prose without inventing distractor explanations or rendering HTML", async () => {

@@ -24,7 +24,8 @@ function sections(explanation: string) {
   let current = { title: headings[0] as string, text: "" };
   for (const line of explanation.split(/\r?\n/)) {
     const title = line.replace(/^#{1,3}\s+/, "").replace(/:\s*$/, "").trim();
-    const known = headings.find(heading => heading.toLocaleLowerCase("fr") === title.toLocaleLowerCase("fr"));
+    const option = title.match(/^([A-D])\s*[—–-]\s*(VRAI|FAUX)$/i);
+    const known = option ? `${option[1].toUpperCase()} — ${option[2].toUpperCase()}` : headings.find(heading => heading.toLocaleLowerCase("fr") === title.toLocaleLowerCase("fr"));
     if (known) {
       if (current.text.trim()) result.push(current);
       current = { title: known, text: "" };
