@@ -34,7 +34,7 @@ export function measureIsolatedInput(serialized: string) {
   const requestBytes = Buffer.byteLength(serialized, "utf8");
   const inputTokenUpperEstimate = requestBytes + ISOLATED_COST_POLICY.framingTokenReserve;
   return { requestBytes, inputTokenUpperEstimate,
-    inputFits: inputTokenUpperEstimate <= ISOLATED_COST_POLICY.maxInputTokens };
+    inputFits: inputTokenUpperEstimate < ISOLATED_COST_POLICY.maxInputTokens };
 }
 
 /** A failed request also consumes the attempt. No redirect or retry. */

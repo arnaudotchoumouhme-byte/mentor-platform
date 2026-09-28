@@ -18,7 +18,8 @@ it("prices the enforced 30000 input limit below one CAD and rejects an insuffici
   expect(network).not.toHaveBeenCalled();
 });
 it("counts UTF-8 bytes, includes the framing reserve and refuses a single byte over the limit", () => {
-  expect(measureIsolatedInput("x".repeat(21808))).toMatchObject({ inputTokenUpperEstimate: 30000, inputFits: true });
+  expect(measureIsolatedInput("x".repeat(21807))).toMatchObject({ inputTokenUpperEstimate: 29999, inputFits: true });
+  expect(measureIsolatedInput("x".repeat(21808))).toMatchObject({ inputTokenUpperEstimate: 30000, inputFits: false });
   expect(measureIsolatedInput("x".repeat(21809))).toMatchObject({ inputTokenUpperEstimate: 30001, inputFits: false });
   expect(measureIsolatedInput("é")).toMatchObject({ requestBytes: 2, inputTokenUpperEstimate: 8194 });
 });

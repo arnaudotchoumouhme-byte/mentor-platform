@@ -4,7 +4,7 @@ import { resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 import { execFileSync } from "node:child_process";
 import { isolatedCostPreflight } from "./isolated-openai-cost-policy";
-import { extract, measureFullSourcePayload } from "./test-openai-course-isolated";
+import { extract, measureFullSourcePayload, EXCERPT_PAGES } from "./test-openai-course-isolated";
 
 export const TEST_PDF_PATH = "scripts/fixtures/openai-isolated/PROCESSUS-DE-SOINS-PHARMACEUTIQUES_Cours-Maitre-PEBC.pdf";
 export const TEST_PDF_SHA256 = "f6e0e6a5c46a9504719974cf979c18924b612f79bc96697d069e88774aa34bd7";
@@ -22,7 +22,7 @@ if (process.argv[1] && import.meta.url === pathToFileURL(resolve(process.argv[1]
     const cost = isolatedCostPreflight(process.env);
     const { text, pages } = await extract(bytes);
     const input = await measureFullSourcePayload(text);
-    console.log(JSON.stringify({ pdfChecksumMatch: true, pages, input, cost, networkCalls: 0 }));
+    console.log(JSON.stringify({ pdfChecksumMatch: true, pages, excerptPages: EXCERPT_PAGES, input, cost, networkCalls: 0 }));
     if (!input.inputFits) throw new Error("TEST_INPUT_LIMIT");
     if (!cost.allowed) throw new Error("TEST_BUDGET_EXCEEDED");
   } catch {

@@ -11,6 +11,8 @@ import type { CourseQuestionGenerator } from "../src/application/mcq/course-trai
 export const TEST_MODEL = "gpt-5.6-terra";
 export const PDF_SHA256 = "f6e0e6a5c46a9504719974cf979c18924b612f79bc96697d069e88774aa34bd7";
 export const PDF_NAME = "PROCESSUS-DE-SOINS-PHARMACEUTIQUES_Cours-Maitre-PEBC.pdf";
+export const EXCERPT_PAGES = Object.freeze({ first: 1, last: 8 });
+const EXCERPT_NAME = `${PDF_NAME} — extrait pages 1–8 uniquement`;
 type Dependencies = {
   read: (path: string) => Promise<Uint8Array>;
   extract: (bytes: Uint8Array) => Promise<{ text: string; pages: number }>;
@@ -29,13 +31,13 @@ export async function runIsolatedCourseTest(args: string[], env: Record<string, 
   if (createHash("sha256").update(bytes).digest("hex") !== PDF_SHA256) throw new Error("TEST_PDF_CHECKSUM_MISMATCH");
   const { text, pages } = await deps.extract(bytes);
   if (!text.trim() || text.length > 180_000 || pages < 1) throw new Error("TEST_EXTRACTION_INVALID");
-  const base = { model: TEST_MODEL, pdfChecksumMatch: true, pages, databaseOpened: false, filesWritten: 0, published: 0 };
+  const base = { model: TEST_MODEL, pdfChecksumMatch: true, pages, excerptPages: EXCERPT_PAGES, databaseOpened: false, filesWritten: 0, published: 0 };
   const input = await measureFullSourcePayload(text);
   if (!input.inputFits) return { ...base, ...input, realCallExecuted: false, status: "BLOCKED_INPUT_LIMIT" };
   if (!authorized) return { ...base, ...input, realCallExecuted: false, status: "PREPARED_ONLY" };
   // Ephemeral provenance identity, never a production source UUID or an import artifact.
   const sourceVersionId = randomUUID();
-  const generated = await deps.generator().generate({ documentId: 0, name: PDF_NAME, text, sourceVersionId }, 2);
+  const generated = await deps.generator().generate({ documentId: 0, name: EXCERPT_NAME, text, sourceVersionId }, 2);
   if (generated.length !== 2 || generated.some(i => i.status !== "DRAFT" || i.version !== 1 || i.source.sourceVersionId !== sourceVersionId || i.choices.filter(c => c.id === i.correctChoiceId).length !== 1 || new Set(i.choices.map(c => c.id)).size !== 4 || !i.mappings.length)) throw new Error("TEST_CANDIDATES_INVALID");
   const corpus = parseMcqCorpus({ schemaVersion: "MCQ_CORPUS/1", corpusId: `ISOLATED-NOT-FOR-IMPORT:${randomUUID()}`, corpusVersion: 1, blueprintVersionId: "PEBC-PART-I-2026", items: generated.map((i, n) => ({ ...i, itemId: `ISOLATED-${n + 1}` })) });
   return { ...base, realCallExecuted: true, status: "PASS", draftCandidates: corpus.items.length, schema: "PASS", provenance: "EXACT_PDF_AND_VERIFIED_QUOTES_EPHEMERAL_ID", clinicalReview: "NOT_PERFORMED" };
@@ -49,7 +51,7 @@ export async function measureFullSourcePayload(text: string) {
       input = inspectIsolatedRequest(url, init).input;
       return new Response(null, { status: 400 }); // Intentional offline stop, no network.
     });
-  try { await generator.generate({ documentId: 0, name: PDF_NAME, text, sourceVersionId: "offline-only" }, 2); }
+  try { await generator.generate({ documentId: 0, name: EXCERPT_NAME, text, sourceVersionId: "offline-only" }, 2); }
   catch { if (!input) throw new Error("TEST_PAYLOAD_UNMEASURABLE"); }
   if (!input) throw new Error("TEST_PAYLOAD_UNMEASURABLE");
   return input;
@@ -60,8 +62,9 @@ export async function extract(bytes: Uint8Array) {
   const task = getDocument({ data: new Uint8Array(bytes), stopAtErrors: true, useSystemFonts: false, verbosity: 0 });
   try {
     const pdf = await task.promise;
+    if (pdf.numPages < EXCERPT_PAGES.last) throw new Error("TEST_EXCERPT_PAGES_MISSING");
     const texts: string[] = [];
-    for (let n = 1; n <= pdf.numPages; n++) {
+    for (let n = EXCERPT_PAGES.first; n <= EXCERPT_PAGES.last; n++) {
       const page = await pdf.getPage(n);
       const content = await page.getTextContent();
       texts.push(content.items.map(i => "str" in i ? `${i.str}${i.hasEOL ? "\n" : " "}` : "").join(""));

@@ -1,5 +1,13 @@
 # Test OpenAI ponctuel — préparation GitHub Actions
 
+## Test autorisé sur extrait : pages 1 à 8
+
+Cette décision remplace le périmètre « PDF complet » ci-dessous pour le test futur. Le PDF original et son checksum restent inchangés. Seules les pages 1–8 sont extraites en mémoire ; les pages 9–20 ne sont pas lues pour la génération. Aucun nouveau PDF ni fichier résultat n'est créé. Le nom de source transmis porte explicitement « extrait pages 1–8 uniquement » ; la validation des citations porte sur ce seul texte.
+
+Mesure locale sans clé ni réseau : **19 992 octets** pour le payload complet, plus réserve de **8 192**, soit **28 184 tokens estimés** (pas un comptage exact). `28 184 < 30 000` : PASS. L'égalité à 30 000 est également refusée. Le plafond de sortie reste 6 000 tokens, le budget 1 CAD, le plafond de coût 0,65 CAD. Aucun second appel, retry ou comptage OpenAI.
+
+Le contrôle GitHub utilise la même extraction et mesure avant l'étape recevant le secret. Aucun dispatch, push ou merge n'est effectué. Blocages avant lancement : workflow non enregistré sur la branche par défaut, secret non confirmé et quota CI non vérifié. La politique tarifaire expire toujours le 29 septembre 2026 à 00:00 UTC ; toute utilisation ultérieure exige une nouvelle vérification documentaire. Aucun résultat de génération ou contrôle clinique n'est revendiqué avant l'appel et la revue humaine.
+
 ## État et périmètre
 
 Workflow créé localement : `.github/workflows/openai-course-isolated.yml`.
@@ -7,7 +15,7 @@ Aucun appel réel, dispatch, push, merge, service Render ou déploiement effectu
 
 Le workflow utilise seulement `workflow_dispatch`, un runner GitHub `ubuntu-24.04`, les permissions `contents: read`, le SHA exact du dispatch et la branche `codex/openai-course-isolated-test`. Il refuse un autre SHA, une autre branche ou une relance du même run. Une installation sans lifecycle hooks précède le preflight. Aucune donnée ni variable production n'est importée. Aucun artefact métier n'est enregistré.
 
-## Limite locale explicite et blocage du PDF complet
+## Limite locale explicite et historique du refus du PDF complet
 
 Vérification documentaire : 27 septembre 2026 ; politique expirant le 29 septembre 2026 à 00:00 UTC. Toute exécution après cette date est refusée. Le JSON de barème fourni par environnement n'est plus accepté : un simple `boundsVerified=true` ne constitue pas une preuve et ne permet plus de diminuer artificiellement le calcul.
 
@@ -48,7 +56,7 @@ L'utilisateur peut configurer manuellement `OPENAI_API_KEY` dans Repository → 
 
 Le workflow doit d'abord être présent sur la branche par défaut pour son premier lancement manuel : [documentation GitHub](https://docs.github.com/en/actions/how-tos/manage-workflow-runs/manually-run-a-workflow). Aucun merge vers main n'est effectué ici. Une intégration distincte du seul workflow de contrôle reste donc à décider ; le code testé doit rester celui de la branche de test. Vérifier aussi les minutes Actions disponibles. Aucun abonnement Render supplémentaire.
 
-Même avec le secret configuré, **ne pas déclencher actuellement** : PDF complet au-dessus de la limite d'entrée, workflow non publié/enregistré, quota CI non vérifié.
+Même avec le secret configuré, **ne pas déclencher actuellement** : workflow non publié/enregistré, quota CI non vérifié. L'extrait 1–8 autorisé ci-dessus remplace désormais le PDF complet et respecte la limite d'entrée.
 
 ## Validation et limites des résultats
 
