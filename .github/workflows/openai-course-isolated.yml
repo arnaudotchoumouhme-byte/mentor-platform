@@ -1,0 +1,53 @@
+name: Isolated OpenAI course test (manual only)
+
+on:
+  workflow_dispatch:
+    inputs:
+      expected_sha:
+        description: Full reviewed SHA on codex/openai-course-isolated-test
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: isolated-openai-course-test
+  cancel-in-progress: false
+
+jobs:
+  isolated-test:
+    if: github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/codex/openai-course-isolated-test' && github.run_attempt == 1
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - name: Checkout dispatched test commit only
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+          fetch-depth: 1
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          package-manager-cache: false
+      - name: Install dependencies without lifecycle hooks
+        run: |
+          corepack enable
+          corepack pnpm install --frozen-lockfile --ignore-scripts
+      - name: Verify dispatch, PDF and cost before any secret is available
+        env:
+          EXPECTED_TEST_SHA: ${{ inputs.expected_sha }}
+          OPENAI_MCQ_MODEL: gpt-5.6-terra
+          AI_DAILY_BUDGET_CAD: '1'
+        run: node scripts/run-tsx.mjs scripts/check-openai-test-workflow.ts
+      - name: One isolated generation (no retry, DB, publication or artifacts)
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          OPENAI_MCQ_MODEL: gpt-5.6-terra
+          AI_DAILY_BUDGET_CAD: '1'
+        run: >-
+          node scripts/run-tsx.mjs scripts/test-openai-course-isolated.ts
+          --pdf="scripts/fixtures/openai-isolated/PROCESSUS-DE-SOINS-PHARMACEUTIQUES_Cours-Maitre-PEBC.pdf"
+          --authorize-openai-test

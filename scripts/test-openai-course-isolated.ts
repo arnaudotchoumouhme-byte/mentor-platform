@@ -1,13 +1,15 @@
 import { readFile } from "node:fs/promises";
 import { createHash, randomUUID } from "node:crypto";
-import { resolve } from "node:path";
+import { basename, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
+import { isolatedCostGuard } from "./isolated-openai-cost-guard";
+import { isolatedCostPreflight } from "./isolated-openai-cost-policy";
 import { parseMcqCorpus } from "../src/application/mcq/mcq-corpus-contract";
 import type { CourseQuestionGenerator } from "../src/application/mcq/course-training-contract";
 
 export const TEST_MODEL = "gpt-5.6-terra";
 export const PDF_SHA256 = "f6e0e6a5c46a9504719974cf979c18924b612f79bc96697d069e88774aa34bd7";
-const PDF_NAME = "PROCESSUS-DE-SOINS-PHARMACEUTIQUES_Cours-Maitre-PEBC.pdf";
+export const PDF_NAME = "PROCESSUS-DE-SOINS-PHARMACEUTIQUES_Cours-Maitre-PEBC.pdf";
 type Dependencies = {
   read: (path: string) => Promise<Uint8Array>;
   extract: (bytes: Uint8Array) => Promise<{ text: string; pages: number }>;
@@ -20,6 +22,7 @@ export async function runIsolatedCourseTest(args: string[], env: Record<string, 
   const pdfPath = args.find(a => a.startsWith("--pdf="))!.slice(6);
   const authorized = args.includes("--authorize-openai-test");
   if (!pdfPath) throw new Error("TEST_PDF_REQUIRED");
+  if (basename(pdfPath) !== PDF_NAME) throw new Error("TEST_PDF_NAME_MISMATCH");
   if (authorized && (!env.OPENAI_API_KEY || env.OPENAI_MCQ_MODEL !== TEST_MODEL || !(Number(env.AI_DAILY_BUDGET_CAD) > 0))) throw new Error("TEST_SERVER_CONFIGURATION_MISSING");
   const bytes = await deps.read(pdfPath);
   if (createHash("sha256").update(bytes).digest("hex") !== PDF_SHA256) throw new Error("TEST_PDF_CHECKSUM_MISMATCH");
@@ -54,12 +57,19 @@ async function extract(bytes: Uint8Array) {
 if (process.argv[1] && import.meta.url === pathToFileURL(resolve(process.argv[1])).href) {
   let stage = "MODULE_LOAD";
   try {
+    // Refuse over-budget requests before key access/provider construction.
+    if (process.argv.includes("--authorize-openai-test")) {
+      stage = "COST_PREFLIGHT";
+      const cost = isolatedCostPreflight(process.env);
+      console.log(JSON.stringify({ costPreflight: cost }));
+      if (!cost.allowed) throw new Error("TEST_BUDGET_EXCEEDED");
+    }
     const { OpenAiCourseGenerator } = await import("../src/infrastructure/mcq/openai-course-generator");
     stage = "PREFLIGHT";
     const result = await runIsolatedCourseTest(process.argv.slice(2), process.env, {
       read: path => { stage = "PDF_READ"; return readFile(path); },
       extract: async bytes => { stage = "PDF_EXTRACTION"; const result = await extract(bytes); stage = "VALIDATION"; return result; },
-      generator: () => new OpenAiCourseGenerator({ load: () => ({ apiKey: process.env.OPENAI_API_KEY, dailyBudgetCad: Number(process.env.AI_DAILY_BUDGET_CAD) }) }, () => process.env.OPENAI_MCQ_MODEL),
+      generator: () => new OpenAiCourseGenerator({ load: () => ({ apiKey: process.env.OPENAI_API_KEY, dailyBudgetCad: Number(process.env.AI_DAILY_BUDGET_CAD) }) }, () => process.env.OPENAI_MCQ_MODEL, isolatedCostGuard(process.env)),
     });
     console.log(JSON.stringify(result));
   } catch {

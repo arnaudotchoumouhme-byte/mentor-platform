@@ -1,44 +1,54 @@
-# Test OpenAI isolé — préparation uniquement
+# Test OpenAI ponctuel — préparation GitHub Actions
 
-Modèle demandé : `gpt-5.6-terra`. La clé reste exclusivement dans Render Environment / `OPENAI_API_KEY`, service mentor-platform. Aucune récupération, copie, lecture de valeur ou modification de configuration Render n'a été effectuée. Modèle compatible Responses/Structured Outputs : https://developers.openai.com/api/docs/models/gpt-5.6-terra
+## État et périmètre
 
-## Exécution future, après autorisation humaine distincte
+Workflow créé localement : `.github/workflows/openai-course-isolated.yml`.
+Aucun appel réel, dispatch, push, merge, service Render ou déploiement effectué pour cette préparation. Aucun accès à une DB ni modification du moteur métier. La clé n'a été ni lue ni récupérée.
 
-Utiliser un checkout isolé contenant cet utilitaire et ses dépendances, dans un processus serveur disposant **déjà** de la clé. Ne pas démarrer Next.js, ne pas installer/déployer un runtime et ne pas exécuter un script de migration. Le PDF exact doit être présent en lecture seule dans ce serveur ; son emplacement effectif reste à confirmer. Le script refuse un checksum différent de `f6e0e6a5c46a9504719974cf979c18924b612f79bc96697d069e88774aa34bd7`.
+Le workflow utilise seulement `workflow_dispatch`, un runner GitHub `ubuntu-24.04`, les permissions `contents: read`, le SHA exact du dispatch et la branche `codex/openai-course-isolated-test`. Il refuse un autre SHA, une autre branche ou une relance du même run. Une installation sans lifecycle hooks précède le preflight. Aucune donnée ni variable production n'est importée. Aucun artefact métier n'est enregistré.
 
-Contrôle préalable sans appel réseau et sans besoin de clé :
+## Borne financière démontrable et blocage
 
-```sh
-node scripts/run-tsx.mjs scripts/test-openai-course-isolated.ts \
-  --pdf="/chemin-confirme/PROCESSUS-DE-SOINS-PHARMACEUTIQUES_Cours-Maitre-PEBC.pdf"
-```
+Vérification documentaire : 27 septembre 2026 ; politique expirant le 29 septembre 2026 à 00:00 UTC. Toute exécution après cette date est refusée. Le JSON de barème fourni par environnement n'est plus accepté : un simple `boundsVerified=true` ne constitue pas une preuve et ne permet plus de diminuer artificiellement le calcul.
 
-Commande réelle **non exécutée**, réservée à une future autorisation :
+- Modèle exact : `gpt-5.6-terra`.
+- Requête complète : au plus 180 000 octets UTF-8 ; texte uniquement, aucune conversation antérieure ni outil.
+- Entrée : borne publiée du contexte entier, **1 050 000 tokens**. C'est une borne supérieure de sécurité, PAS le nombre probable de tokens du PDF. Aucune borne locale plus serrée couvrant l'encadrement Responses et le schéma n'est justifiée.
+- Sortie : **6 000 tokens**, imposés par `max_output_tokens`, raisonnement compris.
+- Tarif publié : 2 USD/M entrée, 12 USD/M sortie. Le calcul prend aussi les majorations contexte long (x2 entrée, x1,5 sortie) et écriture cache (x1,25 entrée), soit **5 USD/M entrée et 18 USD/M sortie**. Aucun rabais cache supposé ; niveau de service `default`.
+- Conversion conservatrice : **2 CAD/USD**, contre 1,4145 publié pour le 25 septembre 2026, soit environ 41,4 % de réserve de change.
+- Marge supplémentaire : **25 %**, puis arrondi supérieur au centime. Ce n'est pas une garantie contractuelle du taux bancaire ou des frais du compte.
+- Calcul : `(1 050 000 × 5 + 6 000 × 18) / 1 000 000 × 2 × 1,25 = 13,395`, arrondi à **13,40 CAD**.
 
-```sh
-OPENAI_MCQ_MODEL=gpt-5.6-terra \
-node scripts/run-tsx.mjs scripts/test-openai-course-isolated.ts \
-  --pdf="/chemin-confirme/PROCESSUS-DE-SOINS-PHARMACEUTIQUES_Cours-Maitre-PEBC.pdf" \
-  --authorize-openai-test
-```
+**13,40 > 1 : FAIL CLOSED.** Le preflight échoue avant l'étape qui reçoit le secret. Le script réel applique aussi le contrôle avant construction du provider et son transport le répète juste avant réseau. Aucun appel n'est actuellement admissible.
 
-Cette affectation du modèle concerne uniquement le processus ; elle ne change pas les variables du service Render. `OPENAI_API_KEY` est héritée sans être passée en argument ni imprimée. Le garde existant `AI_DAILY_BUDGET_CAD` doit déjà être positif, sinon arrêt. Aucun secret ne doit être saisi dans la commande, le dépôt ou la conversation. Ne pas utiliser `set -x`, afficher l'environnement ou activer des traces HTTP contenant les en-têtes.
+Sources officielles :
+- [Modèle, contexte et tarifs](https://developers.openai.com/api/docs/models/gpt-5.6-terra).
+- [Comptage OpenAI](https://developers.openai.com/api/docs/guides/token-counting) : les tokens de formatage et de schéma ne sont pas tous comptés par une tokenisation locale du texte.
+- [Taux indicatifs Banque du Canada](https://www.bankofcanada.ca/rates/exchange/daily-exchange-rates/).
 
-## Isolation et limites
+Le comptage officiel préalable des tokens serait un appel API supplémentaire. Il n'est PAS exécuté ni ajouté ici car la mission limite le total à un appel OpenAI. Ne pas inventer une borne plus faible ou relever le budget pour débloquer artificiellement le test. Une décision ultérieure sera nécessaire pour concilier le comptage préalable et la limite d'appels, ou établir autrement une borne sûre sous 1 CAD.
 
-- Lecture du PDF, vérification SHA-256, extraction locale, un seul appel Responses, deux candidats DRAFT. Pas de retry automatique.
-- Réutilisation du connecteur serveur, `store:false`, validation stricte JSON, nombre, quatre choix, réponse unique, rubriques et citation présente dans le texte exact. La validation sémantique clinique reste humaine.
-- Aucune connexion SQLite ni import de module DB, bootstrap applicatif, importer de corpus ou publication. Aucun paramètre DB accepté.
-- Provenance du test : UUID éphémère en mémoire et PDF exact vérifié. Ce n'est **pas** un source_version_id de production. Aucune équivalence avec une source production n'est inventée.
-- Aucun contenu candidat ni secret imprimé. Seul un résumé de contrôles est affiché ; les erreurs n'affichent pas les réponses fournisseur ni les exceptions brutes.
-- Aucun fichier de résultat : candidats et texte restent dans la mémoire du processus, libérée à sa fin. Rien à nettoyer dans Mentor, aucune donnée métier permanente, SNC/SNA inchangés.
-- Deux candidats seulement, plafond de sortie du connecteur 24 000 tokens, timeout 120 s, sans retry. L'appel peut être facturé même en cas d'échec. Le garde monétaire existant n'est pas une mesure de facturation ; aucun plafond financier effectif n'est prétendu.
-- `store:false` n'est pas une promesse de rétention nulle du fournisseur. Le test transmet le texte du PDF à l'API OpenAI après autorisation.
+Le transport interdit les redirections et toute seconde tentative, même après erreur réseau. Le schéma impose deux candidats, sans boucle ni retry. La limite budgétaire est par exécution ; sans stockage elle ne constitue pas un compteur quotidien. Ne pas lancer plusieurs dispatchs.
 
-## Résultats locaux
+## PDF isolé
 
-Contrôle sans autorisation réseau du PDF réel : PASS, checksum conforme, 20 pages, `PREPARED_ONLY`, `realCallExecuted:false`, `filesWritten:0`, `databaseOpened:false`.
+Fichier préparé : `scripts/fixtures/openai-isolated/PROCESSUS-DE-SOINS-PHARMACEUTIQUES_Cours-Maitre-PEBC.pdf`.
 
-Preview http://127.0.0.1:4320/library : provider/identité synthétiques, SQLite en mémoire. Vérification HTTP complète : 10 DRAFT, une modification, un rejet, neuf validations/publications de test, session de cinq questions, score 80 %, historique/corrections/erreurs présents, accès du second learner refusé. Aucun appel réel ni accès production. Le dialogue natif du navigateur reste à confirmer humainement ; les API ont été vérifiées directement contre le seul harnais local.
+69 896 octets ; SHA-256 : `f6e0e6a5c46a9504719974cf979c18924b612f79bc96697d069e88774aa34bd7`.
 
-Test réel OpenAI : NON EXÉCUTÉ. Avant celui-ci : autorisation explicite, checkout serveur isolé disponible, chemin du PDF confirmé et configuration serveur compatible. Ne pas lire ni exporter la clé pour vérifier ces préconditions.
+Copie depuis le PDF local fourni, sans accès production. Nom et checksum vérifiés. Le workflow vérifie les octets avant toute génération. Le script vérifie de nouveau le nom/checksum et extrait en mémoire. Ce PDF sera disponible au runner seulement après publication autorisée des fichiers de test sur GitHub.
+
+## Secret et activation future
+
+L'utilisateur peut configurer manuellement `OPENAI_API_KEY` dans Repository → Settings → Secrets and variables → Actions → New repository secret. Ne jamais fournir sa valeur à Codex ni la récupérer depuis Render. Le secret n'est injecté que dans la dernière étape, jamais dans l'installation, les outputs ou un fichier. Les autres variables de cette étape sont `OPENAI_MCQ_MODEL=gpt-5.6-terra` et `AI_DAILY_BUDGET_CAD=1`.
+
+Le workflow doit d'abord être présent sur la branche par défaut pour son premier lancement manuel : [documentation GitHub](https://docs.github.com/en/actions/how-tos/manage-workflow-runs/manually-run-a-workflow). Aucun merge vers main n'est effectué ici. Une intégration distincte du seul workflow de contrôle reste donc à décider ; le code testé doit rester celui de la branche de test. Vérifier aussi les minutes Actions disponibles. Aucun abonnement Render supplémentaire.
+
+Même avec le secret configuré, **ne pas déclencher actuellement** : borne financière au-dessus du plafond, workflow non publié/enregistré, quota CI non vérifié.
+
+## Validation et limites des résultats
+
+Tests locaux : garde financier, budget invalide, barème inconnu/expiré, absence de réseau au-dessus du budget, tailles, modèle, deux candidats, seconde tentative interdite, dispatch/SHA/branche, isolation du secret et checksum PDF. Typecheck, lint et diff check requis. Aucun test global nécessaire pour ce périmètre isolé.
+
+Un futur résultat de génération ne pourra établir que la conformité structurelle, quatre choix, réponse unique, rubriques Mentor V2 et citation retrouvée dans le PDF. L'exactitude clinique et l'absence d'affirmations non étayées exigent une revue humaine ; ne pas les déclarer validées automatiquement. Candidats uniquement DRAFT en mémoire, pas de fichier résultat, import ou publication. `store:false` ne promet pas une rétention fournisseur nulle.
