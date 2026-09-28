@@ -1,6 +1,6 @@
 import { expect, it, vi } from "vitest";
 import { isolatedCostGuard, prepareIsolatedRequest } from "../../../scripts/isolated-openai-cost-guard";
-import { isolatedCostPreflight, singleAttemptTransport } from "../../../scripts/isolated-openai-cost-policy";
+import { isolatedCostPreflight, measureIsolatedInput, singleAttemptTransport } from "../../../scripts/isolated-openai-cost-policy";
 
 const time = Date.parse("2026-09-27T12:00:00Z");
 const env = { OPENAI_MCQ_MODEL: "gpt-5.6-terra", AI_DAILY_BUDGET_CAD: "1" };
@@ -10,11 +10,23 @@ const args = () => ["https://api.openai.com/v1/responses", { method: "POST", bod
   text: { format: { type: "json_schema", schema: { properties: { questions: { type: "array" } } } } },
 }) }] as const;
 
-it("uses a proven context bound, long-context/cache pricing and rounds up; blocks above one CAD", async () => {
-  expect(isolatedCostPreflight(env, time)).toMatchObject({ maximumCad: 13.4, allowed: false,
-    maxInputTokens: 1050000, maxOutputTokens: 6000, usdCadRate: 2, safetyMultiplier: 1.25 });
+it("prices the enforced 30000 input limit below one CAD and rejects an insufficient budget", async () => {
+  expect(isolatedCostPreflight(env, time)).toMatchObject({ maximumCad: 0.65, allowed: true,
+    maxInputTokens: 30000, maxOutputTokens: 6000, usdCadRate: 2, safetyMultiplier: 1.25 });
   const network = vi.fn<typeof fetch>();
-  await expect(isolatedCostGuard(env, network, () => time)(...args())).rejects.toThrow("TEST_BUDGET_EXCEEDED");
+  await expect(isolatedCostGuard({ ...env, AI_DAILY_BUDGET_CAD: "0.64" }, network, () => time)(...args())).rejects.toThrow("TEST_BUDGET_EXCEEDED");
+  expect(network).not.toHaveBeenCalled();
+});
+it("counts UTF-8 bytes, includes the framing reserve and refuses a single byte over the limit", () => {
+  expect(measureIsolatedInput("x".repeat(21808))).toMatchObject({ inputTokenUpperEstimate: 30000, inputFits: true });
+  expect(measureIsolatedInput("x".repeat(21809))).toMatchObject({ inputTokenUpperEstimate: 30001, inputFits: false });
+  expect(measureIsolatedInput("é")).toMatchObject({ requestBytes: 2, inputTokenUpperEstimate: 8194 });
+});
+it("rejects an oversized full payload before invoking the network", async () => {
+  const [url, init] = args();
+  const network = vi.fn<typeof fetch>();
+  const body = { ...JSON.parse(init.body), instructions: "x".repeat(21808) };
+  await expect(isolatedCostGuard(env, network, () => time)(url, { ...init, body: JSON.stringify(body) })).rejects.toThrow("TEST_INPUT_LIMIT");
   expect(network).not.toHaveBeenCalled();
 });
 it.each(["NaN", "Infinity", "0", "-1", "2"])("blocks invalid budget %s", budget => {

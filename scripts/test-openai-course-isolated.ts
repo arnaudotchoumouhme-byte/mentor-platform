@@ -2,8 +2,9 @@ import { readFile } from "node:fs/promises";
 import { createHash, randomUUID } from "node:crypto";
 import { basename, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
-import { isolatedCostGuard } from "./isolated-openai-cost-guard";
+import { isolatedCostGuard, inspectIsolatedRequest } from "./isolated-openai-cost-guard";
 import { isolatedCostPreflight } from "./isolated-openai-cost-policy";
+import { OpenAiCourseGenerator } from "../src/infrastructure/mcq/openai-course-generator";
 import { parseMcqCorpus } from "../src/application/mcq/mcq-corpus-contract";
 import type { CourseQuestionGenerator } from "../src/application/mcq/course-training-contract";
 
@@ -29,7 +30,9 @@ export async function runIsolatedCourseTest(args: string[], env: Record<string, 
   const { text, pages } = await deps.extract(bytes);
   if (!text.trim() || text.length > 180_000 || pages < 1) throw new Error("TEST_EXTRACTION_INVALID");
   const base = { model: TEST_MODEL, pdfChecksumMatch: true, pages, databaseOpened: false, filesWritten: 0, published: 0 };
-  if (!authorized) return { ...base, realCallExecuted: false, status: "PREPARED_ONLY" };
+  const input = await measureFullSourcePayload(text);
+  if (!input.inputFits) return { ...base, ...input, realCallExecuted: false, status: "BLOCKED_INPUT_LIMIT" };
+  if (!authorized) return { ...base, ...input, realCallExecuted: false, status: "PREPARED_ONLY" };
   // Ephemeral provenance identity, never a production source UUID or an import artifact.
   const sourceVersionId = randomUUID();
   const generated = await deps.generator().generate({ documentId: 0, name: PDF_NAME, text, sourceVersionId }, 2);
@@ -38,7 +41,21 @@ export async function runIsolatedCourseTest(args: string[], env: Record<string, 
   return { ...base, realCallExecuted: true, status: "PASS", draftCandidates: corpus.items.length, schema: "PASS", provenance: "EXACT_PDF_AND_VERIFIED_QUOTES_EPHEMERAL_ID", clinicalReview: "NOT_PERFORMED" };
 }
 
-async function extract(bytes: Uint8Array) {
+/** Reuse the real payload builder with an in-memory transport, never fetch/key access. */
+export async function measureFullSourcePayload(text: string) {
+  let input: ReturnType<typeof inspectIsolatedRequest>["input"] | undefined;
+  const generator = new OpenAiCourseGenerator({ load: () => ({ apiKey: "offline-placeholder", dailyBudgetCad: 1 }) }, () => TEST_MODEL,
+    async (url, init) => {
+      input = inspectIsolatedRequest(url, init).input;
+      return new Response(null, { status: 400 }); // Intentional offline stop, no network.
+    });
+  try { await generator.generate({ documentId: 0, name: PDF_NAME, text, sourceVersionId: "offline-only" }, 2); }
+  catch { if (!input) throw new Error("TEST_PAYLOAD_UNMEASURABLE"); }
+  if (!input) throw new Error("TEST_PAYLOAD_UNMEASURABLE");
+  return input;
+}
+
+export async function extract(bytes: Uint8Array) {
   const { getDocument } = await import("pdfjs-dist/legacy/build/pdf.mjs");
   const task = getDocument({ data: new Uint8Array(bytes), stopAtErrors: true, useSystemFonts: false, verbosity: 0 });
   try {
@@ -64,7 +81,6 @@ if (process.argv[1] && import.meta.url === pathToFileURL(resolve(process.argv[1]
       console.log(JSON.stringify({ costPreflight: cost }));
       if (!cost.allowed) throw new Error("TEST_BUDGET_EXCEEDED");
     }
-    const { OpenAiCourseGenerator } = await import("../src/infrastructure/mcq/openai-course-generator");
     stage = "PREFLIGHT";
     const result = await runIsolatedCourseTest(process.argv.slice(2), process.env, {
       read: path => { stage = "PDF_READ"; return readFile(path); },
@@ -72,6 +88,7 @@ if (process.argv[1] && import.meta.url === pathToFileURL(resolve(process.argv[1]
       generator: () => new OpenAiCourseGenerator({ load: () => ({ apiKey: process.env.OPENAI_API_KEY, dailyBudgetCad: Number(process.env.AI_DAILY_BUDGET_CAD) }) }, () => process.env.OPENAI_MCQ_MODEL, isolatedCostGuard(process.env)),
     });
     console.log(JSON.stringify(result));
+    if (result.status === "BLOCKED_INPUT_LIMIT") process.exitCode = 1;
   } catch {
     // Do not print exceptions, provider responses, document content, environment or credentials.
     console.error(`ISOLATED_OPENAI_TEST_FAILED (${stage}) — verify arguments, PDF checksum and server configuration; no automatic retry.`);

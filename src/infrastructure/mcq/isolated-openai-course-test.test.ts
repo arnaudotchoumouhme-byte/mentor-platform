@@ -6,6 +6,14 @@ vi.mock("node:crypto", async importOriginal => ({ ...await importOriginal<typeof
 const quote = "Texte documentaire synthétique réservé au test.";
 const dependencies = () => ({ read: vi.fn(async () => new Uint8Array([1])), extract: vi.fn(async () => ({ text: quote, pages: 1 })), generator: vi.fn(() => ({ generate: vi.fn() })) });
 describe("isolated OpenAI test safety", () => {
+  it("refuses the full oversized source without truncation or generator access", async () => {
+    const deps = dependencies();
+    deps.extract.mockResolvedValue({ text: "x".repeat(30000), pages: 20 });
+    const result = await runIsolatedCourseTest([`--pdf=${PDF_NAME}`], {}, deps);
+    expect(result).toMatchObject({ status: "BLOCKED_INPUT_LIMIT", realCallExecuted: false, inputFits: false });
+    expect(result).toHaveProperty("inputTokenUpperEstimate", expect.any(Number));
+    expect(deps.generator).not.toHaveBeenCalled();
+  });
   it("prepares without authorization without accessing a generator or requiring a key", async () => {
     const deps = dependencies();
     expect(await runIsolatedCourseTest([`--pdf=${PDF_NAME}`], {}, deps)).toMatchObject({ status: "PREPARED_ONLY", realCallExecuted: false, databaseOpened: false, filesWritten: 0 });

@@ -1,11 +1,11 @@
-/** Fixed reviewed bounds, derived in docs/reports/OPENAI-COURSE-ISOLATED-TEST.md.
- * No smaller complete Responses input bound has been established locally. */
+/** Test-only byte-BPE upper estimate; see the documented framing reserve. */
 export const ISOLATED_COST_POLICY = Object.freeze({
   model: "gpt-5.6-terra",
   reviewedAt: "2026-09-27T00:00:00Z",
   expiresAt: "2026-09-29T00:00:00Z",
-  maxRequestBytes: 180_000,
-  maxInputTokens: 1_050_000,
+  maxRequestBytes: 21_808,
+  maxInputTokens: 30_000,
+  framingTokenReserve: 8192,
   maxOutputTokens: 6000,
   // $2/$12 per million, long-context x2/x1.5, cache-write input x1.25.
   inputUsdPerMillion: 5,
@@ -22,7 +22,19 @@ export function isolatedCostPreflight(env: Record<string, string | undefined>, n
   if (!Number.isFinite(budget) || budget <= 0 || budget > 1) throw new Error("TEST_BUDGET_INVALID");
   const maximumCad = Math.ceil((p.maxInputTokens * p.inputUsdPerMillion + p.maxOutputTokens * p.outputUsdPerMillion)
     / 1_000_000 * p.usdCadRate * p.safetyMultiplier * 100) / 100;
-  return { ...p, maximumCad, budgetCad: budget, allowed: maximumCad <= budget };
+  return { ...p, maximumCad, budgetCad: budget, allowed: maximumCad < 1 && maximumCad <= budget };
+}
+
+/** Byte-level BPE cannot produce more ordinary tokens than source UTF-8 bytes.
+ * Count the COMPLETE serialized body (including escaped JSON/schema), not just
+ * the PDF. Reserve another 8192 tokens for server framing; never chars / 4.
+ * This is a conservative local estimate, not an exact provider token count.
+ */
+export function measureIsolatedInput(serialized: string) {
+  const requestBytes = Buffer.byteLength(serialized, "utf8");
+  const inputTokenUpperEstimate = requestBytes + ISOLATED_COST_POLICY.framingTokenReserve;
+  return { requestBytes, inputTokenUpperEstimate,
+    inputFits: inputTokenUpperEstimate <= ISOLATED_COST_POLICY.maxInputTokens };
 }
 
 /** A failed request also consumes the attempt. No redirect or retry. */

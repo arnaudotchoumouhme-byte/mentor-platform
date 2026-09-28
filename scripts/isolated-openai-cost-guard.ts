@@ -1,6 +1,6 @@
-import { ISOLATED_COST_POLICY as policy, isolatedCostPreflight, singleAttemptTransport } from "./isolated-openai-cost-policy";
+import { ISOLATED_COST_POLICY as policy, isolatedCostPreflight, measureIsolatedInput, singleAttemptTransport } from "./isolated-openai-cost-policy";
 
-export function prepareIsolatedRequest(url: Parameters<typeof fetch>[0], init: Parameters<typeof fetch>[1]) {
+export function inspectIsolatedRequest(url: Parameters<typeof fetch>[0], init: Parameters<typeof fetch>[1]) {
   if (url !== "https://api.openai.com/v1/responses" || init?.method !== "POST" || typeof init.body !== "string") throw new Error("TEST_REQUEST_INVALID");
   const body = JSON.parse(init.body);
   if (Object.keys(body).some(k => !["model", "store", "max_output_tokens", "instructions", "input", "text"].includes(k)) ||
@@ -14,8 +14,13 @@ export function prepareIsolatedRequest(url: Parameters<typeof fetch>[0], init: P
   questions.minItems = 2;
   questions.maxItems = 2;
   const serialized = JSON.stringify(body);
-  if (Buffer.byteLength(serialized, "utf8") > policy.maxRequestBytes) throw new Error("TEST_INPUT_LIMIT");
-  return { ...init, body: serialized, redirect: "error" as const };
+  return { options: { ...init, body: serialized, redirect: "error" as const }, input: measureIsolatedInput(serialized) };
+}
+
+export function prepareIsolatedRequest(url: Parameters<typeof fetch>[0], init: Parameters<typeof fetch>[1]) {
+  const inspected = inspectIsolatedRequest(url, init);
+  if (!inspected.input.inputFits) throw new Error("TEST_INPUT_LIMIT");
+  return inspected.options;
 }
 
 /** No env-provided rate card or unverified character/token ratio can authorize a call. */
