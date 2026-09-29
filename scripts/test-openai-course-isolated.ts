@@ -2,7 +2,7 @@ import { readFile } from "node:fs/promises";
 import { createHash, randomUUID } from "node:crypto";
 import { basename, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
-import { isolatedCostGuard, inspectIsolatedRequest } from "./isolated-openai-cost-guard";
+import { buildCoursePayload, measureCoursePayload } from "../src/infrastructure/mcq/course-generation-guard";
 import { isolatedCostPreflight } from "./isolated-openai-cost-policy";
 import { OpenAiCourseGenerator } from "../src/infrastructure/mcq/openai-course-generator";
 import { parseMcqCorpus } from "../src/application/mcq/mcq-corpus-contract";
@@ -43,18 +43,9 @@ export async function runIsolatedCourseTest(args: string[], env: Record<string, 
   return { ...base, realCallExecuted: true, status: "PASS", draftCandidates: corpus.items.length, schema: "PASS", provenance: "EXACT_PDF_AND_VERIFIED_QUOTES_EPHEMERAL_ID", clinicalReview: "NOT_PERFORMED" };
 }
 
-/** Reuse the real payload builder with an in-memory transport, never fetch/key access. */
+/** Measure the real serialized payload without constructing a provider or reading a key. */
 export async function measureFullSourcePayload(text: string) {
-  let input: ReturnType<typeof inspectIsolatedRequest>["input"] | undefined;
-  const generator = new OpenAiCourseGenerator({ load: () => ({ apiKey: "offline-placeholder", dailyBudgetCad: 1 }) }, () => TEST_MODEL,
-    async (url, init) => {
-      input = inspectIsolatedRequest(url, init).input;
-      return new Response(null, { status: 400 }); // Intentional offline stop, no network.
-    });
-  try { await generator.generate({ documentId: 0, name: EXCERPT_NAME, text, sourceVersionId: "offline-only" }, 2); }
-  catch { if (!input) throw new Error("TEST_PAYLOAD_UNMEASURABLE"); }
-  if (!input) throw new Error("TEST_PAYLOAD_UNMEASURABLE");
-  return input;
+  return measureCoursePayload(buildCoursePayload({ documentId: 0, name: EXCERPT_NAME, text, sourceVersionId: "offline-only" }, 2));
 }
 
 export async function extract(bytes: Uint8Array) {
@@ -88,7 +79,7 @@ if (process.argv[1] && import.meta.url === pathToFileURL(resolve(process.argv[1]
     const result = await runIsolatedCourseTest(process.argv.slice(2), process.env, {
       read: path => { stage = "PDF_READ"; return readFile(path); },
       extract: async bytes => { stage = "PDF_EXTRACTION"; const result = await extract(bytes); stage = "VALIDATION"; return result; },
-      generator: () => new OpenAiCourseGenerator({ load: () => ({ apiKey: process.env.OPENAI_API_KEY, dailyBudgetCad: Number(process.env.AI_DAILY_BUDGET_CAD) }) }, () => process.env.OPENAI_MCQ_MODEL, isolatedCostGuard(process.env)),
+      generator: () => new OpenAiCourseGenerator({ load: () => ({ apiKey: process.env.OPENAI_API_KEY, dailyBudgetCad: Number(process.env.AI_DAILY_BUDGET_CAD) }) }, () => process.env.OPENAI_MCQ_MODEL, undefined, { budgetCad: () => Number(process.env.AI_DAILY_BUDGET_CAD) }),
     });
     console.log(JSON.stringify(result));
     if (result.status === "BLOCKED_INPUT_LIMIT") process.exitCode = 1;

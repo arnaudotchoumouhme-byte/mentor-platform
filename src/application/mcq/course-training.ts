@@ -1,6 +1,6 @@
 import { AppError } from "@/shared/errors/app-error";
 import { parseMcqCorpus } from "./mcq-corpus-contract";
-import { PERSONAL_CORPUS_PREFIX, type CourseCommand, type CourseQuestion, type CourseQuestionGenerator, type CourseTrainingRepository } from "./course-training-contract";
+import { PERSONAL_CORPUS_PREFIX, MAX_COURSE_DRAFTS, type CourseCommand, type CourseQuestion, type CourseQuestionGenerator, type CourseTrainingRepository } from "./course-training-contract";
 
 export function courseFailure(message: string, code = "VALIDATION_ERROR"): never {
   throw new AppError({ code, userMessage: message, category: code === "FORBIDDEN" ? "security" : "validation" });
@@ -15,6 +15,7 @@ export class CourseTraining {
     return { name: source.name, questions: this.repository.list(source).map(({ item }) => ({ itemId: item.itemId, version: item.version, status: item.status, stem: item.stem, choices: item.choices, correctChoiceId: item.correctChoiceId, explanation: item.explanation, reference: item.source.reference.label, mappings: item.mappings })) };
   }
   async execute(documentId: number, learnerId: string, command: CourseCommand) {
+    if (command.action === "generate" && (!Number.isInteger(command.desiredQuestionCount) || command.desiredQuestionCount < 1 || command.desiredQuestionCount > MAX_COURSE_DRAFTS)) courseFailure("Le lot contrôlé est limité à deux questions.");
     const source = this.repository.resolve(documentId, learnerId);
     const records = this.repository.list(source);
     if (command.action === "generate") {

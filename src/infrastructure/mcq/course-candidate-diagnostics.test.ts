@@ -18,8 +18,8 @@ it.each([
   expect(diagnoseGenerated(raw, source)[rule]).toBe(false);
   expect(() => generatedCourseItems(raw, source)).toThrow();
   const request = vi.fn(async () => new Response(JSON.stringify({ status: "completed", privateMetadata: "PRIVATE_SENTINEL", output: [{ content: [{ type: "output_text", text: JSON.stringify(raw) }] }] })));
-  const generator = new OpenAiCourseGenerator({ load: () => ({ apiKey: "synthetic-secret", dailyBudgetCad: 2 }) }, () => "offline-model", request);
-  const error = await generator.generate(source, 10).catch(e => e);
+  const generator = new OpenAiCourseGenerator({ load: () => ({ apiKey: "synthetic-secret", dailyBudgetCad: 2 }) }, () => "gpt-5.6-terra", request, { budgetCad: () => 1, now: () => Date.parse("2026-09-29T12:00:00Z") });
+  const error = await generator.generate(source, 1).catch(e => e);
   expect(error.context).toMatchObject({ stage: "CANDIDATE_VALIDATION", rules: { [rule]: false } });
   const serialized = JSON.stringify(error);
   for (const sensitive of [quote, "Synthetic question", "PRIVATE_SENTINEL", "synthetic-secret", "privateMetadata"]) expect(serialized).not.toContain(sensitive);
@@ -30,8 +30,8 @@ it.each([
 
 it("keeps invalid JSON private without retry", async () => {
   const request = vi.fn(async () => new Response(JSON.stringify({ status: "completed", output: [{ content: [{ type: "output_text", text: "PRIVATE_INVALID_JSON" }] }] })));
-  const generator = new OpenAiCourseGenerator({ load: () => ({ apiKey: "synthetic-secret", dailyBudgetCad: 2 }) }, () => "offline-model", request);
-  const error = await generator.generate(source, 10).catch(e => e);
+  const generator = new OpenAiCourseGenerator({ load: () => ({ apiKey: "synthetic-secret", dailyBudgetCad: 2 }) }, () => "gpt-5.6-terra", request, { budgetCad: () => 1, now: () => Date.parse("2026-09-29T12:00:00Z") });
+  const error = await generator.generate(source, 1).catch(e => e);
   expect(error.context.rules).toEqual({ GENERATED_JSON: false });
   expect(JSON.stringify(error)).not.toContain("PRIVATE_INVALID_JSON");
   expect(request).toHaveBeenCalledTimes(1);
