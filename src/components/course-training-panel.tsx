@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { CourseTraining } from "@/application/mcq/course-training";
-import type { CourseCommand, CourseEdit } from "@/application/mcq/course-training-contract";
+import { MAX_COURSE_DRAFTS, type CourseCommand, type CourseEdit } from "@/application/mcq/course-training-contract";
 import { clientFetch } from "@/shared/api/client-fetch";
 import { McqSessionRunner } from "./mcq-session-runner";
 import { PageHeader } from "./ui";
@@ -43,7 +43,7 @@ export function CourseTrainingPanel({ documentId }: { documentId: number }) {
     {!state && !error && <p>Chargement du cours…</p>}
     {state && <>
       <p>La préparation envoie le texte de ce cours à OpenAI. Les questions restent des brouillons privés jusqu’à votre validation. Vérifiez les faits, les références et la compétence proposée.</p>
-      <button className="btn btn-primary" disabled={busy || pending} onClick={() => void act({ action: "generate", desiredQuestionCount: 10 })}>{busy ? "Traitement en cours…" : "Préparer 10 questions"}</button>
+      <button className="btn btn-primary" disabled={busy || pending} onClick={() => void act({ action: "generate", desiredQuestionCount: MAX_COURSE_DRAFTS })}>{busy ? "Traitement en cours…" : `Préparer ${MAX_COURSE_DRAFTS} questions`}</button>
       <p role="status">{state.questions.filter(q => q.status === "DRAFT").length} brouillons · {approved.length} validées · {published.length} publiées</p>
       {state.questions.map((question, index) => <CourseQuestionReview key={`${question.itemId}:${question.version}`} question={question} index={index} busy={busy} act={act} />)}
       <button className="btn btn-primary" disabled={busy || !approved.length} onClick={() => { if (window.confirm("J’ai revu le contenu, les réponses, les corrections, les références et les compétences des questions validées. Publier ?")) void act({ action: "publish", confirmReviewed: true, approvals: approved.map(q => ({ itemId: q.itemId, expectedVersion: q.version })) }); }}>Publier les questions validées</button>

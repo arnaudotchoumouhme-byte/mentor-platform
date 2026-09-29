@@ -6,6 +6,17 @@ import { courseHandlers } from "./route";
 const context = { params: Promise.resolve({ documentId: "1" }) };
 const caller = { accountId: "account", learnerId: "owner" };
 describe("course training API", () => {
+  it("passes the two-question request to the use case once without publishing", async () => {
+    const state = { name: "Synthetic", questions: [] };
+    const execute = vi.fn().mockResolvedValue(state);
+    const service = { read: vi.fn(() => state), execute } as unknown as CourseTraining;
+    const handlers = courseHandlers(async () => caller, async () => service, async (_identity, _trace, operation) => operation());
+    const response = await handlers.POST(new Request("http://local/api/courses/1/training", {
+      method: "POST", body: JSON.stringify({ action: "generate", desiredQuestionCount: 2 }),
+    }), context);
+    expect(response.status).toBe(200);
+    expect(execute).toHaveBeenCalledExactlyOnceWith(1, "owner", { action: "generate", desiredQuestionCount: 2 });
+  });
   it("requires identity before loading business infrastructure", async () => {
     const load = vi.fn(); const meter = vi.fn();
     const handlers = courseHandlers(async () => { throw new AppError({ code: "UNAUTHORIZED", userMessage: "Authentification requise." }); }, load, meter);

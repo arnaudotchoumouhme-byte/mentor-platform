@@ -11,6 +11,19 @@ const q = { itemId: "private-item", version: 1, status: "DRAFT", stem: "Question
 const response = (questions: unknown[]) => new Response(JSON.stringify({ name: "Cours synthétique", questions }));
 afterEach(() => { cleanup(); vi.resetAllMocks(); });
 describe("course review UI", () => {
+  it("requests exactly two drafts for human review without publishing", async () => {
+    vi.mocked(clientFetch).mockResolvedValueOnce(response([])).mockResolvedValueOnce(response([q, { ...q, itemId: "second", stem: "Deuxième question" }]));
+    render(React.createElement(CourseTrainingPanel, { documentId: 1 }));
+    fireEvent.click(await screen.findByRole("button", { name: "Préparer 2 questions" }));
+    expect(await screen.findByText("Deuxième question")).toBeTruthy();
+    expect(screen.queryByText("Préparer 10 questions")).toBeNull();
+    const writes = vi.mocked(clientFetch).mock.calls.filter(([, init]) => init?.method === "POST");
+    expect(writes).toHaveLength(1);
+    expect(writes[0][0]).toBe("/api/courses/1/training");
+    expect(JSON.parse(writes[0][1]!.body as string)).toEqual({ action: "generate", desiredQuestionCount: 2 });
+    expect((screen.getByText("Publier les questions validées") as HTMLButtonElement).disabled).toBe(true);
+    expect(screen.queryByText("Commencer l’entraînement")).toBeNull();
+  });
   it("requires individual approval and explicit final confirmation, hides technical IDs", async () => {
     vi.mocked(clientFetch).mockResolvedValueOnce(response([q])).mockResolvedValueOnce(response([{ ...q, version: 2, status: "IN_REVIEW" }])).mockResolvedValueOnce(response([{ ...q, version: 3, status: "PUBLISHED" }]));
     vi.spyOn(window, "confirm").mockReturnValue(true);
