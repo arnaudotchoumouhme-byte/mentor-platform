@@ -16,6 +16,8 @@ import { SqlitePilotOwnership } from "@/infrastructure/pilot/sqlite-pilot-owners
 import { SqliteCourseTraining } from "./sqlite-course-training";
 import { SqliteMcqCorpusWriter } from "./sqlite-mcq-corpus-writer";
 import { SqliteMcqRepository } from "./sqlite-mcq-repository";
+import { OpenAiCourseGenerator } from "./openai-course-generator";
+import { courseHandlers } from "@/app/api/courses/[documentId]/training/route";
 
 const text = "Le pharmacien recueille les données pertinentes avant de proposer un plan de soins.";
 const candidate = { stem: "Quelle est la première étape ?", options: ["Recueillir les données", "Ignorer le dossier", "Conclure sans données", "Omettre le suivi"], correct: "a", explanation: text, simple: text, analogy: "NOT_SUPPORTED_BY_SOURCE", mechanism: text, reasoning: text, clue: "Avant de proposer", justifications: [text, text, text, text], trap: "NOT_SUPPORTED_BY_SOURCE", takeaway: text, transfer: text, quote: text, competency: "1.1" };
@@ -36,6 +38,58 @@ describe("course training / synthetic v20 only", () => {
   });
   afterEach(() => sqlite.close());
   const generate = () => service.execute(1, "learner-a", { action: "generate", desiredQuestionCount: 2 });
+  it("connects the real API/provider with mock transport to persisted review and explicit study publication", async () => {
+    const request = vi.fn<typeof fetch>(async (_url, init) => {
+      const payload = JSON.parse(init!.body as string);
+      expect(JSON.parse(payload.input)).toMatchObject({ desiredQuestionCount: 2, document: "Cours synthétique", text });
+      expect(payload).toMatchObject({ model: "gpt-5.6-terra", max_output_tokens: 6000 });
+      return new Response(JSON.stringify({ status: "completed", output: [{ content: [{ type: "output_text", text: JSON.stringify({ questions: [candidate, { ...candidate, stem: "Deuxième question synthétique" }] }) }] }] }));
+    });
+    const generator = new OpenAiCourseGenerator({ load: () => ({ apiKey: "offline-placeholder", dailyBudgetCad: 1 }) }, () => "gpt-5.6-terra", request, { budgetCad: () => 1, now: () => Date.parse("2026-09-29T12:00:00Z") });
+    let sequence = 0;
+    service = new CourseTraining(repository, generator, () => `api-test-${++sequence}`);
+    const handlers = courseHandlers(async () => ({ accountId: "account-a", learnerId: "learner-a" }), async () => service, async (_identity, _trace, operation) => operation());
+    const context = { params: Promise.resolve({ documentId: "1" }) };
+    const post = async (command: unknown) => {
+      const response = await handlers.POST(new Request("http://local/api/courses/1/training", { method: "POST", body: JSON.stringify(command) }), context);
+      expect(response.status).toBe(200);
+      return response.json();
+    };
+    const initial = await post({ action: "generate", desiredQuestionCount: 2 });
+    expect(request).toHaveBeenCalledTimes(1);
+    expect(initial.questions).toHaveLength(2);
+    expect(db.all("SELECT editorial_status FROM mcq_item_editorial_metadata")).toEqual([{ editorial_status: "DRAFT" }, { editorial_status: "DRAFT" }]);
+    expect(db.all("SELECT * FROM mcq_question_versions")).toHaveLength(2);
+    expect(await catalog.listQuestionVersions("PEBC-PART-I-2026", "learner-a", 1)).toEqual([]);
+    // Recreate the use case/repository: review reads persisted rows, not generator state.
+    const importer = new ImportMcqCorpus(new SqliteMcqCorpusWriter(db), { checksum: v => createHash("sha256").update(v).digest("hex") }, { now: () => "2026-09-29" });
+    service = new CourseTraining(new SqliteCourseTraining(db, importer), generator, () => `api-test-${++sequence}`);
+    const read = await handlers.GET(new Request("http://local/api/courses/1/training"), context);
+    expect(read.status).toBe(200);
+    expect(await read.json()).toEqual(initial);
+    const [first, second] = initial.questions;
+    await post({ action: "edit", itemId: first.itemId, expectedVersion: 1, edit: { stem: "Question revue", choices: first.choices, correctChoiceId: first.correctChoiceId, explanation: first.explanation } });
+    await post({ action: "approve", itemId: first.itemId, expectedVersion: 2 });
+    expect(service.read(1, "learner-a").questions[0].status).toBe("IN_REVIEW");
+    expect(await catalog.listQuestionVersions("PEBC-PART-I-2026", "learner-a", 1)).toEqual([]);
+    await post({ action: "reject", itemId: second.itemId, expectedVersion: 1 });
+    await post({ action: "publish", confirmReviewed: true, approvals: [{ itemId: first.itemId, expectedVersion: 3 }] });
+    const available = await catalog.listQuestionVersions("PEBC-PART-I-2026", "learner-a", 1);
+    expect(available).toHaveLength(1);
+    expect(available[0].itemId).toBe(first.itemId);
+    const persisted = repository.list(repository.resolve(1, "learner-a"));
+    expect(persisted.find(r => r.item.itemId === second.itemId)?.item.status).toBe("RETIRED");
+    for (const { item } of persisted) {
+      expect(item.source.sourceVersionId).toBe("00000000-0000-4000-8000-000000000001");
+      expect(item.explanation).toBe(first.explanation);
+      expect(item.choices).toEqual(first.choices);
+      expect(item.correctChoiceId).toBe("a");
+      expect(item.mappings).toEqual(first.mappings);
+    }
+    expect(request).toHaveBeenCalledTimes(1);
+    expect(() => service.read(1, "learner-b")).toThrow();
+    expect(db.all("PRAGMA integrity_check")).toEqual([{ integrity_check: "ok" }]);
+  });
   it("denies another learner before generation and conceals document existence", async () => {
     await expect(service.execute(1, "learner-b", { action: "generate", desiredQuestionCount: 2 })).rejects.toMatchObject({ code: "FORBIDDEN" });
     expect(() => service.read(99, "learner-b")).toThrow("Accès refusé");
