@@ -2,7 +2,7 @@ import { expect, it, vi } from "vitest";
 import { isolatedCostGuard, prepareIsolatedRequest } from "../../../scripts/isolated-openai-cost-guard";
 import { isolatedCostPreflight, measureIsolatedInput, singleAttemptTransport } from "../../../scripts/isolated-openai-cost-policy";
 
-const time = Date.parse("2026-09-27T12:00:00Z");
+const time = Date.parse("2026-09-29T12:00:00Z");
 const env = { OPENAI_MCQ_MODEL: "gpt-5.6-terra", AI_DAILY_BUDGET_CAD: "1" };
 const args = () => ["https://api.openai.com/v1/responses", { method: "POST", body: JSON.stringify({
   model: env.OPENAI_MCQ_MODEL, store: false, max_output_tokens: 24000, instructions: "test",
@@ -37,7 +37,7 @@ it("cannot substitute an unproven cheap env rate card or another model", () => {
   expect(() => isolatedCostPreflight({ ...env, OPENAI_TEST_COST_BASIS: '{"boundsVerified":true}' }, time)).toThrow("TEST_COST_UNKNOWN");
   expect(() => isolatedCostPreflight({ ...env, OPENAI_MCQ_MODEL: "other" }, time)).toThrow("TEST_COST_UNKNOWN");
 });
-it.each([NaN, Date.parse("2026-09-26"), Date.parse("2026-09-29")])("fails closed for stale or unknown pricing time", now => {
+it.each([NaN, Date.parse("2026-09-26"), Date.parse("2026-10-06")])("fails closed for stale or unknown pricing time", now => {
   expect(() => isolatedCostPreflight(env, now)).toThrow("TEST_COST_UNKNOWN");
 });
 it("caps output and candidates without a network call", () => {

@@ -1,42 +1,17 @@
-/** Test-only byte-BPE upper estimate; see the documented framing reserve. */
-export const ISOLATED_COST_POLICY = Object.freeze({
-  model: "gpt-5.6-terra",
-  reviewedAt: "2026-09-27T00:00:00Z",
-  expiresAt: "2026-09-29T00:00:00Z",
-  maxRequestBytes: 21_808,
-  maxInputTokens: 30_000,
-  framingTokenReserve: 8192,
-  maxOutputTokens: 6000,
-  // $2/$12 per million, long-context x2/x1.5, cache-write input x1.25.
-  inputUsdPerMillion: 5,
-  outputUsdPerMillion: 18,
-  usdCadRate: 2,
-  safetyMultiplier: 1.25,
-});
+import { COURSE_COST_POLICY, assertCourseCost, measureCoursePayload } from "../src/infrastructure/mcq/course-generation-guard";
 
+// Alias, not a second rate card: the application owns pricing and expiry.
+export const ISOLATED_COST_POLICY = COURSE_COST_POLICY;
 export function isolatedCostPreflight(env: Record<string, string | undefined>, now = Date.now()) {
-  const p = ISOLATED_COST_POLICY;
-  if (env.OPENAI_TEST_COST_BASIS !== undefined || env.OPENAI_MCQ_MODEL !== p.model ||
-    !Number.isFinite(now) || now < Date.parse(p.reviewedAt) || now >= Date.parse(p.expiresAt)) throw new Error("TEST_COST_UNKNOWN");
   const budget = Number(env.AI_DAILY_BUDGET_CAD);
   if (!Number.isFinite(budget) || budget <= 0 || budget > 1) throw new Error("TEST_BUDGET_INVALID");
-  const maximumCad = Math.ceil((p.maxInputTokens * p.inputUsdPerMillion + p.maxOutputTokens * p.outputUsdPerMillion)
-    / 1_000_000 * p.usdCadRate * p.safetyMultiplier * 100) / 100;
-  return { ...p, maximumCad, budgetCad: budget, allowed: maximumCad < 1 && maximumCad <= budget };
+  if (env.OPENAI_TEST_COST_BASIS !== undefined) throw new Error("TEST_COST_UNKNOWN");
+  let maximumCad: number;
+  try { maximumCad = assertCourseCost(env.OPENAI_MCQ_MODEL, 1, now); }
+  catch { throw new Error("TEST_COST_UNKNOWN"); }
+  return { ...COURSE_COST_POLICY, maximumCad, budgetCad: budget, allowed: maximumCad <= budget };
 }
-
-/** Byte-level BPE cannot produce more ordinary tokens than source UTF-8 bytes.
- * Count the COMPLETE serialized body (including escaped JSON/schema), not just
- * the PDF. Reserve another 8192 tokens for server framing; never chars / 4.
- * This is a conservative local estimate, not an exact provider token count.
- */
-export function measureIsolatedInput(serialized: string) {
-  const requestBytes = Buffer.byteLength(serialized, "utf8");
-  const inputTokenUpperEstimate = requestBytes + ISOLATED_COST_POLICY.framingTokenReserve;
-  return { requestBytes, inputTokenUpperEstimate,
-    inputFits: inputTokenUpperEstimate < ISOLATED_COST_POLICY.maxInputTokens };
-}
-
+export const measureIsolatedInput = measureCoursePayload;
 /** A failed request also consumes the attempt. No redirect or retry. */
 export function singleAttemptTransport(request: typeof fetch): typeof fetch {
   let attempted = false;
