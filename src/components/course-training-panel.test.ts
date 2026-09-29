@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import React from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { CourseTrainingPanel } from "./course-training-panel";
 import { clientFetch } from "@/shared/api/client-fetch";
 
@@ -11,6 +11,23 @@ const q = { itemId: "private-item", version: 1, status: "DRAFT", stem: "Question
 const response = (questions: unknown[]) => new Response(JSON.stringify({ name: "Cours synthétique", questions }));
 afterEach(() => { cleanup(); vi.resetAllMocks(); });
 describe("course review UI", () => {
+  it("shows review content and rejects a draft without exposing a study action", async () => {
+    const explanation = "Raisonnement du pharmacien\n\nSynthétique\n\nA — VRAI\n\nJustification A\n\nB — FAUX\n\nJustification B\n\nC — FAUX\n\nJustification C\n\nD — FAUX\n\nJustification D";
+    vi.mocked(clientFetch).mockResolvedValueOnce(response([{ ...q, explanation }])).mockResolvedValueOnce(response([{ ...q, explanation, version: 2, status: "RETIRED" }]));
+    render(React.createElement(CourseTrainingPanel, { documentId: 1 }));
+    expect(await screen.findByText(q.stem)).toBeTruthy();
+    for (const id of ["a", "b", "c", "d"]) expect(screen.getByText(`${id.toUpperCase()}. Choix ${id}`)).toBeTruthy();
+    expect(screen.getByText("Bonne réponse : A")).toBeTruthy();
+    fireEvent.click(screen.getByText("Voir la correction et la provenance"));
+    expect(screen.getByText((_content, element) => element?.tagName === "P" && element.textContent === explanation)).toBeTruthy();
+    expect(screen.getByText("Référence : Cours synthétique")).toBeTruthy();
+    fireEvent.click(screen.getByText("Rejeter"));
+    expect(await screen.findByText("Question 1 — Rejetée")).toBeTruthy();
+    expect(within(screen.getByRole("region", { name: "Question 1" })).queryByText("Valider")).toBeNull();
+    expect(screen.queryByText("Commencer l’entraînement")).toBeNull();
+    expect(JSON.parse(vi.mocked(clientFetch).mock.calls[1][1]!.body as string)).toEqual({ action: "reject", itemId: q.itemId, expectedVersion: 1 });
+    expect(vi.mocked(clientFetch)).toHaveBeenCalledTimes(2);
+  });
   it("requests exactly two drafts for human review without publishing", async () => {
     vi.mocked(clientFetch).mockResolvedValueOnce(response([])).mockResolvedValueOnce(response([q, { ...q, itemId: "second", stem: "Deuxième question" }]));
     render(React.createElement(CourseTrainingPanel, { documentId: 1 }));

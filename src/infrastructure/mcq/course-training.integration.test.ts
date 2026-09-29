@@ -49,6 +49,9 @@ describe("course training / synthetic v20 only", () => {
   it("generates only sourced drafts, refuses implicit publication", async () => {
     const state = await generate();
     expect(state.questions).toHaveLength(2); expect(state.questions.every(q => q.status === "DRAFT")).toBe(true);
+    expect(service.read(1, "learner-a")).toEqual(state);
+    expect(state.questions[0]).toMatchObject({ choices: expect.arrayContaining([{ id: "a", text: candidate.options[0] }]), correctChoiceId: "a", reference: "Cours synthétique" });
+    expect(state.questions[0].explanation).toContain("D — FAUX");
     expect(await catalog.listPublishedBlueprints("learner-a")).toEqual([]);
     await expect(service.execute(1, "learner-a", { action: "publish", confirmReviewed: true, approvals: state.questions.map(q => ({ itemId: q.itemId, expectedVersion: q.version })) })).rejects.toThrow("Validez");
     await expect(generate()).rejects.toMatchObject({ code: "CONFLICT" });
@@ -59,6 +62,8 @@ describe("course training / synthetic v20 only", () => {
     await service.execute(1, "learner-a", { action: "edit", itemId: first.itemId, expectedVersion: 1, edit: { stem: "Énoncé revu", choices: first.choices, correctChoiceId: first.correctChoiceId, explanation: first.explanation } });
     await expect(service.execute(1, "learner-a", { action: "approve", itemId: first.itemId, expectedVersion: 1 })).rejects.toMatchObject({ code: "CONFLICT" });
     await service.execute(1, "learner-a", { action: "approve", itemId: first.itemId, expectedVersion: 2 });
+    expect(service.read(1, "learner-a").questions.find(q => q.itemId === first.itemId)?.status).toBe("IN_REVIEW");
+    expect(await catalog.listQuestionVersions("PEBC-PART-I-2026", "learner-a", 1)).toEqual([]);
     await service.execute(1, "learner-a", { action: "reject", itemId: second.itemId, expectedVersion: 1 });
     await service.execute(1, "learner-a", { action: "publish", confirmReviewed: true, approvals: [{ itemId: first.itemId, expectedVersion: 3 }] });
     expect(db.all("SELECT * FROM mcq_question_versions WHERE version=1 ORDER BY item_id,version")).toEqual(old);
@@ -68,6 +73,14 @@ describe("course training / synthetic v20 only", () => {
     await expect(catalog.listQuestionVersions("PEBC-PART-I-2026", "learner-b", 1)).rejects.toMatchObject({ code: "FORBIDDEN" });
     const session = await new CreateMcqSession(catalog, { next: () => "session" }, { now: () => "2026-09-25T12:00:00Z" }, { event: vi.fn() }).execute({ learnerId: "learner-a", documentId: 1, sessionKind: "STANDARD", mode: "STUDY", durationSeconds: null, count: 1, seed: "seed", blueprintVersionId: "PEBC-PART-I-2026", traceId: "trace" });
     expect(session.items[0].itemId).toBe(first.itemId);
+    expect(session.items.some(q => q.itemId === second.itemId)).toBe(false);
+    const records = repository.list(repository.resolve(1, "learner-a"));
+    const published = records.find(r => r.item.itemId === first.itemId)!.item;
+    expect(published.choices).toHaveLength(4);
+    expect(published.choices.filter(c => c.id === published.correctChoiceId)).toHaveLength(1);
+    expect(published.source).toEqual({ sourceVersionId: "00000000-0000-4000-8000-000000000001", reference: { type: "DOCUMENT", locator: "Extrait vérifié dans le cours", label: "Cours synthétique" } });
+    expect(published.explanation).toBe(first.explanation);
+    expect(records.find(r => r.item.itemId === second.itemId)?.item.status).toBe("RETIRED");
     const ownership = new SqlitePilotOwnership(db);
     expect(ownership.findInProgressMcqSession("learner-a")).toBe("session");
     expect(() => ownership.assertMcqSession("session", "learner-b")).toThrow();
@@ -89,6 +102,48 @@ describe("course training / synthetic v20 only", () => {
     const source = repository.resolve(1, "learner-a");
     expect(() => generatedCourseItems({ questions: [{ ...candidate, quote: "Texte inexistant dans le document de référence." }] }, source)).toThrow();
     expect(() => generatedCourseItems({ questions: [{ ...candidate, options: ["a", "a", "b", "c"] }] }, source)).toThrow();
+  });
+  it("refuses invalid edits without writing, then resets an approved edit to DRAFT", async () => {
+    const { questions: [first] } = await generate();
+    const edit = { stem: first.stem, choices: first.choices, correctChoiceId: first.correctChoiceId, explanation: first.explanation };
+    const before = sqlite.prepare("SELECT total_changes() n").get();
+    for (const invalid of [
+      { ...edit, choices: first.choices.slice(0, 3) },
+      { ...edit, choices: first.choices.map(() => first.choices[0]) },
+      { ...edit, correctChoiceId: "missing" },
+      { ...edit, correctChoiceId: "b" }, // stale A/B truth labels
+      { ...edit, explanation: "Correction sans structure" },
+      { ...edit, source: { sourceVersionId: "forged" } },
+    ]) {
+      await expect(service.execute(1, "learner-a", { action: "edit", itemId: first.itemId, expectedVersion: 1, edit: invalid })).rejects.toThrow();
+    }
+    expect(sqlite.prepare("SELECT total_changes() n").get()).toEqual(before);
+    await service.execute(1, "learner-a", { action: "approve", itemId: first.itemId, expectedVersion: 1 });
+    const edited = await service.execute(1, "learner-a", { action: "edit", itemId: first.itemId, expectedVersion: 2, edit: { ...edit, stem: "Question revue" } });
+    expect(edited.questions.find(q => q.itemId === first.itemId)).toMatchObject({ version: 3, status: "DRAFT" });
+    await expect(service.execute(1, "learner-a", { action: "publish", confirmReviewed: true, approvals: [{ itemId: first.itemId, expectedVersion: 3 }] })).rejects.toThrow("Validez");
+    expect(await catalog.listQuestionVersions("PEBC-PART-I-2026", "learner-a", 1)).toEqual([]);
+  });
+  it("retains rejected records but cannot start a study session from them", async () => {
+    const { questions } = await generate();
+    for (const q of questions) await service.execute(1, "learner-a", { action: "reject", itemId: q.itemId, expectedVersion: 1 });
+    expect(service.read(1, "learner-a").questions.every(q => q.status === "RETIRED")).toBe(true);
+    expect(db.all("SELECT * FROM mcq_question_versions")).toHaveLength(4);
+    expect(await catalog.listQuestionVersions("PEBC-PART-I-2026", "learner-a", 1)).toEqual([]);
+    await expect(new CreateMcqSession(catalog, { next: () => "rejected-session" }, { now: () => "2026-09-25T12:00:00Z" }, { event: vi.fn() }).execute({ learnerId: "learner-a", documentId: 1, sessionKind: "STANDARD", mode: "STUDY", durationSeconds: null, count: 1, seed: "seed", blueprintVersionId: "PEBC-PART-I-2026", traceId: "trace" })).rejects.toThrow();
+    expect(db.all("SELECT * FROM mcq_sessions")).toHaveLength(0);
+    await expect(service.execute(1, "learner-a", { action: "approve", itemId: questions[0].itemId, expectedVersion: 2 })).rejects.toThrow();
+  });
+  it("requires resolution of insufficient-source markers and explicit publication confirmation", async () => {
+    const { questions: [first] } = await generate();
+    const marker = "HUMAN_REVIEW_REQUIRED: INSUFFICIENT_SOURCE";
+    await service.execute(1, "learner-a", { action: "edit", itemId: first.itemId, expectedVersion: 1, edit: { stem: first.stem, choices: first.choices, correctChoiceId: first.correctChoiceId, explanation: first.explanation.replace(`B — FAUX\n\n${text}`, `B — FAUX\n\n${marker}`) } });
+    await expect(service.execute(1, "learner-a", { action: "approve", itemId: first.itemId, expectedVersion: 2 })).rejects.toThrow("non étayés");
+    await service.execute(1, "learner-a", { action: "edit", itemId: first.itemId, expectedVersion: 2, edit: { stem: first.stem, choices: first.choices, correctChoiceId: first.correctChoiceId, explanation: first.explanation } });
+    await service.execute(1, "learner-a", { action: "approve", itemId: first.itemId, expectedVersion: 3 });
+    const command = { action: "publish" as const, confirmReviewed: true as const, approvals: [{ itemId: first.itemId, expectedVersion: 4 }] };
+    await expect(service.execute(1, "learner-a", { ...command, confirmReviewed: false } as unknown as typeof command)).rejects.toThrow("Confirmez");
+    expect(await catalog.listQuestionVersions("PEBC-PART-I-2026", "learner-a", 1)).toEqual([]);
   });
   it("keeps pre-existing official corpora global without changing them", async () => {
     const source = repository.resolve(1, "learner-a");

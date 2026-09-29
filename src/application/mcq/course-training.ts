@@ -1,6 +1,7 @@
 import { AppError } from "@/shared/errors/app-error";
 import { parseMcqCorpus } from "./mcq-corpus-contract";
-import { PERSONAL_CORPUS_PREFIX, MAX_COURSE_DRAFTS, type CourseCommand, type CourseQuestion, type CourseQuestionGenerator, type CourseTrainingRepository } from "./course-training-contract";
+import { PERSONAL_CORPUS_PREFIX, MAX_COURSE_DRAFTS, courseEditSchema, type CourseCommand, type CourseQuestion, type CourseQuestionGenerator, type CourseTrainingRepository } from "./course-training-contract";
+import { validateCourseReview } from "./course-review-validation";
 
 export function courseFailure(message: string, code = "VALIDATION_ERROR"): never {
   throw new AppError({ code, userMessage: message, category: code === "FORBIDDEN" ? "security" : "validation" });
@@ -32,6 +33,7 @@ export class CourseTraining {
         await this.repository.save(parseMcqCorpus({ schemaVersion: "MCQ_CORPUS/1", corpusId, corpusVersion: 1, blueprintVersionId: "PEBC-PART-I-2026", items }));
       } finally { this.generating.delete(source.sourceVersionId); }
     } else {
+      if (command.action === "publish" && command.confirmReviewed !== true) courseFailure("Confirmez la revue avant publication.");
       const requests = command.action === "publish" ? command.approvals : [command];
       if (new Set(requests.map(r => r.itemId)).size !== requests.length) courseFailure("Sélection dupliquée.");
       const selected = requests.map(request => {
@@ -45,10 +47,16 @@ export class CourseTraining {
       // One batch only: prevents partial publication across independent generation lots.
       if (new Set(selected.map(r => r.corpusId)).size !== 1) courseFailure("Publiez un seul lot à la fois.");
       const items: CourseQuestion[] = selected.map(({ item }) => ({ ...item,
-        ...(command.action === "edit" ? command.edit ?? courseFailure("Modification manquante.") : {}),
+        ...(command.action === "edit" ? courseEditSchema.parse(command.edit ?? courseFailure("Modification manquante.")) : {}),
         version: item.version + 1,
         status: command.action === "publish" ? "PUBLISHED" : command.action === "approve" ? "IN_REVIEW" : command.action === "reject" ? "RETIRED" : "DRAFT",
       }));
+      if (command.action !== "reject") {
+        for (const item of items) {
+          validateCourseReview(item, source);
+          if (command.action !== "edit" && item.explanation.includes("HUMAN_REVIEW_REQUIRED: INSUFFICIENT_SOURCE")) courseFailure("Résolvez les éléments non étayés avant validation ou rejetez la question.");
+        }
+      }
       await this.repository.save(parseMcqCorpus({ schemaVersion: "MCQ_CORPUS/1", corpusId: selected[0].corpusId, corpusVersion: Math.max(...items.map(i => i.version)), blueprintVersionId: selected[0].blueprintVersionId, items }));
     }
     return this.read(documentId, learnerId);
