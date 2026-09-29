@@ -1,7 +1,7 @@
 import { z } from "zod";
 import type { AiConfigurationPort } from "@/application/config/ai-configuration";
 import type { CourseQuestionGenerator, CourseSource } from "@/application/mcq/course-training-contract";
-import { courseGenerationInstructions, generatedCourseItems, generatedCourseSchema } from "@/application/mcq/course-generation";
+import { courseGenerationInstructions, diagnoseGenerated, generatedCourseItems, generatedCourseSchema } from "@/application/mcq/course-generation";
 import { AppError } from "@/shared/errors/app-error";
 
 export class OpenAiCourseGenerator implements CourseQuestionGenerator {
@@ -26,7 +26,18 @@ export class OpenAiCourseGenerator implements CourseQuestionGenerator {
       if (data.status !== "completed") throw new Error("incomplete-output");
       const text = data.output?.flatMap(o => o.content ?? []).filter(c => c.type === "output_text").map(c => c.text ?? "").join("");
       if (!text) throw new Error("empty-output");
-      return generatedCourseItems(JSON.parse(text), source);
+      let raw: unknown;
+      try { raw = JSON.parse(text); }
+      catch {
+        throw new AppError({ code: "COURSE_AI_UNAVAILABLE", userMessage: "La génération n’a pas abouti. Aucun brouillon enregistré.", category: "external", context: { stage: "CANDIDATE_VALIDATION", rules: { GENERATED_JSON: false } } });
+      }
+      try { return generatedCourseItems(raw, source); }
+      catch (error) {
+        if (!(error instanceof AppError)) throw error;
+        // Only fixed rule names and booleans; never carry the provider exception.
+        throw new AppError({ code: error.code, userMessage: error.userMessage, category: error.category,
+          context: { stage: "CANDIDATE_VALIDATION", rules: { GENERATED_JSON: true, ...diagnoseGenerated(raw, source) } } });
+      }
     } catch (error) {
       if (error instanceof AppError) throw error;
       // Never include provider body, key, source text or raw exception in the API/logs.
