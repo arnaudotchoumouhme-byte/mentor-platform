@@ -1,4 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
+import { readFileSync } from "node:fs";
 import { COURSE_COST_POLICY as policy, assertCourseCost, assertCoursePayload, buildCoursePayload, measureCoursePayload, prepareCourseGeneration } from "./course-generation-guard";
 import { OpenAiCourseGenerator } from "./openai-course-generator";
 import { courseCommandSchema, type CourseTrainingRepository, type ProviderGate } from "@/application/mcq/course-training-contract";
@@ -20,6 +21,22 @@ function fixture(options: { budget?: number; model?: string; time?: number; resp
 }
 
 describe("controlled course generation — mocks only, no database", () => {
+  it("wires the server generator to the policy model without requiring OPENAI_MCQ_MODEL", async () => {
+    const serverSource = readFileSync(new URL("./server-course-training.ts", import.meta.url), "utf8");
+    expect(serverSource).toContain("() => COURSE_COST_POLICY.model");
+    expect(serverSource).not.toContain("OPENAI_MCQ_MODEL");
+    const previous = process.env.OPENAI_MCQ_MODEL;
+    delete process.env.OPENAI_MCQ_MODEL;
+    try {
+      const f = fixture({ model: policy.model });
+      await expect(f.generator.generate(source, 2)).resolves.toHaveLength(2);
+      expect(JSON.parse(f.request.mock.calls[0][1]?.body as string).model).toBe(policy.model);
+      expect(f.request).toHaveBeenCalledTimes(1);
+    } finally {
+      if (previous === undefined) delete process.env.OPENAI_MCQ_MODEL;
+      else process.env.OPENAI_MCQ_MODEL = previous;
+    }
+  });
   it("requests exactly two drafts, measures the actual payload and creates transport only after guards", async () => {
     const f = fixture();
     const items = await f.generator.generate(source, 2);
