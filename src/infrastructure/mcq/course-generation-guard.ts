@@ -54,7 +54,7 @@ export function buildCoursePayload(source: CourseSource, count: number) {
   return JSON.stringify({ model: COURSE_COST_POLICY.model, store: false,
     max_output_tokens: COURSE_COST_POLICY.maxOutputTokens, service_tier: "default", truncation: "disabled",
     instructions: courseGenerationInstructions,
-    input: JSON.stringify({ desiredQuestionCount: count, document: source.name, text: source.text }),
+    input: JSON.stringify({ desiredQuestionCount: count, document: source.name, previousQuestions: source.previousQuestions ?? [], text: source.text }),
     text: { format: { type: "json_schema", name: "course_questions", strict: true, schema: z.toJSONSchema(schema) } },
   });
 }
@@ -73,13 +73,15 @@ export function prepareCourseGeneration(source: CourseSource, count: number): Pr
   assertCourseCount(count);
   if (!source.pages?.length) refuse("PAGES_MISSING");
   if (source.pages.some((p, i) => p.pageNumber !== i + 1 || typeof p.text !== "string")) refuse("PAGES_INVALID");
+  const pageStart = source.nextPageNumber ?? 1;
+  if (!Number.isSafeInteger(pageStart) || pageStart < 1 || pageStart > source.pages.length) refuse("END_OF_DOCUMENT");
   let prepared: PreparedGeneration | undefined;
-  for (let end = 1; end <= source.pages.length; end++) {
-    const pages = Object.freeze(source.pages.slice(0, end).map(p => Object.freeze({ ...p })));
-    const selected = Object.freeze({ ...source, pages, text: pages.map(p => p.text).join("\n\n"), pageStart: 1, pageEnd: end });
+  for (let end = pageStart; end <= source.pages.length; end++) {
+    const pages = Object.freeze(source.pages.slice(pageStart - 1, end).map(p => Object.freeze({ ...p })));
+    const selected = Object.freeze({ ...source, pages, text: pages.map(p => p.text).join("\n\n"), pageStart, pageEnd: end });
     const payload = buildCoursePayload(selected, count);
     if (!measureCoursePayload(payload).inputFits) break;
-    prepared = Object.freeze({ source: selected, payload, pageStart: 1, pageEnd: end });
+    prepared = Object.freeze({ source: selected, payload, pageStart, pageEnd: end });
   }
   if (!prepared) refuse("FIRST_PAGE_TOO_LARGE");
   if (!prepared.source.text.trim()) refuse("PAGES_EMPTY");

@@ -18,11 +18,12 @@ import { SqliteMcqCorpusWriter } from "./sqlite-mcq-corpus-writer";
 import { SqliteMcqRepository } from "./sqlite-mcq-repository";
 import { OpenAiCourseGenerator } from "./openai-course-generator";
 import { courseHandlers } from "@/app/api/courses/[documentId]/training/route";
+import { prepareCourseGeneration } from "./course-generation-guard";
 
 const text = "Le pharmacien recueille les données pertinentes avant de proposer un plan de soins.";
 const candidate = { stem: "Quelle est la première étape ?", options: ["Recueillir les données", "Ignorer le dossier", "Conclure sans données", "Omettre le suivi"], correct: "a", explanation: text, simple: text, analogy: "NOT_SUPPORTED_BY_SOURCE", mechanism: text, reasoning: text, clue: "Avant de proposer", justifications: [text, text, text, text], trap: "NOT_SUPPORTED_BY_SOURCE", takeaway: text, transfer: text, quote: text, competency: "1.1" };
 
-describe("course training / synthetic v20 only", () => {
+describe("course training / synthetic v21 only", () => {
   let sqlite: DatabaseSync; let db: SqliteExecutor; let service: CourseTraining; let repository: SqliteCourseTraining; let catalog: SqliteMcqRepository;
   beforeEach(() => {
     sqlite = new DatabaseSync(":memory:");
@@ -35,7 +36,10 @@ describe("course training / synthetic v20 only", () => {
     const importer = new ImportMcqCorpus(new SqliteMcqCorpusWriter(db), { checksum: v => createHash("sha256").update(v).digest("hex") }, { now: () => "2026-09-25" });
     repository = new SqliteCourseTraining(db, importer); catalog = new SqliteMcqRepository(db);
     let sequence = 0;
-    service = new CourseTraining(repository, { generate: async (source, count) => generatedCourseItems({ questions: Array.from({ length: count }, (_, i) => ({ ...candidate, stem: candidate.stem + i })) }, source) }, () => `test-${++sequence}`);
+    service = new CourseTraining(repository, { generate: async (source, count) => {
+      const prepared = prepareCourseGeneration(source, count);
+      return generatedCourseItems({ questions: Array.from({ length: count }, (_, i) => ({ ...candidate, stem: candidate.stem + i })) }, prepared.source);
+    } }, () => `test-${++sequence}`);
   });
   afterEach(() => sqlite.close());
   const generate = () => service.execute(1, "learner-a", { action: "generate", desiredQuestionCount: 2 });
@@ -133,7 +137,7 @@ describe("course training / synthetic v20 only", () => {
     const published = records.find(r => r.item.itemId === first.itemId)!.item;
     expect(published.choices).toHaveLength(4);
     expect(published.choices.filter(c => c.id === published.correctChoiceId)).toHaveLength(1);
-    expect(published.source).toEqual({ sourceVersionId: "00000000-0000-4000-8000-000000000001", reference: { type: "DOCUMENT", locator: "Extrait vérifié dans le cours", label: "Cours synthétique" } });
+    expect(published.source).toEqual({ sourceVersionId: "00000000-0000-4000-8000-000000000001", reference: { type: "PAGE", locator: "pages 1–1", label: "Cours synthétique" } });
     expect(published.explanation).toBe(first.explanation);
     expect(records.find(r => r.item.itemId === second.itemId)?.item.status).toBe("RETIRED");
     const ownership = new SqlitePilotOwnership(db);
@@ -188,6 +192,51 @@ describe("course training / synthetic v20 only", () => {
     await expect(new CreateMcqSession(catalog, { next: () => "rejected-session" }, { now: () => "2026-09-25T12:00:00Z" }, { event: vi.fn() }).execute({ learnerId: "learner-a", documentId: 1, sessionKind: "STANDARD", mode: "STUDY", durationSeconds: null, count: 1, seed: "seed", blueprintVersionId: "PEBC-PART-I-2026", traceId: "trace" })).rejects.toThrow();
     expect(db.all("SELECT * FROM mcq_sessions")).toHaveLength(0);
     await expect(service.execute(1, "learner-a", { action: "approve", itemId: questions[0].itemId, expectedVersion: 2 })).rejects.toThrow();
+  });
+  it("advances non-overlapping page ranges after rejection and detects the end of the document", async () => {
+    sqlite.exec("DELETE FROM source_version_pages");
+    for (let pageNumber = 1; pageNumber <= 10; pageNumber++) {
+      sqlite.prepare("INSERT INTO source_version_pages VALUES(?,?,?)").run(
+        "00000000-0000-4000-8000-000000000001",
+        pageNumber,
+        `${text}\n${`page-${pageNumber} `.repeat(500)}`,
+      );
+    }
+    const calls: { nextPageNumber?: number; previousQuestions?: readonly unknown[] }[] = [];
+    let sequence = 0;
+    service = new CourseTraining(repository, { generate: async (source, count) => {
+      calls.push(source);
+      const prepared = prepareCourseGeneration(source, count);
+      return generatedCourseItems({ questions: Array.from({ length: count }, (_, index) => ({ ...candidate, stem: `${candidate.stem} lot ${calls.length}-${index}` })) }, prepared.source);
+    } }, () => `progress-${++sequence}`);
+
+    let state = await generate();
+    expect(state.questions.filter(question => question.status === "DRAFT")).toHaveLength(2);
+    const firstRange = state.coverage.ranges[0]!;
+    for (const question of state.questions.filter(item => item.status === "DRAFT")) {
+      state = await service.execute(1, "learner-a", { action: "reject", itemId: question.itemId, expectedVersion: question.version });
+    }
+    state = await generate();
+    const secondRange = state.coverage.ranges[1]!;
+    expect(secondRange.pageStart).toBe(firstRange.pageEnd + 1);
+    expect(firstRange.pageEnd).toBeLessThan(secondRange.pageStart);
+    expect(calls[1]).toMatchObject({ nextPageNumber: firstRange.pageEnd + 1 });
+    expect(calls[1]!.previousQuestions).toEqual(expect.arrayContaining([
+      expect.objectContaining({ status: "RETIRED", pageStart: firstRange.pageStart, pageEnd: firstRange.pageEnd }),
+    ]));
+
+    let batches = 2;
+    while (true) {
+      for (const question of state.questions.filter(item => item.status === "DRAFT")) {
+        state = await service.execute(1, "learner-a", { action: "reject", itemId: question.itemId, expectedVersion: question.version });
+      }
+      if (state.coverage.completed) break;
+      state = await generate(); batches++;
+      expect(batches).toBeLessThan(11);
+    }
+    expect(state.coverage).toMatchObject({ lastPageCovered: 10, pagesRemaining: 0, completed: true });
+    expect(calls).toHaveLength(batches);
+    await expect(generate()).rejects.toThrow("Couverture du cours terminée");
   });
   it("requires resolution of insufficient-source markers and explicit publication confirmation", async () => {
     const { questions: [first] } = await generate();

@@ -128,6 +128,11 @@ describe("page preflight before metering", () => {
     expect(Object.isFrozen(prepared)).toBe(true); expect(Object.isFrozen(prepared.source.pages![0])).toBe(true);
     expect(measureCoursePayload(prepared.payload).inputFits).toBe(true);
     expect(measureCoursePayload(buildCoursePayload({...source, text: pages.slice(0, prepared.pageEnd+1).map(p=>p.text).join("\n\n")}, 2)).inputFits).toBe(false);
+    const previousQuestions = [{ itemId: "prior-1", stem: "Concept déjà traité", pageStart: 1, pageEnd: prepared.pageEnd, status: "RETIRED" as const }];
+    const next = prepareCourseGeneration({ ...source, pages, nextPageNumber: prepared.pageEnd + 1, previousQuestions }, 2);
+    expect(next.pageStart).toBe(prepared.pageEnd + 1);
+    expect(next.pageStart).toBeGreaterThan(prepared.pageEnd);
+    expect(JSON.parse(JSON.parse(next.payload).input).previousQuestions).toEqual(previousQuestions);
     const quota = vi.fn<ProviderGate>(async operation => {f.events.push("quota"); return operation();});
     const items = await f.generator.generate({...source, pages}, 2, quota);
     expect(f.request.mock.calls[0][1]?.body).toBe(prepared.payload);

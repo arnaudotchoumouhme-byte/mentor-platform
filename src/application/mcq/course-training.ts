@@ -2,6 +2,7 @@ import { AppError } from "@/shared/errors/app-error";
 import { parseMcqCorpus } from "./mcq-corpus-contract";
 import { PERSONAL_CORPUS_PREFIX, MAX_COURSE_DRAFTS, courseEditSchema, type ProviderGate, type CourseCommand, type CourseQuestion, type CourseQuestionGenerator, type CourseTrainingRepository } from "./course-training-contract";
 import { validateCourseReview } from "./course-review-validation";
+import { compactPreviousQuestions, courseCoverage, parseCoursePageRange } from "./course-coverage";
 
 export function courseFailure(message: string, code = "VALIDATION_ERROR"): never {
   throw new AppError({ code, userMessage: message, category: code === "FORBIDDEN" ? "security" : "validation" });
@@ -13,7 +14,8 @@ export class CourseTraining {
   constructor(private readonly repository: CourseTrainingRepository, private readonly generator: CourseQuestionGenerator, private readonly nextId: () => string) {}
   read(documentId: number, learnerId: string) {
     const source = this.repository.resolve(documentId, learnerId);
-    return { name: source.name, questions: this.repository.list(source).map(({ item }) => ({ itemId: item.itemId, version: item.version, status: item.status, stem: item.stem, choices: item.choices, correctChoiceId: item.correctChoiceId, explanation: item.explanation, reference: item.source.reference.label, mappings: item.mappings })) };
+    const records = this.repository.list(source);
+    return { name: source.name, coverage: courseCoverage(source, records), questions: records.map(({ item }) => ({ itemId: item.itemId, version: item.version, status: item.status, stem: item.stem, choices: item.choices, correctChoiceId: item.correctChoiceId, explanation: item.explanation, reference: item.source.reference.label, mappings: item.mappings })) };
   }
   async execute(documentId: number, learnerId: string, command: CourseCommand, providerGate?: ProviderGate) {
     if (command.action === "generate" && (!Number.isInteger(command.desiredQuestionCount) || command.desiredQuestionCount < 1 || command.desiredQuestionCount > MAX_COURSE_DRAFTS)) courseFailure("Le lot contrôlé est limité à deux questions.");
@@ -21,13 +23,28 @@ export class CourseTraining {
     const records = this.repository.list(source);
     if (command.action === "generate") {
       if (records.some(r => r.item.status === "DRAFT" || r.item.status === "IN_REVIEW") || this.generating.has(source.sourceVersionId)) courseFailure("Terminez la revue du lot existant.", "CONFLICT");
+      const coverage = courseCoverage(source, records);
+      if (coverage.trackingBlocked) courseFailure("La couverture des lots existants ne peut pas être déterminée.", "CONFLICT");
+      if (coverage.completed) courseFailure("Couverture du cours terminée.", "CONFLICT");
+      const generationSource = Object.freeze({
+        ...source,
+        nextPageNumber: coverage.lastPageCovered + 1,
+        previousQuestions: compactPreviousQuestions(records),
+      });
       this.generating.add(source.sourceVersionId);
       try {
-        const generated = await this.generator.generate(source, command.desiredQuestionCount, providerGate);
+        const generated = await this.generator.generate(generationSource, command.desiredQuestionCount, providerGate);
         if (generated.length !== command.desiredQuestionCount) courseFailure("Le nombre de questions générées est incomplet.");
+        const generatedRanges = generated.map(item => parseCoursePageRange({ corpusId: "generated", blueprintVersionId: "generated", item }));
+        const firstRange = generatedRanges[0];
+        if (!firstRange || generatedRanges.some(range => !range || range.pageStart !== firstRange.pageStart || range.pageEnd !== firstRange.pageEnd)
+          || firstRange.pageStart !== generationSource.nextPageNumber || firstRange.pageEnd > coverage.pageCount) {
+          courseFailure("La plage de pages générée est invalide.");
+        }
         const current = this.repository.resolve(documentId, learnerId);
         if (current.sourceVersionId !== source.sourceVersionId) courseFailure("Le cours a changé. Recommencez depuis la bibliothèque.", "CONFLICT");
-        if (this.repository.list(current).some(r => r.item.status === "DRAFT" || r.item.status === "IN_REVIEW")) courseFailure("Un lot a déjà été préparé. Actualisez la revue.", "CONFLICT");
+        const currentRecords = this.repository.list(current);
+        if (currentRecords.length !== records.length || currentRecords.some(r => r.item.status === "DRAFT" || r.item.status === "IN_REVIEW")) courseFailure("Un lot a déjà été préparé. Actualisez la revue.", "CONFLICT");
         const corpusId = PERSONAL_CORPUS_PREFIX + this.nextId();
         const items = generated.map(item => ({ ...item, itemId: PERSONAL_CORPUS_PREFIX + this.nextId(), version: 1, status: "DRAFT" as const, source: { ...item.source, sourceVersionId: source.sourceVersionId } }));
         await this.repository.save(parseMcqCorpus({ schemaVersion: "MCQ_CORPUS/1", corpusId, corpusVersion: 1, blueprintVersionId: "PEBC-PART-I-2026", items }));

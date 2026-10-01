@@ -36,6 +36,7 @@ export function CourseTrainingPanel({ documentId }: { documentId: number }) {
   const approved = state?.questions.filter(q => q.status === "IN_REVIEW") ?? [];
   const published = state?.questions.filter(q => q.status === "PUBLISHED") ?? [];
   const pending = state?.questions.some(q => q.status === "DRAFT" || q.status === "IN_REVIEW");
+  const latestRange = state?.coverage.ranges.at(-1);
   return <main className="mx-auto max-w-4xl space-y-5">
     <Link href="/library">Retour à la bibliothèque</Link>
     <PageHeader title={state?.name ?? "Entraînement sur mon cours"} description="Préparez, vérifiez puis publiez vos questions personnelles." />
@@ -43,7 +44,11 @@ export function CourseTrainingPanel({ documentId }: { documentId: number }) {
     {!state && !error && <p>Chargement du cours…</p>}
     {state && <>
       <p>La préparation envoie le texte de ce cours à OpenAI. Les questions restent des brouillons privés jusqu’à votre validation. Vérifiez les faits, les références et la compétence proposée.</p>
-      <button className="btn btn-primary" disabled={busy || pending} onClick={() => void act({ action: "generate", desiredQuestionCount: MAX_COURSE_DRAFTS })}>{busy ? "Traitement en cours…" : `Préparer ${MAX_COURSE_DRAFTS} questions`}</button>
+      {latestRange
+        ? <p>Couverture : pages {latestRange.pageStart}–{latestRange.pageEnd} sur {state.coverage.pageCount}</p>
+        : <p>Couverture : 0 sur {state.coverage.pageCount} pages</p>}
+      {state.coverage.completed ? <div role="status"><p>Couverture du cours terminée</p><p>{state.coverage.lastPageCovered} pages couvertes · {state.coverage.publishedQuestions} questions publiées · {state.coverage.rejectedQuestions} questions rejetées</p></div>
+        : <button className="btn btn-primary" disabled={busy || pending || state.coverage.trackingBlocked} onClick={() => void act({ action: "generate", desiredQuestionCount: MAX_COURSE_DRAFTS })}>{busy ? "Traitement en cours…" : state.coverage.lastPageCovered > 0 ? `Préparer les ${MAX_COURSE_DRAFTS} questions suivantes` : `Préparer ${MAX_COURSE_DRAFTS} questions`}</button>}
       <p role="status">{state.questions.filter(q => q.status === "DRAFT").length} brouillons · {approved.length} validées · {published.length} publiées</p>
       {state.questions.map((question, index) => <CourseQuestionReview key={`${question.itemId}:${question.version}`} question={question} index={index} busy={busy} act={act} />)}
       <button className="btn btn-primary" disabled={busy || !approved.length} onClick={() => { if (window.confirm("J’ai revu le contenu, les réponses, les corrections, les références et les compétences des questions validées. Publier ?")) void act({ action: "publish", confirmReviewed: true, approvals: approved.map(q => ({ itemId: q.itemId, expectedVersion: q.version })) }); }}>Publier les questions validées</button>
