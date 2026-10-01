@@ -12,7 +12,7 @@ export default function Quizzes() {
       <HubLink href="#qcm-cibles" icon={<FileQuestion/>} title="QCM ciblés" detail="Corpus versionné et sourcé"/>
       <HubLink href="/mock-exams" icon={<Target/>} title="Examens blancs" detail="Conditions chronométrées"/>
       <HubLink href="/progress" icon={<Calculator/>} title="Calculs pharmaceutiques" detail="Progression enregistrée"/>
-      <HubLink href="/weaknesses" icon={<History/>} title="Révision des erreurs" detail="Priorités observées"/>
+      <HubLink href="/progress#errors" icon={<History/>} title="Révision des erreurs" detail="Priorités observées"/>
     </div>
     <section id="qcm-cibles" aria-labelledby="qcm-title">
       <div className="mb-4 flex items-end justify-between gap-4"><div><div className="section-kicker">Entraînement disponible</div><h2 id="qcm-title" className="mb-0 mt-1 text-2xl font-black">QCM ciblés</h2></div><Link href="/progress" className="text-sm font-black text-[var(--primary)]"><BarChart3 className="mr-1 inline" size={16}/>Historique</Link></div>

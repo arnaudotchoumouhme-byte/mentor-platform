@@ -9,6 +9,7 @@ export type LibraryDocument = Readonly<{
   archived: number;
   created_at: string;
   source_id: string | null;
+  source_status?: string | null;
   source_version_id: string | null;
   provenance_type: string;
   extraction_status: string;

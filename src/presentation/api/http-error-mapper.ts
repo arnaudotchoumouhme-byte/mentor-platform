@@ -3,11 +3,13 @@ import { AppError } from "@/shared/errors/app-error";
 
 const httpStatusByErrorCode: Readonly<Record<string, number>> = {
   VALIDATION_ERROR: 400,
+  COURSE_AI_UNAVAILABLE: 503,
   UNAUTHORIZED: 401,
   FORBIDDEN: 403,
   NOT_FOUND: 404,
   CONFLICT: 409,
   FILE_DUPLICATE: 409,
+  DOCUMENT_IMPORT_IDENTITY_REQUIRED: 409,
   INGEST_NO_TEXT_FOUND: 422,
   INGEST_REQUIRES_OCR: 422,
   INGEST_PDF_EXTRACTION_FAILED: 422,

@@ -1,3 +1,4 @@
+import { sourceVersionPagesMigration } from "./definitions/mig-0021-source-version-pages";
 import { coreMigrationRegistry as historicalMigrationRegistry } from "./definitions/mig-0001-core-baseline";
 import { mcqContentImportMigration } from "./definitions/mig-0014-mcq-content-import";
 import { sourceVersionEditorialAliasMigration } from "./definitions/mig-0015-source-version-editorial-alias";
@@ -6,6 +7,7 @@ import { mcqSessionSpecializationMigration } from "./definitions/mig-0017-mcq-se
 import { MigrationRegistry } from "./migration-registry";
 import { mleConceptCatalogMigration } from "./definitions/mig-0018-mle-concept-catalog";
 import { mleSourceIdentityMigration } from "./definitions/mig-0019-mle-source-identity";
+import { documentImportLearnerMigration } from "./definitions/mig-0020-document-import-learner";
 
 export const coreMigrationRegistry = new MigrationRegistry([
   ...historicalMigrationRegistry.migrations,
@@ -15,4 +17,6 @@ export const coreMigrationRegistry = new MigrationRegistry([
   mcqSessionSpecializationMigration,
   mleConceptCatalogMigration,
   mleSourceIdentityMigration,
+  documentImportLearnerMigration,
+  sourceVersionPagesMigration,
 ]);

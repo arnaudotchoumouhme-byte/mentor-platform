@@ -1,6 +1,8 @@
+import { validatePersistedPages } from "@/domain/documents/persisted-pages";
 import type { DocumentImportPersistencePort } from "@/application/documents/import-documents";
 import type { SqliteExecutor } from "@/infrastructure/database/sqlite/sqlite-executor";
 import type { DocumentImportStorage } from "./local-document-storage";
+import { AppError } from "@/shared/errors/app-error";
 
 type ImportRecord = Readonly<{
   storage_id: string;
@@ -21,6 +23,7 @@ type ImportRecord = Readonly<{
   page_count: number | null;
   original_filename: string;
   learner_id: string | null;
+  pages_json: string | null;
 }>;
 
 type PersistInput = Parameters<DocumentImportPersistencePort["persist"]>[0];
@@ -44,7 +47,8 @@ export class CrashSafeDocumentImport implements DocumentImportPersistencePort {
 
   private assertSchemaReady(): void {
     try {
-      this.database.all("SELECT storage_id FROM document_import_journal LIMIT 0");
+      this.database.all("SELECT storage_id,learner_id,pages_json FROM document_import_journal LIMIT 0");
+      this.database.all("SELECT source_version_id,page_number,text FROM source_version_pages LIMIT 0");
     } catch (cause) {
       throw new DocumentImportSchemaNotReadyError({ cause });
     }
@@ -54,8 +58,8 @@ export class CrashSafeDocumentImport implements DocumentImportPersistencePort {
     this.database.run(
       `INSERT INTO document_import_journal (
         storage_id,extension,display_name,media_type,size,subject,document_status,content,state,created_at,
-        source_id,source_version_id,original_filename,checksum,extraction_status,page_count
-      ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
+        source_id,source_version_id,original_filename,checksum,extraction_status,page_count,learner_id,pages_json
+      ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
       input.storageId,
       input.extension,
       input.displayName,
@@ -72,12 +76,21 @@ export class CrashSafeDocumentImport implements DocumentImportPersistencePort {
       input.checksum,
       input.extractionStatus,
       input.pageCount ?? null,
+      input.learnerId ?? null,
+      input.pages === undefined ? null : JSON.stringify(input.pages),
     );
   }
 
   private finalize(record: ImportRecord): void {
+    const pages = validatePersistedPages(record.pages_json == null ? undefined : JSON.parse(record.pages_json));
+    if (!record.learner_id || !this.database.all("SELECT learner_id FROM accounts WHERE learner_id=?", record.learner_id).length) {
+      throw new AppError({ code: "DOCUMENT_IMPORT_IDENTITY_REQUIRED", userMessage: "La reprise de cet import nécessite une vérification opérateur.", category: "validation" });
+    }
     this.database.run("BEGIN IMMEDIATE");
     try {
+      if (this.database.all("SELECT source_id FROM sources WHERE workspace_id='local' AND checksum=? AND provenance_type='USER_UPLOAD' AND status<>'DELETED' LIMIT 1", record.checksum).length) {
+        throw new AppError({ code: "FILE_DUPLICATE", userMessage: "Ce document existe déjà dans cet espace.", category: "validation" });
+      }
       this.database.run(
         "INSERT INTO documents (name,type,size,subject,status,content) VALUES (?,?,?,?,?,?)",
         record.original_filename,
@@ -131,6 +144,7 @@ export class CrashSafeDocumentImport implements DocumentImportPersistencePort {
         record.extraction_status,
         record.page_count,
       );
+      for (const page of pages) this.database.run("INSERT INTO source_version_pages(source_version_id,page_number,text) VALUES(?,?,?)", record.source_version_id, page.pageNumber, page.text);
       this.database.run(
         "UPDATE document_import_journal SET state='ready', document_id=? WHERE storage_id=? AND state='pending'",
         inserted.id,
@@ -163,23 +177,26 @@ export class CrashSafeDocumentImport implements DocumentImportPersistencePort {
       page_count: input.pageCount ?? null,
       original_filename: input.originalFilename,
       learner_id: input.learnerId ?? null,
+      pages_json: input.pages === undefined ? null : JSON.stringify(input.pages),
     };
   }
 
   async hasChecksum(checksum: string, learnerId?: string): Promise<boolean> {
     this.assertSchemaReady();
-    if (learnerId) return this.database.all(
-      "SELECT s.source_id FROM sources s JOIN learner_document_ownership o ON o.document_id=s.document_id WHERE s.workspace_id='local' AND s.checksum=? AND s.provenance_type='USER_UPLOAD' AND s.status<>'DELETED' AND o.learner_id=? LIMIT 1",
-      checksum, learnerId,
-    ).length > 0;
-    return this.database.all(
-      "SELECT source_id FROM sources WHERE workspace_id='local' AND checksum=? AND provenance_type='USER_UPLOAD' AND status<>'DELETED' LIMIT 1",
-      checksum,
-    ).length > 0;
+    const existing = this.database.all<{ learner_id: string | null }>(
+      "SELECT o.learner_id FROM sources s LEFT JOIN learner_document_ownership o ON o.document_id=s.document_id WHERE s.workspace_id='local' AND s.checksum=? AND s.provenance_type='USER_UPLOAD' AND s.status<>'DELETED' LIMIT 1", checksum,
+    )[0];
+    if (!existing) return false;
+    if (existing.learner_id !== learnerId) throw new AppError({ code: "FILE_DUPLICATE", userMessage: "Ce document existe déjà dans cet espace.", category: "validation" });
+    return true;
   }
 
   async persist(input: PersistInput): Promise<void> {
+    validatePersistedPages(input.pages);
     this.assertSchemaReady();
+    if (!input.learnerId || !this.database.all("SELECT learner_id FROM accounts WHERE learner_id=?", input.learnerId).length) {
+      throw new AppError({ code: "DOCUMENT_IMPORT_IDENTITY_REQUIRED", userMessage: "Une identité apprenant valide est nécessaire pour importer.", category: "validation" });
+    }
     const key = { id: input.storageId, extension: input.extension };
     await this.storage.writeTemporary({ ...key, bytes: input.bytes });
     try {
@@ -197,7 +214,15 @@ export class CrashSafeDocumentImport implements DocumentImportPersistencePort {
       throw error;
     }
 
-    this.finalize(this.pendingRecord(input));
+    try {
+      this.finalize(this.pendingRecord(input));
+    } catch (error) {
+      if (error instanceof AppError && error.code === "FILE_DUPLICATE") {
+        await this.storage.remove("final", key);
+        this.database.run("DELETE FROM document_import_journal WHERE storage_id=? AND state='pending'", input.storageId);
+      }
+      throw error;
+    }
   }
 
   async recover(): Promise<void> {
@@ -210,6 +235,10 @@ export class CrashSafeDocumentImport implements DocumentImportPersistencePort {
       const key = { id: record.storage_id, extension: record.extension };
       const finalExists = await this.storage.exists("final", key);
       if (record.state === "pending" && finalExists) {
+        // Legacy journals have no trustworthy owner. Never infer one or mutate them.
+        if (!record.learner_id) continue;
+        if (!this.database.all("SELECT learner_id FROM accounts WHERE learner_id=?", record.learner_id).length) continue;
+        if (this.database.all("SELECT source_id FROM sources WHERE workspace_id='local' AND checksum=? AND provenance_type='USER_UPLOAD' AND status<>'DELETED' LIMIT 1", record.checksum).length) continue;
         this.finalize(record);
         await this.storage.remove("pending", key);
       } else if (record.state === "pending" && record.created_at <= cutoff) {

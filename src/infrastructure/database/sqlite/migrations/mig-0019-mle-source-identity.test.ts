@@ -21,11 +21,11 @@ const executor = (sqlite: DatabaseSync): SqliteExecutor => ({
 const v18 = new MigrationRegistry(coreMigrationRegistry.migrations.filter(m => m.toVersion <= 18));
 const originalChecksum = "b4ce8d19a3f5cf6e8c148c4b62243e4b077898bf19b353451e1af16e41708d0b";
 
-it("bootstraps a fresh in-memory database through all nineteen canonical migrations", () => {
+it("bootstraps a fresh in-memory database through all twenty-one canonical migrations", () => {
   const sqlite = new DatabaseSync(":memory:");
   try {
     const db = executor(sqlite);
-    expect(new FreshDatabaseBootstrap(db).run()).toEqual({ currentVersion: 19, appliedMigrationIds: Array.from({ length: 19 }, (_, i) => `MIG-${String(i + 1).padStart(4, "0")}`) });
+    expect(new FreshDatabaseBootstrap(db).run()).toEqual({ currentVersion: 21, appliedMigrationIds: Array.from({ length: 21 }, (_, i) => `MIG-${String(i + 1).padStart(4, "0")}`) });
     expect(sqlite.prepare("SELECT checksum FROM schema_migrations WHERE migration_id='MIG-0018'").get()).toEqual({ checksum: originalChecksum });
     expect(sqlite.prepare("SELECT checksum FROM schema_migrations WHERE migration_id='MIG-0019'").get()).toEqual({ checksum: migrationChecksum(mleSourceIdentityMigration) });
     assertMleSourceIdentitySchema(db);
@@ -58,7 +58,7 @@ describe("MIG-0019 upgrades the historical MIG-0018 without rewriting history", 
     const beforeConcepts = sqlite.prepare("SELECT * FROM mle_concepts").all();
     const beforeContent = sqlite.prepare("SELECT * FROM source_versions").all();
     expect(migrationChecksum(mleConceptCatalogMigration)).toBe(originalChecksum);
-    expect(new FreshDatabaseBootstrap(db).run()).toEqual({ currentVersion: 19, appliedMigrationIds: ["MIG-0019"] });
+    expect(new FreshDatabaseBootstrap(db).run()).toEqual({ currentVersion: 21, appliedMigrationIds: ["MIG-0019", "MIG-0020", "MIG-0021"] });
     expect(history().slice(0, 18)).toEqual(beforeHistory);
     expect(links()).toEqual(beforeLinks.map(row => row.kind === "SOURCE" && row.target_id !== null ? { ...row, target_id: "source-a" } : row));
     expect(sqlite.prepare("SELECT * FROM mle_concepts").all()).toEqual(beforeConcepts);
@@ -75,15 +75,15 @@ describe("MIG-0019 upgrades the historical MIG-0018 without rewriting history", 
 
   it("requires backup and explicit activation for an already-versioned v18 database", () => {
     const before = history();
-    expect(new DatabaseMigrationPreflight(db).inspect()).toMatchObject({ currentVersion: 18, targetVersion: 19, pendingMigrations: ["MIG-0019"], status: "BLOCKED", backupRequirement: "BACKUP_REQUIRED_MISSING", migrationAllowed: false });
+    expect(new DatabaseMigrationPreflight(db).inspect()).toMatchObject({ currentVersion: 18, targetVersion: 21, pendingMigrations: ["MIG-0019", "MIG-0020", "MIG-0021"], status: "BLOCKED", backupRequirement: "BACKUP_REQUIRED_MISSING", migrationAllowed: false });
     expect(history()).toEqual(before);
   });
 
-  it("is idempotent and validates the current v19 schema in preflight", () => {
+  it("is idempotent and validates the current v21 schema in preflight", () => {
     migrate();
     const before = history();
-    expect(new FreshDatabaseBootstrap(db).run()).toEqual({ currentVersion: 19, appliedMigrationIds: [] });
-    expect(new DatabaseMigrationPreflight(db).inspect()).toMatchObject({ currentVersion: 19, status: "NO_MIGRATION" });
+    expect(new FreshDatabaseBootstrap(db).run()).toEqual({ currentVersion: 21, appliedMigrationIds: [] });
+    expect(new DatabaseMigrationPreflight(db).inspect()).toMatchObject({ currentVersion: 21, status: "NO_MIGRATION" });
     expect(history()).toEqual(before);
   });
 
@@ -110,7 +110,7 @@ describe("MIG-0019 upgrades the historical MIG-0018 without rewriting history", 
     expect(links()).toEqual(beforeLinks);
     assertMleCatalogSchema(db);
     expect(sqlite.prepare("SELECT name FROM sqlite_schema WHERE name IN ('mle_source_versions_identity','mle_resource_links_next')").all()).toEqual([]);
-    expect(migrate()).toEqual({ currentVersion: 19, appliedMigrationIds: ["MIG-0019"] });
+    expect(migrate()).toEqual({ currentVersion: 21, appliedMigrationIds: ["MIG-0019", "MIG-0020", "MIG-0021"] });
   });
 
   it("detects a missing SOURCE identity index and rejects incompatible pairs after upgrade", () => {

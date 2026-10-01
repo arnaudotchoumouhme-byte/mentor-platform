@@ -29,8 +29,9 @@ describe("SqliteAggregatedAttempts", () => {
     insert.run("mock-b", "QUIZ", "COMPLETED", "bp", "seed", "2026-01-05T00:00:00.000Z", "2026-01-05T00:10:00.000Z", "learner-b", "MOCK_EXAM", 2700, 100);
 
     expect(attempts.list("learner-a")).toEqual([
-      { id: "mcq:mock-a", module: "Examen blanc", subject: "QCM", score: 80, duration_minutes: 30, created_at: "2026-01-02T00:30:00.000Z" },
-      { id: Number(legacy.lastInsertRowid), module: "Legacy", subject: "SNC", score: 70, duration_minutes: 12, created_at: "2026-01-01T00:00:00.000Z" },
+      { id: "mcq:standard-a", module: "QCM Partie I", subject: "QCM", score: 100, duration_minutes: 10, created_at: "2026-01-03T00:10:00.000Z", session_id: "standard-a", question_count: null },
+      { id: "mcq:mock-a", module: "Examen blanc", subject: "QCM", score: 80, duration_minutes: 30, created_at: "2026-01-02T00:30:00.000Z", session_id: "mock-a", question_count: null },
+      { id: Number(legacy.lastInsertRowid), module: "Legacy", subject: "SNC", score: 70, duration_minutes: 12, created_at: "2026-01-01T00:00:00.000Z", session_id: null, question_count: null },
     ]);
   });
 });
