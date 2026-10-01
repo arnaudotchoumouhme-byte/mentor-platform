@@ -31,6 +31,7 @@ describe("course training / synthetic v20 only", () => {
     for (const who of ["a", "b"]) sqlite.prepare("INSERT INTO accounts VALUES(?,?,?,?,?,?)").run(`account-${who}`, `auth0|${who}`, `learner-${who}`, "ACTIVE", "now", "now");
     sqlite.exec("INSERT INTO documents(id,name,type) VALUES(1,'Cours synthétique','PDF'); INSERT INTO learner_document_ownership VALUES(1,'learner-a'); INSERT INTO sources(source_id,storage_id,document_id,original_filename,display_name,media_type,extension,size_bytes,checksum,status,extraction_status,version,provenance_type) VALUES('s','storage',1,'cours.pdf','Cours','application/pdf','pdf',80,'hash','READY','COMPLETED',1,'USER_UPLOAD')");
     sqlite.prepare("INSERT INTO source_versions(source_version_id,source_id,version,checksum,extracted_content,extraction_status) VALUES(?,'s',1,'hash',?,'COMPLETED')").run("00000000-0000-4000-8000-000000000001", text);
+    sqlite.prepare("INSERT INTO source_version_pages VALUES(?,1,?)").run("00000000-0000-4000-8000-000000000001", text);
     const importer = new ImportMcqCorpus(new SqliteMcqCorpusWriter(db), { checksum: v => createHash("sha256").update(v).digest("hex") }, { now: () => "2026-09-25" });
     repository = new SqliteCourseTraining(db, importer); catalog = new SqliteMcqRepository(db);
     let sequence = 0;

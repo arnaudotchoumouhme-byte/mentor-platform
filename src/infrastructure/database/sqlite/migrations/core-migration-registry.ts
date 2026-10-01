@@ -1,3 +1,4 @@
+import { sourceVersionPagesMigration } from "./definitions/mig-0021-source-version-pages";
 import { coreMigrationRegistry as historicalMigrationRegistry } from "./definitions/mig-0001-core-baseline";
 import { mcqContentImportMigration } from "./definitions/mig-0014-mcq-content-import";
 import { sourceVersionEditorialAliasMigration } from "./definitions/mig-0015-source-version-editorial-alias";
@@ -17,4 +18,5 @@ export const coreMigrationRegistry = new MigrationRegistry([
   mleConceptCatalogMigration,
   mleSourceIdentityMigration,
   documentImportLearnerMigration,
+  sourceVersionPagesMigration,
 ]);

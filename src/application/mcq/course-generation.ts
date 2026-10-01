@@ -67,7 +67,7 @@ export function generatedCourseItems(raw: unknown, source: CourseSource): Course
     ].join("\n\n");
     return { itemId: "candidate", version: 1, status: "DRAFT", stem: q.stem,
       choices: labels.map((id, i) => ({ id, text: q.options[i] })), correctChoiceId: q.correct, explanation, difficulty: "INTERMEDIATE",
-      source: { sourceVersionId: source.sourceVersionId, reference: { type: "DOCUMENT", locator: "Extrait vérifié dans le cours", label: source.name } },
+      source: { sourceVersionId: source.sourceVersionId, reference: { type: source.pageStart !== undefined && source.pageEnd !== undefined ? "PAGE" : "DOCUMENT", locator: source.pageStart !== undefined && source.pageEnd !== undefined ? `pages ${source.pageStart}–${source.pageEnd}` : "Extrait vérifié dans le cours", label: source.name } },
       // Course-local topic/objective references, never presented as official learning objectives.
       mappings: [{ domainId: `PEBC-2026-${category.code}`, competencyId: `PEBC-NAPRA-2026-${q.competency}`, topicId: `Cours personnel : ${source.name}`.slice(0, 200), objectiveIds: [`COURSE-REASONING:${source.sourceVersionId}`] }],
     };

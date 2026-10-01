@@ -7,7 +7,7 @@ import {
 
 describe("operational schema support", () => {
   it("uses the current migration registry as the maximum supported schema", () => {
-    expect(MAX_SUPPORTED_SCHEMA_VERSION).toBe(20);
+    expect(MAX_SUPPORTED_SCHEMA_VERSION).toBe(21);
   });
 
   it.each([
@@ -17,7 +17,8 @@ describe("operational schema support", () => {
     [18, true],
     [19, true],
     [20, true],
-    [21, false],
+    [21, true],
+    [22, false],
   ])("guards MCQ import at schema %i", (version, expected) => {
     expect(isMcqImportSchemaSupported(version)).toBe(expected);
   });
@@ -29,7 +30,8 @@ describe("operational schema support", () => {
     [18, true],
     [19, true],
     [20, true],
-    [21, false],
+    [21, true],
+    [22, false],
   ])("guards source-version aliases at schema %i", (version, expected) => {
     expect(isSourceVersionAliasSchemaSupported(version)).toBe(expected);
   });

@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import { OpenAiCourseGenerator } from "./openai-course-generator";
-const source = { documentId: 1, name: "Synthétique", text: "Texte", sourceVersionId: "00000000-0000-4000-8000-000000000001" };
+const source = { documentId: 1, name: "Synthétique", text: "Texte", pages: [{ pageNumber: 1, text: "Texte" }], sourceVersionId: "00000000-0000-4000-8000-000000000001" };
 describe("OpenAI course generator", () => {
   it("fails closed without server configuration", async () => {
     const request = vi.fn();

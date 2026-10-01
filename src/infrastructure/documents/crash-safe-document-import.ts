@@ -1,3 +1,4 @@
+import { validatePersistedPages } from "@/domain/documents/persisted-pages";
 import type { DocumentImportPersistencePort } from "@/application/documents/import-documents";
 import type { SqliteExecutor } from "@/infrastructure/database/sqlite/sqlite-executor";
 import type { DocumentImportStorage } from "./local-document-storage";
@@ -22,6 +23,7 @@ type ImportRecord = Readonly<{
   page_count: number | null;
   original_filename: string;
   learner_id: string | null;
+  pages_json: string | null;
 }>;
 
 type PersistInput = Parameters<DocumentImportPersistencePort["persist"]>[0];
@@ -45,7 +47,8 @@ export class CrashSafeDocumentImport implements DocumentImportPersistencePort {
 
   private assertSchemaReady(): void {
     try {
-      this.database.all("SELECT storage_id,learner_id FROM document_import_journal LIMIT 0");
+      this.database.all("SELECT storage_id,learner_id,pages_json FROM document_import_journal LIMIT 0");
+      this.database.all("SELECT source_version_id,page_number,text FROM source_version_pages LIMIT 0");
     } catch (cause) {
       throw new DocumentImportSchemaNotReadyError({ cause });
     }
@@ -55,8 +58,8 @@ export class CrashSafeDocumentImport implements DocumentImportPersistencePort {
     this.database.run(
       `INSERT INTO document_import_journal (
         storage_id,extension,display_name,media_type,size,subject,document_status,content,state,created_at,
-        source_id,source_version_id,original_filename,checksum,extraction_status,page_count,learner_id
-      ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
+        source_id,source_version_id,original_filename,checksum,extraction_status,page_count,learner_id,pages_json
+      ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
       input.storageId,
       input.extension,
       input.displayName,
@@ -74,10 +77,12 @@ export class CrashSafeDocumentImport implements DocumentImportPersistencePort {
       input.extractionStatus,
       input.pageCount ?? null,
       input.learnerId ?? null,
+      input.pages === undefined ? null : JSON.stringify(input.pages),
     );
   }
 
   private finalize(record: ImportRecord): void {
+    const pages = validatePersistedPages(record.pages_json == null ? undefined : JSON.parse(record.pages_json));
     if (!record.learner_id || !this.database.all("SELECT learner_id FROM accounts WHERE learner_id=?", record.learner_id).length) {
       throw new AppError({ code: "DOCUMENT_IMPORT_IDENTITY_REQUIRED", userMessage: "La reprise de cet import nécessite une vérification opérateur.", category: "validation" });
     }
@@ -139,6 +144,7 @@ export class CrashSafeDocumentImport implements DocumentImportPersistencePort {
         record.extraction_status,
         record.page_count,
       );
+      for (const page of pages) this.database.run("INSERT INTO source_version_pages(source_version_id,page_number,text) VALUES(?,?,?)", record.source_version_id, page.pageNumber, page.text);
       this.database.run(
         "UPDATE document_import_journal SET state='ready', document_id=? WHERE storage_id=? AND state='pending'",
         inserted.id,
@@ -171,6 +177,7 @@ export class CrashSafeDocumentImport implements DocumentImportPersistencePort {
       page_count: input.pageCount ?? null,
       original_filename: input.originalFilename,
       learner_id: input.learnerId ?? null,
+      pages_json: input.pages === undefined ? null : JSON.stringify(input.pages),
     };
   }
 
@@ -185,6 +192,7 @@ export class CrashSafeDocumentImport implements DocumentImportPersistencePort {
   }
 
   async persist(input: PersistInput): Promise<void> {
+    validatePersistedPages(input.pages);
     this.assertSchemaReady();
     if (!input.learnerId || !this.database.all("SELECT learner_id FROM accounts WHERE learner_id=?", input.learnerId).length) {
       throw new AppError({ code: "DOCUMENT_IMPORT_IDENTITY_REQUIRED", userMessage: "Une identité apprenant valide est nécessaire pour importer.", category: "validation" });

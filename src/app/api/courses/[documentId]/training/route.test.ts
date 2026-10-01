@@ -15,7 +15,7 @@ describe("course training API", () => {
       method: "POST", body: JSON.stringify({ action: "generate", desiredQuestionCount: 2 }),
     }), context);
     expect(response.status).toBe(200);
-    expect(execute).toHaveBeenCalledExactlyOnceWith(1, "owner", { action: "generate", desiredQuestionCount: 2 });
+    expect(execute).toHaveBeenCalledExactlyOnceWith(1, "owner", { action: "generate", desiredQuestionCount: 2 }, expect.any(Function));
   });
   it("requires identity before loading business infrastructure", async () => {
     const load = vi.fn(); const meter = vi.fn();

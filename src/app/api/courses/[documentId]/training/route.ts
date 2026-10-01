@@ -21,7 +21,7 @@ export function courseHandlers(identity: () => Promise<PilotIdentity>, load: () 
       // Resolve ownership before any metering/generation write.
       const state = service.read(id, caller.learnerId);
       const result = command?.success ? command.data.action === "generate"
-        ? await meter(caller, traceId, () => service.execute(id, caller.learnerId, command.data))
+        ? await service.execute(id, caller.learnerId, command.data, operation => meter(caller, traceId, operation))
         : await service.execute(id, caller.learnerId, command.data) : state;
       return NextResponse.json(result, { headers: { "cache-control": "private, no-store" } });
     } catch (error) { return apiErrorResponse(error, boundary); }

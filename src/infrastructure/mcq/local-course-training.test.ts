@@ -7,7 +7,7 @@ import { ISOLATED_COST_POLICY } from "../../../scripts/isolated-openai-cost-poli
 // Keep real file/checksum verification; extraction itself has separate PDF tests.
 vi.mock("../../../scripts/test-openai-course-isolated", async original => ({
   ...await original<typeof import("../../../scripts/test-openai-course-isolated")>(),
-  extract: async () => ({ text: "Le pharmacien recueille les données pertinentes avant de proposer un plan de soins.", pages: 20 }),
+  extract: async () => ({ text: "Le pharmacien recueille les données pertinentes avant de proposer un plan de soins.", pages: 20, pageTexts: [{ pageNumber: 1, text: "Le pharmacien recueille les données pertinentes avant de proposer un plan de soins." }] }),
 }));
 
 const base = { pdf: `scripts/fixtures/openai-isolated/${PDF_NAME}`, model: COURSE_COST_POLICY.model, budget: "1", now: () => Date.parse("2026-09-29T12:00:00Z") };

@@ -9,7 +9,7 @@ import { generatedCourseItems } from "@/application/mcq/course-generation";
 
 vi.mock("../../../scripts/test-openai-course-isolated", async original => ({
   ...await original<typeof import("../../../scripts/test-openai-course-isolated")>(),
-  extract: async () => ({ text: "Le pharmacien recueille les données pertinentes avant de proposer un plan de soins.", pages: 20 }),
+  extract: async () => ({ text: "Le pharmacien recueille les données pertinentes avant de proposer un plan de soins.", pages: 20, pageTexts: [{ pageNumber: 1, text: "Le pharmacien recueille les données pertinentes avant de proposer un plan de soins." }] }),
 }));
 
 const sensitive = "SENSITIVE_KEY_BODY_PDF_QUESTION";
@@ -36,7 +36,7 @@ it.each(["network", "envelope", "candidate-json", "schema", "grounding", "duplic
   });
   const provider = new OpenAiCourseGenerator({ load: () => ({ apiKey: sensitive, dailyBudgetCad: 1 }) }, () => "gpt-5.6-terra", d.transport(request), { budgetCad: () => 1, now: () => Date.parse("2026-09-29T12:00:00Z") });
   let report;
-  try { await provider.generate({ documentId: 1, name: "Offline", text: quote, sourceVersionId: "00000000-0000-4000-8000-000000000001" }, 2); }
+  try { await provider.generate({ documentId: 1, name: "Offline", text: quote, pages: [{ pageNumber: 1, text: quote }], sourceVersionId: "00000000-0000-4000-8000-000000000001" }, 2); }
   catch (error) { report = d.failure(error); }
   expect(report?.FAILED_STAGE).toBe(mode === "network" ? "PROVIDER_REQUEST" : ["envelope", "candidate-json"].includes(mode) ? "RESPONSE_PARSE" : "CANDIDATE_VALIDATION");
   if (mode === "grounding") expect(report?.FAILED_RULES).toContain("QUOTE_IN_SOURCE");

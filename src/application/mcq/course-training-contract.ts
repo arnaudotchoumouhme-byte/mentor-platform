@@ -5,7 +5,7 @@ export const PERSONAL_CORPUS_PREFIX = "PERSONAL-COURSE:";
 export const MAX_COURSE_DRAFTS = 2;
 export const courseEditSchema = mcqCorpusSchema.shape.items.element.pick({ stem: true, choices: true, correctChoiceId: true, explanation: true });
 export type CourseEdit = z.infer<typeof courseEditSchema>;
-export type CourseSource = Readonly<{ documentId: number; name: string; sourceVersionId: string; text: string }>;
+export type CourseSource = Readonly<{ documentId: number; name: string; sourceVersionId: string; text: string; pages?: readonly Readonly<{pageNumber: number; text: string}>[]; pageStart?: number; pageEnd?: number }>;
 export type CourseQuestion = McqCorpus["items"][number];
 export type CourseRecord = Readonly<{ corpusId: string; blueprintVersionId: string; item: CourseQuestion }>;
 export interface CourseTrainingRepository {
@@ -13,8 +13,11 @@ export interface CourseTrainingRepository {
   list(source: CourseSource): readonly CourseRecord[];
   save(corpus: McqCorpus): Promise<unknown>;
 }
+export type ProviderGate = (
+  operation: () => Promise<readonly CourseQuestion[]>,
+) => Promise<readonly CourseQuestion[]>;
 export interface CourseQuestionGenerator {
-  generate(source: CourseSource, count: number): Promise<readonly CourseQuestion[]>;
+  generate(source: CourseSource, count: number, providerGate?: ProviderGate): Promise<readonly CourseQuestion[]>;
 }
 
 export const courseCommandSchema = z.discriminatedUnion("action", [

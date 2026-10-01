@@ -64,3 +64,24 @@ export function assertCoursePayload(serialized: string) {
   if (!measured.inputFits) refuse("INPUT_LIMIT");
   return measured;
 }
+
+
+export type PreparedGeneration = Readonly<{ source: CourseSource; payload: string; pageStart: number; pageEnd: number }>;
+
+/** Maximal whole-page prefix. The measured string is also the transport body. */
+export function prepareCourseGeneration(source: CourseSource, count: number): PreparedGeneration {
+  assertCourseCount(count);
+  if (!source.pages?.length) refuse("PAGES_MISSING");
+  if (source.pages.some((p, i) => p.pageNumber !== i + 1 || typeof p.text !== "string")) refuse("PAGES_INVALID");
+  let prepared: PreparedGeneration | undefined;
+  for (let end = 1; end <= source.pages.length; end++) {
+    const pages = Object.freeze(source.pages.slice(0, end).map(p => Object.freeze({ ...p })));
+    const selected = Object.freeze({ ...source, pages, text: pages.map(p => p.text).join("\n\n"), pageStart: 1, pageEnd: end });
+    const payload = buildCoursePayload(selected, count);
+    if (!measureCoursePayload(payload).inputFits) break;
+    prepared = Object.freeze({ source: selected, payload, pageStart: 1, pageEnd: end });
+  }
+  if (!prepared) refuse("FIRST_PAGE_TOO_LARGE");
+  if (!prepared.source.text.trim()) refuse("PAGES_EMPTY");
+  return prepared;
+}

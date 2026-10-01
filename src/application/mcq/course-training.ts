@@ -1,6 +1,6 @@
 import { AppError } from "@/shared/errors/app-error";
 import { parseMcqCorpus } from "./mcq-corpus-contract";
-import { PERSONAL_CORPUS_PREFIX, MAX_COURSE_DRAFTS, courseEditSchema, type CourseCommand, type CourseQuestion, type CourseQuestionGenerator, type CourseTrainingRepository } from "./course-training-contract";
+import { PERSONAL_CORPUS_PREFIX, MAX_COURSE_DRAFTS, courseEditSchema, type ProviderGate, type CourseCommand, type CourseQuestion, type CourseQuestionGenerator, type CourseTrainingRepository } from "./course-training-contract";
 import { validateCourseReview } from "./course-review-validation";
 
 export function courseFailure(message: string, code = "VALIDATION_ERROR"): never {
@@ -15,7 +15,7 @@ export class CourseTraining {
     const source = this.repository.resolve(documentId, learnerId);
     return { name: source.name, questions: this.repository.list(source).map(({ item }) => ({ itemId: item.itemId, version: item.version, status: item.status, stem: item.stem, choices: item.choices, correctChoiceId: item.correctChoiceId, explanation: item.explanation, reference: item.source.reference.label, mappings: item.mappings })) };
   }
-  async execute(documentId: number, learnerId: string, command: CourseCommand) {
+  async execute(documentId: number, learnerId: string, command: CourseCommand, providerGate?: ProviderGate) {
     if (command.action === "generate" && (!Number.isInteger(command.desiredQuestionCount) || command.desiredQuestionCount < 1 || command.desiredQuestionCount > MAX_COURSE_DRAFTS)) courseFailure("Le lot contrôlé est limité à deux questions.");
     const source = this.repository.resolve(documentId, learnerId);
     const records = this.repository.list(source);
@@ -23,7 +23,7 @@ export class CourseTraining {
       if (records.some(r => r.item.status === "DRAFT" || r.item.status === "IN_REVIEW") || this.generating.has(source.sourceVersionId)) courseFailure("Terminez la revue du lot existant.", "CONFLICT");
       this.generating.add(source.sourceVersionId);
       try {
-        const generated = await this.generator.generate(source, command.desiredQuestionCount);
+        const generated = await this.generator.generate(source, command.desiredQuestionCount, providerGate);
         if (generated.length !== command.desiredQuestionCount) courseFailure("Le nombre de questions générées est incomplet.");
         const current = this.repository.resolve(documentId, learnerId);
         if (current.sourceVersionId !== source.sourceVersionId) courseFailure("Le cours a changé. Recommencez depuis la bibliothèque.", "CONFLICT");

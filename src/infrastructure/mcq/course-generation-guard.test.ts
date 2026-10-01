@@ -1,12 +1,12 @@
 import { describe, expect, it, vi } from "vitest";
-import { COURSE_COST_POLICY as policy, assertCourseCost, assertCoursePayload, buildCoursePayload, measureCoursePayload } from "./course-generation-guard";
+import { COURSE_COST_POLICY as policy, assertCourseCost, assertCoursePayload, buildCoursePayload, measureCoursePayload, prepareCourseGeneration } from "./course-generation-guard";
 import { OpenAiCourseGenerator } from "./openai-course-generator";
-import { courseCommandSchema, type CourseTrainingRepository } from "@/application/mcq/course-training-contract";
+import { courseCommandSchema, type CourseTrainingRepository, type ProviderGate } from "@/application/mcq/course-training-contract";
 import { CourseTraining } from "@/application/mcq/course-training";
 
 const now = Date.parse("2026-09-29T12:00:00Z");
 const quote = "Synthetic source reserved for offline course generation tests.";
-const source = { documentId: 1, name: "Synthetic", text: quote, sourceVersionId: "00000000-0000-4000-8000-000000000001" };
+const source = { documentId: 1, name: "Synthetic", text: quote, pages: [{ pageNumber: 1, text: quote }], sourceVersionId: "00000000-0000-4000-8000-000000000001" };
 const candidate = (n: number) => ({ stem: `Synthetic question ${n}`, options: ["a", "b", "c", "d"], correct: "a", explanation: quote, simple: quote, analogy: quote, mechanism: quote, reasoning: quote, clue: quote, justifications: [quote, quote, quote, quote], trap: quote, takeaway: quote, transfer: quote, quote, competency: "1.1" });
 function fixture(options: { budget?: number; model?: string; time?: number; responseCount?: number } = {}) {
   const events: string[] = [];
@@ -25,7 +25,7 @@ describe("controlled course generation — mocks only, no database", () => {
     const items = await f.generator.generate(source, 2);
     expect(items).toHaveLength(2);
     expect(items.every(i => i.status === "DRAFT")).toBe(true);
-    expect(f.events).toEqual(["budget", "budget", "key", "provider"]);
+    expect(f.events).toEqual(["budget", "key", "provider"]);
     expect(f.request).toHaveBeenCalledTimes(1);
     const [url, init] = f.request.mock.calls[0];
     expect(url).toBe("https://api.openai.com/v1/responses");
@@ -56,7 +56,7 @@ describe("controlled course generation — mocks only, no database", () => {
 
   it("blocks the complete oversized payload before reading a key or constructing transport", async () => {
     const f = fixture();
-    await expect(f.generator.generate({ ...source, text: "é\\\"".repeat(10000) }, 2)).rejects.toMatchObject({ context: { rule: "INPUT_LIMIT" } });
+    await expect(f.generator.generate({ ...source, pages: [{ pageNumber: 1, text: "é\\\"".repeat(10000) }] }, 2)).rejects.toMatchObject({ context: { rule: "FIRST_PAGE_TOO_LARGE" } });
     expect(f.config.load).not.toHaveBeenCalled(); expect(f.factory).not.toHaveBeenCalled(); expect(f.request).not.toHaveBeenCalled();
   });
 
@@ -113,5 +113,76 @@ describe("controlled course generation — mocks only, no database", () => {
     const f = fixture({ responseCount });
     await expect(f.generator.generate(source, 2)).rejects.toMatchObject({ context: { rules: { GENERATED_COUNT: false } } });
     expect(f.request).toHaveBeenCalledTimes(1);
+  });
+});
+
+
+describe("page preflight before metering", () => {
+  it("selects the maximal contiguous whole-page prefix and preserves exact transport bytes", async () => {
+    const f = fixture();
+    const pages = Array.from({length: 10}, (_, i) => ({pageNumber: i + 1, text: quote + "x".repeat(4000)}));
+    const prepared = prepareCourseGeneration({...source, pages}, 2);
+    expect(prepared.pageStart).toBe(1); expect(prepared.pageEnd).toBeGreaterThan(0); expect(prepared.pageEnd).toBeLessThan(10);
+    expect(prepared.source.pages).toEqual(pages.slice(0, prepared.pageEnd));
+    expect(prepared.source.text).toBe(pages.slice(0, prepared.pageEnd).map(p=>p.text).join("\n\n"));
+    expect(Object.isFrozen(prepared)).toBe(true); expect(Object.isFrozen(prepared.source.pages![0])).toBe(true);
+    expect(measureCoursePayload(prepared.payload).inputFits).toBe(true);
+    expect(measureCoursePayload(buildCoursePayload({...source, text: pages.slice(0, prepared.pageEnd+1).map(p=>p.text).join("\n\n")}, 2)).inputFits).toBe(false);
+    const quota = vi.fn<ProviderGate>(async operation => {f.events.push("quota"); return operation();});
+    const items = await f.generator.generate({...source, pages}, 2, quota);
+    expect(f.request.mock.calls[0][1]?.body).toBe(prepared.payload);
+    expect(items[0].source.reference).toMatchObject({type:"PAGE", locator:`pages 1–${prepared.pageEnd}`});
+    expect(f.events).toEqual(["budget","quota","key","provider"]);
+    expect(quota).toHaveBeenCalledTimes(1);
+  });
+  it.each([
+    ["missing", undefined], ["oversize", [{pageNumber:1,text:"x".repeat(30000)}]],
+    ["gap", [{pageNumber:1,text:quote},{pageNumber:3,text:quote}]],
+    ["duplicate", [{pageNumber:1,text:quote},{pageNumber:1,text:quote}]],
+  ])("refuses %s pages without quota, secret or provider", async (_name, pages) => {
+    const f=fixture(); const quota=vi.fn<ProviderGate>();
+    await expect(f.generator.generate({...source,pages:pages as typeof source.pages | undefined},2,quota)).rejects.toThrow();
+    expect(quota).not.toHaveBeenCalled(); expect(f.config.load).not.toHaveBeenCalled(); expect(f.request).not.toHaveBeenCalled();
+  });
+  it.each([{model:"other"},{budget:0},{time:Date.parse(policy.expiresAt)}])("refuses policy before quota %j", async options=>{
+    const f=fixture(options); const quota=vi.fn<ProviderGate>();
+    await expect(f.generator.generate(source,2,quota)).rejects.toThrow();
+    expect(quota).not.toHaveBeenCalled(); expect(f.config.load).not.toHaveBeenCalled(); expect(f.request).not.toHaveBeenCalled();
+  });
+  it("refuses exhausted quota before secret or transport", async()=>{
+    const f=fixture();const quota=vi.fn<ProviderGate>(async()=>{throw new Error("quota");});
+    await expect(f.generator.generate(source,2,quota)).rejects.toThrow("quota");
+    expect(quota).toHaveBeenCalledTimes(1);expect(f.config.load).not.toHaveBeenCalled();expect(f.factory).not.toHaveBeenCalled();
+  });
+  it("persists exactly two drafts after one quota charge and one provider call", async()=>{
+    const f=fixture();
+    const quota=vi.fn<ProviderGate>(async operation=>operation());
+    const save=vi.fn(async (corpus:{items:readonly {status:string}[]})=>{
+      expect(corpus.items).toHaveLength(2);
+      expect(corpus.items.every((item: {status:string})=>item.status==="DRAFT")).toBe(true);
+    });
+    const repository={resolve:()=>source,list:()=>[],save};
+    await new CourseTraining(repository,f.generator,(()=>{let n=0;return()=>`draft-${++n}`;})())
+      .execute(1,"owner",{action:"generate",desiredQuestionCount:2},quota);
+    expect(quota).toHaveBeenCalledTimes(1);
+    expect(f.request).toHaveBeenCalledTimes(1);
+    expect(save).toHaveBeenCalledTimes(1);
+  });
+  it("keeps one quota charge and no drafts after provider failure, without retry",async()=>{
+    const f=fixture();f.request.mockRejectedValue(new Error("offline failure"));
+    const quota=vi.fn<ProviderGate>(async operation=>operation());
+    const repository={resolve:()=>source,list:()=>[],save:vi.fn()};
+    await expect(new CourseTraining(repository,f.generator,()=>"unused").execute(1,"owner",{action:"generate",desiredQuestionCount:2},quota)).rejects.toThrow();
+    expect(quota).toHaveBeenCalledTimes(1);expect(f.request).toHaveBeenCalledTimes(1);expect(repository.save).not.toHaveBeenCalled();
+  });
+  it("locks before preflight so concurrent clicks meter and call only once",async()=>{
+    const f=fixture();let release!:()=>void;const pending=new Promise<void>(r=>{release=r;});
+    const quota=vi.fn<ProviderGate>(async operation=>{await pending;return operation();});
+    const repository={resolve:()=>source,list:()=>[],save:vi.fn()};
+    const service=new CourseTraining(repository,f.generator,(()=>{let n=0;return()=>`id-${++n}`;})());
+    const first=service.execute(1,"owner",{action:"generate",desiredQuestionCount:2},quota);
+    await expect(service.execute(1,"owner",{action:"generate",desiredQuestionCount:2},quota)).rejects.toMatchObject({code:"CONFLICT"});
+    expect(f.events).toEqual(["budget"]);expect(quota).toHaveBeenCalledTimes(1);
+    release();await first;expect(f.request).toHaveBeenCalledTimes(1);expect(repository.save).toHaveBeenCalledTimes(1);
   });
 });

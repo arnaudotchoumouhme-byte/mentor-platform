@@ -3,7 +3,7 @@ import { diagnoseGenerated, generatedCourseItems } from "@/application/mcq/cours
 import { OpenAiCourseGenerator } from "./openai-course-generator";
 
 const quote = "Synthetic excerpt reserved for offline validation.";
-const source = { documentId: 1, name: "offline", text: quote, sourceVersionId: "00000000-0000-4000-8000-000000000001" };
+const source = { documentId: 1, name: "offline", text: quote, pages: [{ pageNumber: 1, text: quote }], sourceVersionId: "00000000-0000-4000-8000-000000000001" };
 const item = () => ({ stem: "Synthetic question", options: ["a", "b", "c", "d"], correct: "a", explanation: quote, simple: quote, analogy: quote, mechanism: quote, reasoning: quote, clue: quote, justifications: [quote, quote, quote, quote], trap: quote, takeaway: quote, transfer: quote, quote, competency: "1.1" });
 
 it.each([

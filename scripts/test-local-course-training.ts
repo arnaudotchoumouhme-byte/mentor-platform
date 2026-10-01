@@ -11,7 +11,7 @@ import { SqliteMcqCorpusWriter } from "../src/infrastructure/mcq/sqlite-mcq-corp
 import { ImportMcqCorpus } from "../src/application/mcq/import-mcq-corpus";
 import { CourseTraining } from "../src/application/mcq/course-training";
 import { OpenAiCourseGenerator } from "../src/infrastructure/mcq/openai-course-generator";
-import { assertCoursePayload, buildCoursePayload } from "../src/infrastructure/mcq/course-generation-guard";
+import { measureCoursePayload, prepareCourseGeneration } from "../src/infrastructure/mcq/course-generation-guard";
 import { isolatedCostPreflight, singleAttemptTransport } from "./isolated-openai-cost-policy";
 import { extract, PDF_NAME, PDF_SHA256 } from "./test-openai-course-isolated";
 
@@ -33,7 +33,7 @@ export async function runLocalCourseTraining(options: {
   diagnostic.stage = "PDF_CHECKSUM";
   if (createHash("sha256").update(bytes).digest("hex") !== PDF_SHA256) throw new Error("TEST_PDF_CHECKSUM_MISMATCH");
   diagnostic.stage = "PDF_EXTRACTION";
-  const { text } = await extract(bytes); // Only pages 1–8; no truncation.
+  const { text, pageTexts } = await extract(bytes); // Only pages 1–8; no truncation.
   diagnostic.stage = "SQLITE_FIXTURE";
   const sqlite = new DatabaseSync(":memory:");
   try {
@@ -47,12 +47,14 @@ export async function runLocalCourseTraining(options: {
     sqlite.prepare("INSERT INTO learner_document_ownership VALUES(1,?)").run(learner);
     sqlite.prepare("INSERT INTO sources(source_id,storage_id,document_id,original_filename,display_name,media_type,extension,size_bytes,checksum,status,extraction_status,version,provenance_type) VALUES('isolated-source','isolated-memory',1,?,?,'application/pdf','pdf',?,?,'READY','COMPLETED',1,'USER_UPLOAD')").run(PDF_NAME, PDF_NAME, bytes.length, PDF_SHA256);
     sqlite.prepare("INSERT INTO source_versions(source_version_id,source_id,version,checksum,extracted_content,extraction_status) VALUES(?,'isolated-source',1,?,?,'COMPLETED')").run(version, PDF_SHA256, text);
+    for (const page of pageTexts) sqlite.prepare("INSERT INTO source_version_pages VALUES(?,?,?)").run(version, page.pageNumber, page.text);
     const importer = new ImportMcqCorpus(new SqliteMcqCorpusWriter(db), { checksum: value => createHash("sha256").update(value).digest("hex") }, { now: () => new Date(now()).toISOString() });
     const repository = new SqliteCourseTraining(db, importer);
     diagnostic.stage = "SOURCE_RESOLUTION";
     const source = repository.resolve(1, learner);
     diagnostic.stage = "PAYLOAD_GUARD";
-    const payload = assertCoursePayload(buildCoursePayload(source, 2));
+    const prepared = prepareCourseGeneration(source, 2);
+    const payload = measureCoursePayload(prepared.payload);
     let calls = 0;
     if (options.authorize) {
       diagnostic.stage = "PRE_PROVIDER";
@@ -75,7 +77,7 @@ export async function runLocalCourseTraining(options: {
     const records = repository.list(source);
     const published = records.filter(r => r.item.status === "PUBLISHED").length;
     if (published) throw new Error("TEST_PUBLICATION_FORBIDDEN");
-    return { status: options.authorize ? "PASS" : "PREPARED_ONLY", database: ":memory:", pdfChecksumMatch: true, excerptPages: "1–8", ownership: true, sourceReady: true, ...payload, maximumCad: cost.maximumCad, calls, draftsPersisted: records.length, published, filesWritten: 0 };
+    return { status: options.authorize ? "PASS" : "PREPARED_ONLY", database: ":memory:", pdfChecksumMatch: true, excerptPages: `${prepared.pageStart}–${prepared.pageEnd}`, ownership: true, sourceReady: true, ...payload, maximumCad: cost.maximumCad, calls, draftsPersisted: records.length, published, filesWritten: 0 };
   } finally { sqlite.close(); }
 }
 
