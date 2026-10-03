@@ -31,6 +31,6 @@ export function createStateGet(identity: () => Promise<PilotIdentity>, mcqSummar
 export const GET = createStateGet(async () => (await import("@/infrastructure/pilot/server-pilot")).requirePilotIdentity(), async learnerId => {
   const { mcqServices } = await import("@/infrastructure/mcq/server-mcq");
   const { pilotOwnership } = await import("@/infrastructure/pilot/server-pilot");
-  const blueprints = await mcqServices.list.execute();
+  const blueprints = await mcqServices.list.execute(learnerId);
   return { available: blueprints.some(blueprint => blueprint.itemCount > 0), resumableSessionId: pilotOwnership.findInProgressMcqSession(learnerId, "STANDARD") };
 });

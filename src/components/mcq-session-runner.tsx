@@ -18,9 +18,9 @@ async function body<T>(response: Response): Promise<T> { return response.json() 
 async function failure(response: Response): Promise<Failure> { return body<Failure>(response).catch(() => ({})); }
 function safeExit(status: number): string { return status === 401 ? "/auth/login" : status === 403 ? "/auth/logout" : "/"; }
 
-export function McqSessionRunner({ sessionKind = "STANDARD" }: Readonly<{ sessionKind?: "STANDARD" | "MOCK_EXAM" }>) {
+export function McqSessionRunner({ sessionKind = "STANDARD", documentId }: Readonly<{ sessionKind?: "STANDARD" | "MOCK_EXAM"; documentId?: number }>) {
   const isMockExam = sessionKind === "MOCK_EXAM";
-  const catalogUrl = isMockExam ? "/api/mcq/sessions?kind=MOCK_EXAM" : "/api/mcq/sessions";
+  const catalogUrl = isMockExam ? "/api/mcq/sessions?kind=MOCK_EXAM" : documentId ? `/api/mcq/sessions?documentId=${documentId}` : "/api/mcq/sessions";
   const [blueprints, setBlueprints] = useState<readonly Blueprint[] | null>(null);
   const [resumableSessionId, setResumableSessionId] = useState<string | null>(null);
   const [session, setSession] = useState<PlayableSession | null>(null);
@@ -160,7 +160,7 @@ export function McqSessionRunner({ sessionKind = "STANDARD" }: Readonly<{ sessio
     const blueprint = blueprints?.[0]; if (!blueprint || operationInFlight.current) return;
     operationInFlight.current = true; setBusy(true); setPendingAction("START_NEW"); setError(null);
     try {
-      const created = await clientFetch("/api/mcq/sessions", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ sessionId, sessionKind, mode: isMockExam ? "QUIZ" : "STUDY", count: Math.min(isMockExam ? DEFAULT_MOCK_EXAM_QUESTION_COUNT : 5, blueprint.itemCount), seed: crypto.randomUUID(), blueprintVersionId: blueprint.blueprintVersionId }) });
+      const created = await clientFetch("/api/mcq/sessions", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ sessionId, sessionKind, ...(documentId ? { documentId } : {}), mode: isMockExam ? "QUIZ" : "STUDY", count: Math.min(isMockExam ? DEFAULT_MOCK_EXAM_QUESTION_COUNT : 5, blueprint.itemCount), seed: crypto.randomUUID(), blueprintVersionId: blueprint.blueprintVersionId }) });
       if (!created.ok) {
         if (created.status === 409 || created.status >= 500) await reconcileCreation(sessionId);
         else await deterministicFailure(created);

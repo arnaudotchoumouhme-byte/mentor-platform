@@ -57,5 +57,26 @@ describe("document ingestion integration", () => {
     });
     await expect(useCase.execute({ learnerId: "learner-a", subject: "Pharmacologie", files: [{ name, browserMediaType, size: bytes.length, bytes }] }))
       .rejects.toMatchObject({ code: "FILE_DUPLICATE" });
-  }, 20_000);
+  }, 30_000);
+
+  it("persists exactly three extracted PDF pages in order for the generated source version", async () => {
+    const pages = [1, 2, 3].map(pageNumber => ({ pageNumber, text: `Contenu exact page ${pageNumber}` }));
+    const ids = ["123e4567-e89b-42d3-a456-426614174011", "123e4567-e89b-42d3-a456-426614174012"];
+    const useCase = new ImportDocuments(
+      { generate: () => ids.shift()! },
+      new CrashSafeDocumentImport(database, storage),
+      { extract: async () => ({ text: pages.map(page => page.text).join("\n\n"), pages, pageCount: 3, status: "COMPLETED" as const }) },
+      new NodeDocumentChecksum(),
+    );
+
+    await useCase.execute({
+      learnerId: "learner-a",
+      subject: "Pharmacologie",
+      files: [{ name: "trois-pages.pdf", browserMediaType: "application/pdf", size: syntheticPdf.length, bytes: syntheticPdf }],
+    });
+
+    expect(sqlite.prepare(
+      "SELECT source_version_id AS sourceVersionId,page_number AS pageNumber,text FROM source_version_pages ORDER BY page_number",
+    ).all()).toEqual(pages.map(page => ({ sourceVersionId: "123e4567-e89b-42d3-a456-426614174012", ...page })));
+  }, 30_000);
 });

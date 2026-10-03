@@ -25,6 +25,14 @@ describe("LibraryPage", () => {
   });
   afterEach(cleanup);
 
+  it("offers training only on ready completed personal documents", () => {
+    const doc = { id: 1, name: "Cours", subject: "Non classé", size: 80, created_at: "2026-09-25", status: "Prêt", source_status: "READY", provenance_type: "USER_UPLOAD", extraction_status: "COMPLETED" };
+    vi.mocked(useAppState).mockReturnValue({ data: { subjects: [], documents: [doc, { ...doc, id: 2, extraction_status: "FAILED" }, { ...doc, id: 3, provenance_type: "DEMO" }] }, refresh, act: vi.fn() } as unknown as ReturnType<typeof useAppState>);
+    render(React.createElement(LibraryPage));
+    expect(screen.getAllByRole("link", { name: "S’entraîner sur ce cours" })).toHaveLength(1);
+    expect(screen.getByRole("link", { name: "S’entraîner sur ce cours" }).getAttribute("href")).toBe("/courses/1/training");
+  });
+
   it("reports a successful import and refreshes state", async () => {
     vi.mocked(clientFetch).mockResolvedValueOnce(response({ imported: ["document"], documents: [], rejected: [] }, 201));
     render(React.createElement(LibraryPage));

@@ -1,3 +1,4 @@
+import { sourceVersionPagesMigration } from "@/infrastructure/database/sqlite/migrations/definitions/mig-0021-source-version-pages";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { readFileSync } from "node:fs";
 import { DatabaseSync, type SQLInputValue } from "node:sqlite";
@@ -104,9 +105,35 @@ describe("CrashSafeDocumentImport recovery", () => {
       run: (sql: string, ...params: SQLInputValue[]) =>
         sqlite.prepare(sql).run(...params),
     };
+    sourceVersionPagesMigration.up(executor);
   });
 
   afterEach(() => sqlite.close());
+
+  it("persists three extraction pages and recovery finalizes them exactly once", async () => {
+    const pages=[1,2,3].map(pageNumber=>({pageNumber,text:`page ${pageNumber}\n intacte`}));
+    let fail=true;
+    const interrupted:SqliteExecutor={...executor,run:(sql,...p)=>{
+      if(fail && sql.startsWith("INSERT INTO source_version_pages") && p[1]===2) throw new Error("synthetic crash");
+      return executor.run(sql,...p);
+    }};
+    const files=storage({exists:vi.fn(async kind=>kind==="final")});
+    await expect(new CrashSafeDocumentImport(interrupted,files).persist({...input,pages,pageCount:3})).rejects.toThrow("synthetic crash");
+    expect(executor.all("SELECT * FROM source_version_pages")).toEqual([]);
+    expect(executor.all("SELECT * FROM source_versions")).toEqual([]);
+    expect(executor.all("SELECT * FROM documents")).toEqual([]);
+    expect(executor.all<{pages_json:string}>("SELECT pages_json FROM document_import_journal")[0].pages_json).toBe(JSON.stringify(pages));
+    fail=false;
+    const recovered=new CrashSafeDocumentImport(executor,files);
+    await recovered.recover();await recovered.recover();
+    expect(executor.all("SELECT page_number AS pageNumber,text FROM source_version_pages WHERE source_version_id=? ORDER BY page_number",input.sourceVersionId)).toEqual(pages);
+    expect(executor.all("SELECT state,learner_id FROM document_import_journal")).toEqual([{state:"ready",learner_id:"learner-a"}]);
+  });
+  it("rejects invalid page order before any storage write",async()=>{
+    const files=storage();
+    await expect(new CrashSafeDocumentImport(executor,files).persist({...input,pages:[{pageNumber:2,text:"x"}]})).rejects.toThrow();
+    expect(files.writeTemporary).not.toHaveBeenCalled();
+  });
 
   it("persists the owner and rejects duplicate content for both learners without changing documents", async () => {
     const files = storage();

@@ -50,6 +50,7 @@ export interface DocumentImportPersistencePort {
     checksum: string;
     extractionStatus: "COMPLETED" | "REQUIRES_OCR";
     pageCount?: number;
+    pages?: readonly { pageNumber: number; text: string }[];
     bytes: Uint8Array;
     learnerId?: string;
   }>): Promise<void>;
@@ -132,6 +133,7 @@ export class ImportDocuments implements UseCase<ImportDocumentsInput, ImportDocu
         checksum,
         extractionStatus: extracted.status,
         pageCount: extracted.pageCount,
+        pages: extracted.pages,
         bytes: file.bytes,
         learnerId: input.learnerId,
       });

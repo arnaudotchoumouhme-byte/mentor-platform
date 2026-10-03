@@ -74,7 +74,7 @@ describe("MIG-0017 MCQ session specialization", () => {
   });
 
   it("extends the canonical registry contiguously without changing prior migration identities", () => {
-    expect(coreMigrationRegistry.currentVersion).toBe(20);
+    expect(coreMigrationRegistry.currentVersion).toBe(21);
     expect(coreMigrationRegistry.findById("MIG-0017")).toEqual(mcqSessionSpecializationMigration);
     expect(mcqSessionSpecializationMigration).toMatchObject({
       fromVersion: 16,
@@ -82,7 +82,7 @@ describe("MIG-0017 MCQ session specialization", () => {
     });
     expect(migrationChecksum(mcqSessionSpecializationMigration)).toMatch(/^[a-f0-9]{64}$/);
     expect(coreMigrationRegistry.migrations.map(migration => migration.id)).toEqual(
-      Array.from({ length: 20 }, (_, index) => `MIG-${String(index + 1).padStart(4, "0")}`),
+      Array.from({ length: 21 }, (_, index) => `MIG-${String(index + 1).padStart(4, "0")}`),
     );
   });
 
@@ -99,8 +99,8 @@ describe("MIG-0017 MCQ session specialization", () => {
       expect(inspectDatabaseFileReadOnly(databasePath)).toMatchObject({
         status: "NO_MIGRATION",
         schemaState: "VERSIONED_CURRENT",
-        currentVersion: 20,
-        targetVersion: 20,
+        currentVersion: 21,
+        targetVersion: 21,
         pendingMigrations: [],
       });
     } finally {
